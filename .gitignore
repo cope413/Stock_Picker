@@ -13,6 +13,11 @@ sweep_results.csv
 parameter_sensitivity.csv
 bootstrap_results.csv
 bootstrap_samples.csv
+layer4_xsec_momentum.csv
+layer4_xsec_returns.csv
+
+# pytest
+.pytest_cache/
 
 # OS / editor
 .DS_Store

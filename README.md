@@ -107,9 +107,39 @@ drawdown is still survivable. Written to `bootstrap_results.csv` (summary) and
 python layer3_robustness.py      # sensitivity + bootstrap, reuses sweep_results.csv
 ```
 
+## Layer 4 — Cross-Sectional Momentum (`layer4_xsec_momentum.py`)
+
+A standalone check. The main sweep tests momentum on each asset alone (scores near
+zero); the strongest documented form is cross-sectional — ranking assets against
+each other. Every 21 trading days the universe is ranked by trailing return at
+three lookbacks (3m, 6m, and 12-months-minus-the-most-recent-month), going long
+the top third and short the bottom third, equal weight, dollar-neutral, held to
+the next rebalance, with realistic per-asset costs on turnover. It's scored with
+the *same* walk-forward (`layer2.walk_forward_returns`), so the OOS Sharpe is
+directly comparable to single-asset momentum, and the report states plainly
+whether ranking assets against each other beat trading momentum on each alone.
+Per-window OOS Sharpes are shown to flag any reliance on a single regime. Results
+go to `layer4_xsec_momentum.csv` (summary) and `layer4_xsec_returns.csv` (daily
+returns, for charting). Nothing is tuned — it reports what happens.
+
+```bash
+python layer4_xsec_momentum.py
+```
+
+## Testing
+
+```bash
+pip install pytest
+pytest -q
+```
+
+`tests/test_pipeline.py` covers no-look-ahead, the metric primitives, the six
+filters, walk-forward stitching, the bootstrap method, and the cross-sectional
+portfolio (dollar-neutrality, costs, no look-ahead).
+
 ## Roadmap
 
 - Layer 1 — data + strategy library + parameter grid ✅
 - Layer 2 — backtest + walk-forward + six-filter survival funnel ✅
 - Layer 3 — parameter sensitivity + bootstrap stress test ✅
-- Layer 4 — TBD
+- Layer 4 — cross-sectional momentum vs single-asset ✅

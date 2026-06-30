@@ -178,9 +178,21 @@ def walk_forward(position: pd.Series, df: pd.DataFrame,
     resulting series — the in-sample heads are discarded, never tuned. Trade count
     is measured within the OOS tails, since that is the series being scored.
     """
-    ret = asset_returns(df)
-    sr = strategy_returns(position, ret, cost_bps).dropna()
-    pos = position.reindex(sr.index).fillna(0.0)
+    sr = strategy_returns(position, asset_returns(df), cost_bps)
+    return walk_forward_returns(sr, n_windows=n_windows, oos_frac=oos_frac,
+                                position=position)
+
+
+def walk_forward_returns(net_returns: pd.Series, n_windows: int = 5,
+                         oos_frac: float = 0.30,
+                         position: Optional[pd.Series] = None) -> WalkForwardResult:
+    """Walk-forward score a *precomputed net return series* (single asset or a
+    whole portfolio). Same windowing as walk_forward() so the OOS Sharpe/drawdown
+    is directly comparable. If ``position`` is given, OOS trade count is computed
+    from it; otherwise trades are reported as 0.
+    """
+    sr = pd.Series(net_returns).dropna()
+    pos = position.reindex(sr.index).fillna(0.0) if position is not None else None
     n = len(sr)
     bounds = [round(i * n / n_windows) for i in range(n_windows + 1)]
 
@@ -196,7 +208,8 @@ def walk_forward(position: pd.Series, df: pd.DataFrame,
         oos_seg = seg.iloc[cut:]
         oos_parts.append(oos_seg)
         win_sharpes.append(sharpe(oos_seg))
-        oos_trades += trade_count(pos.iloc[bounds[i]:bounds[i + 1]].iloc[cut:])
+        if pos is not None:
+            oos_trades += trade_count(pos.iloc[bounds[i]:bounds[i + 1]].iloc[cut:])
 
     oos = pd.concat(oos_parts) if oos_parts else pd.Series(dtype=float)
     is_ = pd.concat(is_parts) if is_parts else pd.Series(dtype=float)
