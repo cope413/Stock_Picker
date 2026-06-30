@@ -80,9 +80,36 @@ a top-survivors table.
 python layer2_funnel.py          # full sweep + funnel report, writes sweep_results.csv
 ```
 
+## Layer 3 — Robustness Checks (`layer3_robustness.py`)
+
+Two checks that catch survivors which only worked by luck or one magic setting.
+
+**Parameter sensitivity** (`parameter_sensitivity`): for each family, group all
+its parameter configs (each config's OOS Sharpe = its mean across the universe)
+and report mean OOS Sharpe, std of OOS Sharpe across configs, and the fraction of
+configs with positive OOS Sharpe. High mean + low std + frac⁺ near 1.0 means the
+edge is parameter-robust; high mean with high std / low frac⁺ is the curve-fit
+signature. Written to `parameter_sensitivity.csv`.
+
+**Bootstrap stress test** (`bootstrap_stress` / `run_bootstrap`): for each top
+survivor, resample its stitched OOS daily returns ~200× to get a distribution of
+equity paths. Reports 5th/50th/95th-percentile Sharpe and worst-case drawdown,
+and flags each survivor **solid** or **fragile** by whether its worst-case
+drawdown is still survivable. Written to `bootstrap_results.csv` (summary) and
+`bootstrap_samples.csv` (per-resample, for charting in Layer 4).
+
+> Method note: a pure order-permutation leaves Sharpe unchanged (mean/std are
+> order-invariant), so to obtain a Sharpe distribution the bootstrap resamples
+> *with replacement* by default; `replace=False` gives pure path-shuffling
+> (Sharpe constant, only drawdown varies).
+
+```bash
+python layer3_robustness.py      # sensitivity + bootstrap, reuses sweep_results.csv
+```
+
 ## Roadmap
 
 - Layer 1 — data + strategy library + parameter grid ✅
 - Layer 2 — backtest + walk-forward + six-filter survival funnel ✅
-- Layer 3 — TBD
+- Layer 3 — parameter sensitivity + bootstrap stress test ✅
 - Layer 4 — TBD
