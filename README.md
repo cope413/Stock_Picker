@@ -45,9 +45,44 @@ for name, fn, params, category in configs:
         signal = fn(df, **params)             # daily position in {-1, 0, 1}
 ```
 
+## Layer 2 — Backtest, Walk-Forward & the Survival Funnel (`layer2_funnel.py`)
+
+**Backtest:** a strategy's daily return is its (Layer-1, already-lagged) position
+times the asset's return, minus a per-side transaction cost (default 1bp,
+configurable, 10bp for crypto). Metrics on any return series: annualized Sharpe
+(`mean/std * sqrt(252)`), max drawdown, trade count.
+
+**Walk-forward:** each asset's history is split into 5 sequential windows; within
+each, the first 70% is in-sample and the last 30% out-of-sample. Only the 5 OOS
+tails are kept and stitched into one series — Sharpe and max drawdown on that
+stitched OOS series are the numbers that matter, because the strategy was never
+tuned on them.
+
+**Sweep:** `run_sweep()` runs every (config × asset) walk-forward (171 × ~28 ≈
+4,800 backtests), records IS Sharpe / OOS Sharpe / OOS max drawdown / OOS trade
+count to `sweep_results.csv`, and prints the total count.
+
+**Six-filter survival funnel** (`apply_filters` / `funnel_report`, all thresholds
+in `FunnelThresholds`). A config/asset survives only if it passes all six:
+
+1. OOS max drawdown better than −35%
+2. OOS Sharpe above 0.5
+3. OOS Sharpe below 2.5 (above that, the asset did the work, not the strategy)
+4. OOS Sharpe no more than ~30% above in-sample (a big gap is the overfit signature)
+5. at least 30 trades (statistically meaningful)
+6. in-sample Sharpe positive
+
+`funnel_report()` prints the attrition, headline counts (positive OOS, cleared 0.5,
+survived all six), survival rates by category and family with mean OOS Sharpe, and
+a top-survivors table.
+
+```bash
+python layer2_funnel.py          # full sweep + funnel report, writes sweep_results.csv
+```
+
 ## Roadmap
 
 - Layer 1 — data + strategy library + parameter grid ✅
-- Layer 2 — TBD
+- Layer 2 — backtest + walk-forward + six-filter survival funnel ✅
 - Layer 3 — TBD
 - Layer 4 — TBD
