@@ -7,29 +7,38 @@ Foundation layer of a 4-layer strategy testing system.
   * DATA: daily OHLCV via yfinance (auto_adjust=True), 2010-01-01 .. 2025-01-01,
     ~30 liquid assets. Assets with < 500 bars are skipped. On-disk caching so
     later layers don't re-download.
-  * STRATEGY LIBRARY: the popular-retail spectrum. Every strategy is a function
-    taking a price DataFrame (+ params) and returning a daily position series in
-    {-1, 0, 1} (long / flat / short) with NO look-ahead — signals are shifted one
-    bar so today's position only uses data up to yesterday. Each is tagged with a
-    category: trend, meanrev, volume, volatility, pattern, composite.
+
+  * STRATEGY LIBRARY: the full popular-retail spectrum (47 families). Every
+    strategy is a function taking a price DataFrame (+ params) and returning a
+    daily position series in {-1, 0, 1} (long / flat / short) with NO look-ahead
+    — signals are shifted one bar centrally so today's position only uses data up
+    to yesterday. Each family is tagged: trend, meanrev, volume, volatility,
+    pattern, composite.
+
+  * PARAMETER GRID: each family carries a small grid of settings. build_configs()
+    expands every family across its grid and returns (name, function, params,
+    category) tuples — a few hundred configs, so running every config across all
+    ~30 assets yields thousands of backtests.
 
 Designed to be imported by later layers:
 
     from layer1_data_strategies import (
-        load_universe, download_data, STRATEGIES, run_strategy, list_strategies,
+        load_universe, download_data, STRATEGIES, run_strategy,
+        list_strategies, build_configs,
     )
 
 Dependencies: yfinance, numpy, pandas.
 
-Run directly (`python layer1_data_strategies.py`) to download the universe and
-print a self-test of every strategy.
+Run directly (`python layer1_data_strategies.py`) to download the universe,
+build the config grid, print the total count, and self-test every strategy.
 """
 
 from __future__ import annotations
 
+import itertools
 import os
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -43,7 +52,6 @@ END = "2025-01-01"
 MIN_BARS = 500
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_cache")
 
-# ~30 liquid assets grouped by theme.
 TICKERS: Dict[str, List[str]] = {
     "index_etf": ["SPY", "QQQ", "IWM", "DIA"],
     "sector_etf": ["XLK", "XLF", "XLE", "XLV", "XLI", "XLU", "XLY", "XLP"],
@@ -61,28 +69,23 @@ OHLCV = ["Open", "High", "Low", "Close", "Volume"]
 # --------------------------------------------------------------------------- #
 
 def _cache_path(ticker: str) -> str:
-    safe = ticker.replace("/", "_")
-    return os.path.join(CACHE_DIR, f"{safe}.parquet")
+    return os.path.join(CACHE_DIR, f"{ticker.replace('/', '_')}.parquet")
 
 
 def _normalize(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """Coerce a yfinance result into a clean Open/High/Low/Close/Volume frame."""
     df = raw.copy()
-    # yfinance returns a MultiIndex column frame when given a list; flatten it.
     if isinstance(df.columns, pd.MultiIndex):
-        lvl0 = df.columns.get_level_values(0)
         if ticker in df.columns.get_level_values(-1):
             df = df.xs(ticker, axis=1, level=-1)
-        elif ticker in lvl0:
+        elif ticker in df.columns.get_level_values(0):
             df = df.xs(ticker, axis=1, level=0)
         else:
             df.columns = df.columns.get_level_values(0)
     df = df[[c for c in OHLCV if c in df.columns]].copy()
-    df = df.apply(pd.to_numeric, errors="coerce")
-    df = df.dropna(subset=["Close"])
+    df = df.apply(pd.to_numeric, errors="coerce").dropna(subset=["Close"])
     df.index = pd.to_datetime(df.index)
-    df = df[~df.index.duplicated(keep="last")].sort_index()
-    return df
+    return df[~df.index.duplicated(keep="last")].sort_index()
 
 
 def download_data(
@@ -116,11 +119,9 @@ def download_data(
                 df = None
         if df is None:
             try:
-                raw = yf.download(
-                    t, start=start, end=end, auto_adjust=True,
-                    progress=False, threads=False,
-                )
-            except Exception as e:  # network / ticker errors
+                raw = yf.download(t, start=start, end=end, auto_adjust=True,
+                                  progress=False, threads=False)
+            except Exception as e:
                 if verbose:
                     print(f"  ! {t}: download failed ({e})")
                 skipped.append(t)
@@ -134,7 +135,7 @@ def download_data(
             try:
                 df.to_parquet(cpath)
             except Exception:
-                pass  # caching is best-effort
+                pass
 
         if len(df) < min_bars:
             if verbose:
@@ -162,110 +163,239 @@ def load_universe(**kwargs) -> Dict[str, pd.DataFrame]:
 # Indicator helpers (pure numpy/pandas, no external TA lib)
 # --------------------------------------------------------------------------- #
 
-def sma(s: pd.Series, n: int) -> pd.Series:
+def sma(s, n):
     return s.rolling(n, min_periods=n).mean()
 
 
-def ema(s: pd.Series, n: int) -> pd.Series:
+def ema(s, n):
     return s.ewm(span=n, adjust=False, min_periods=n).mean()
 
 
-def rolling_std(s: pd.Series, n: int) -> pd.Series:
+def wma(s, n):
+    w = np.arange(1, n + 1)
+    return s.rolling(n, min_periods=n).apply(lambda x: np.dot(x, w) / w.sum(),
+                                             raw=True)
+
+
+def rolling_std(s, n):
     return s.rolling(n, min_periods=n).std(ddof=0)
 
 
-def true_range(df: pd.DataFrame) -> pd.Series:
+def true_range(df):
     h, l, c = df["High"], df["Low"], df["Close"]
     pc = c.shift(1)
     return pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
 
 
-def atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
-    # Wilder's smoothing
+def atr(df, n=14):
     return true_range(df).ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
 
 
-def rsi(s: pd.Series, n: int = 14) -> pd.Series:
+def rsi(s, n=14):
     delta = s.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
-    avg_gain = gain.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
-    avg_loss = loss.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
-    rs = avg_gain / avg_loss.replace(0, np.nan)
+    ag = gain.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
+    al = loss.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
+    rs = ag / al.replace(0, np.nan)
     return 100 - 100 / (1 + rs)
 
 
-def macd(s: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
+def macd(s, fast=12, slow=26, signal=9):
     line = ema(s, fast) - ema(s, slow)
     sig = line.ewm(span=signal, adjust=False, min_periods=signal).mean()
     return line, sig, line - sig
 
 
-def stochastic(df: pd.DataFrame, n: int = 14, d: int = 3):
+def stochastic(df, n=14, d=3):
     ll = df["Low"].rolling(n, min_periods=n).min()
     hh = df["High"].rolling(n, min_periods=n).max()
     k = 100 * (df["Close"] - ll) / (hh - ll).replace(0, np.nan)
     return k, k.rolling(d, min_periods=d).mean()
 
 
-def williams_r(df: pd.DataFrame, n: int = 14) -> pd.Series:
+def williams_r(df, n=14):
     hh = df["High"].rolling(n, min_periods=n).max()
     ll = df["Low"].rolling(n, min_periods=n).min()
     return -100 * (hh - df["Close"]) / (hh - ll).replace(0, np.nan)
 
 
-def cci(df: pd.DataFrame, n: int = 20) -> pd.Series:
+def cci(df, n=20):
     tp = (df["High"] + df["Low"] + df["Close"]) / 3
     ma = tp.rolling(n, min_periods=n).mean()
     md = (tp - ma).abs().rolling(n, min_periods=n).mean()
     return (tp - ma) / (0.015 * md.replace(0, np.nan))
 
 
-def adx(df: pd.DataFrame, n: int = 14):
+def adx(df, n=14):
     up = df["High"].diff()
     down = -df["Low"].diff()
-    plus_dm = np.where((up > down) & (up > 0), up, 0.0)
-    minus_dm = np.where((down > up) & (down > 0), down, 0.0)
-    tr = true_range(df)
-    atr_n = tr.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
-    plus_di = 100 * pd.Series(plus_dm, index=df.index).ewm(
-        alpha=1 / n, adjust=False, min_periods=n).mean() / atr_n
-    minus_di = 100 * pd.Series(minus_dm, index=df.index).ewm(
-        alpha=1 / n, adjust=False, min_periods=n).mean() / atr_n
+    plus_dm = pd.Series(np.where((up > down) & (up > 0), up, 0.0), index=df.index)
+    minus_dm = pd.Series(np.where((down > up) & (down > 0), down, 0.0), index=df.index)
+    atr_n = true_range(df).ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1 / n, adjust=False, min_periods=n).mean() / atr_n
+    minus_di = 100 * minus_dm.ewm(alpha=1 / n, adjust=False, min_periods=n).mean() / atr_n
     dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
-    adx_n = dx.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
-    return adx_n, plus_di, minus_di
+    return dx.ewm(alpha=1 / n, adjust=False, min_periods=n).mean(), plus_di, minus_di
 
 
-def obv(df: pd.DataFrame) -> pd.Series:
-    sign = np.sign(df["Close"].diff()).fillna(0)
-    return (sign * df["Volume"]).cumsum()
+def aroon(df, n=25):
+    up = df["High"].rolling(n + 1, min_periods=n + 1).apply(
+        lambda x: 100 * np.argmax(x) / n, raw=True)
+    down = df["Low"].rolling(n + 1, min_periods=n + 1).apply(
+        lambda x: 100 * np.argmin(x) / n, raw=True)
+    return up, down
 
 
-def mfi(df: pd.DataFrame, n: int = 14) -> pd.Series:
+def vortex(df, n=14):
+    tr_sum = true_range(df).rolling(n, min_periods=n).sum()
+    vmp = (df["High"] - df["Low"].shift(1)).abs().rolling(n, min_periods=n).sum()
+    vmm = (df["Low"] - df["High"].shift(1)).abs().rolling(n, min_periods=n).sum()
+    return vmp / tr_sum, vmm / tr_sum
+
+
+def trix(s, n=15):
+    e3 = ema(ema(ema(s, n), n), n)
+    return e3.pct_change() * 100
+
+
+def hull_ma(s, n):
+    half = max(int(n / 2), 1)
+    sq = max(int(np.sqrt(n)), 1)
+    return wma(2 * wma(s, half) - wma(s, n), sq)
+
+
+def kama(s, n=10, fast=2, slow=30):
+    vals = s.values
+    change = np.abs(vals - np.concatenate([np.full(n, np.nan), vals[:-n]]))
+    vol = pd.Series(np.abs(np.diff(vals, prepend=vals[0])),
+                    index=s.index).rolling(n, min_periods=n).sum().values
+    er = np.divide(change, vol, out=np.full_like(change, np.nan),
+                   where=vol != 0)
+    sc = (er * (2 / (fast + 1) - 2 / (slow + 1)) + 2 / (slow + 1)) ** 2
+    res = np.full(len(vals), np.nan)
+    if len(vals) > n:
+        res[n] = vals[n]
+        for i in range(n + 1, len(vals)):
+            prev = res[i - 1]
+            res[i] = prev + (sc[i] if not np.isnan(sc[i]) else 0) * (vals[i] - prev)
+    return pd.Series(res, index=s.index)
+
+
+def parabolic_sar(df, af_step=0.02, af_max=0.2):
+    high, low = df["High"].values, df["Low"].values
+    n = len(df)
+    sar = np.full(n, np.nan)
+    if n < 2:
+        return pd.Series(sar, index=df.index)
+    trend, af, ep, sar[0] = 1, af_step, high[0], low[0]
+    for i in range(1, n):
+        sar_i = sar[i - 1] + af * (ep - sar[i - 1])
+        if trend == 1:
+            sar_i = min(sar_i, low[i - 1], low[max(i - 2, 0)])
+            if low[i] < sar_i:
+                trend, sar_i, ep, af = -1, ep, low[i], af_step
+            elif high[i] > ep:
+                ep, af = high[i], min(af + af_step, af_max)
+        else:
+            sar_i = max(sar_i, high[i - 1], high[max(i - 2, 0)])
+            if high[i] > sar_i:
+                trend, sar_i, ep, af = 1, ep, high[i], af_step
+            elif low[i] < ep:
+                ep, af = low[i], min(af + af_step, af_max)
+        sar[i] = sar_i
+    return pd.Series(sar, index=df.index)
+
+
+def ichimoku(df, tenkan=9, kijun=26, senkou=52):
+    conv = (df["High"].rolling(tenkan).max() + df["Low"].rolling(tenkan).min()) / 2
+    base = (df["High"].rolling(kijun).max() + df["Low"].rolling(kijun).min()) / 2
+    span_a = ((conv + base) / 2).shift(kijun)
+    span_b = ((df["High"].rolling(senkou).max()
+               + df["Low"].rolling(senkou).min()) / 2).shift(kijun)
+    return conv, base, span_a, span_b
+
+
+def elder_ray(df, n=13):
+    e = ema(df["Close"], n)
+    return df["High"] - e, df["Low"] - e, e
+
+
+def obv(df):
+    return (np.sign(df["Close"].diff()).fillna(0) * df["Volume"]).cumsum()
+
+
+def mfi(df, n=14):
     tp = (df["High"] + df["Low"] + df["Close"]) / 3
     rmf = tp * df["Volume"]
-    pos = rmf.where(tp > tp.shift(1), 0.0)
-    neg = rmf.where(tp < tp.shift(1), 0.0)
-    pos_n = pos.rolling(n, min_periods=n).sum()
-    neg_n = neg.rolling(n, min_periods=n).sum()
-    mr = pos_n / neg_n.replace(0, np.nan)
-    return 100 - 100 / (1 + mr)
+    pos = rmf.where(tp > tp.shift(1), 0.0).rolling(n, min_periods=n).sum()
+    neg = rmf.where(tp < tp.shift(1), 0.0).rolling(n, min_periods=n).sum()
+    return 100 - 100 / (1 + pos / neg.replace(0, np.nan))
 
 
-def cmf(df: pd.DataFrame, n: int = 20) -> pd.Series:
+def adl(df):
+    rng = (df["High"] - df["Low"]).replace(0, np.nan)
+    mfm = ((df["Close"] - df["Low"]) - (df["High"] - df["Close"])) / rng
+    return (mfm * df["Volume"]).fillna(0).cumsum()
+
+
+def cmf(df, n=20):
     rng = (df["High"] - df["Low"]).replace(0, np.nan)
     mfm = ((df["Close"] - df["Low"]) - (df["High"] - df["Close"])) / rng
     mfv = mfm * df["Volume"]
-    return mfv.rolling(n, min_periods=n).sum() / \
-        df["Volume"].rolling(n, min_periods=n).sum().replace(0, np.nan)
+    return (mfv.rolling(n, min_periods=n).sum()
+            / df["Volume"].rolling(n, min_periods=n).sum().replace(0, np.nan))
 
 
-def rolling_vwap(df: pd.DataFrame, n: int = 20) -> pd.Series:
+def force_index(df, n=13):
+    return ema(df["Close"].diff() * df["Volume"], n)
+
+
+def chaikin_osc(df, fast=3, slow=10):
+    a = adl(df)
+    return ema(a, fast) - ema(a, slow)
+
+
+def rolling_vwap(df, n=20):
     tp = (df["High"] + df["Low"] + df["Close"]) / 3
     pv = (tp * df["Volume"]).rolling(n, min_periods=n).sum()
     vv = df["Volume"].rolling(n, min_periods=n).sum().replace(0, np.nan)
     return pv / vv
+
+
+def ultimate_osc(df, s1=7, s2=14, s3=28):
+    pc = df["Close"].shift(1)
+    low_min = pd.concat([df["Low"], pc], axis=1).min(axis=1)
+    bp = df["Close"] - low_min
+    tr = pd.concat([df["High"], pc], axis=1).max(axis=1) - low_min
+    a1 = bp.rolling(s1).sum() / tr.rolling(s1).sum().replace(0, np.nan)
+    a2 = bp.rolling(s2).sum() / tr.rolling(s2).sum().replace(0, np.nan)
+    a3 = bp.rolling(s3).sum() / tr.rolling(s3).sum().replace(0, np.nan)
+    return 100 * (4 * a1 + 2 * a2 + a3) / 7
+
+
+def connors_rsi(s, rsi_n=3, streak_n=2, rank_n=100):
+    diff = s.diff().values
+    streak = np.zeros(len(s))
+    for i in range(1, len(s)):
+        if diff[i] > 0:
+            streak[i] = streak[i - 1] + 1 if streak[i - 1] > 0 else 1
+        elif diff[i] < 0:
+            streak[i] = streak[i - 1] - 1 if streak[i - 1] < 0 else -1
+    rsi_price = rsi(s, rsi_n)
+    rsi_streak = rsi(pd.Series(streak, index=s.index), streak_n)
+    ret = s.pct_change()
+    pr = ret.rolling(rank_n, min_periods=rank_n).apply(
+        lambda x: 100 * np.mean(x[:-1] < x[-1]), raw=True)
+    return (rsi_price + rsi_streak + pr) / 3
+
+
+def linreg_slope(s, n):
+    x = np.arange(n)
+    xm = x.mean()
+    denom = ((x - xm) ** 2).sum()
+    return s.rolling(n, min_periods=n).apply(
+        lambda y: np.dot(x - xm, y - y.mean()) / denom, raw=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -281,37 +411,41 @@ class Strategy:
     category: str
     func: Callable[..., pd.Series]
     params: Dict = field(default_factory=dict)
+    grid: Dict = field(default_factory=dict)
 
     def __call__(self, df: pd.DataFrame, **overrides) -> pd.Series:
-        p = {**self.params, **overrides}
-        return self.func(df, **p)
+        return self.func(df, **{**self.params, **overrides})
 
 
 STRATEGIES: Dict[str, Strategy] = {}
 
 
-def strategy(name: str, category: str, **default_params):
-    """Register a strategy. The wrapped function must return raw signals; this
-    decorator handles the no-look-ahead shift and {-1,0,1} clipping centrally."""
+def strategy(name, category, grid=None, **default_params):
+    """Register a strategy. The wrapped function returns raw signals; this
+    decorator applies the no-look-ahead shift and {-1,0,1} clamp centrally.
+    ``grid`` maps param -> list of values for build_configs()."""
     if category not in CATEGORIES:
-        raise ValueError(f"bad category {category!r}; pick one of {CATEGORIES}")
+        raise ValueError(f"bad category {category!r}; pick {CATEGORIES}")
 
     def deco(fn):
-        def wrapped(df: pd.DataFrame, **params) -> pd.Series:
-            raw = fn(df, **params)
-            return _finalize(raw, df.index)
-        STRATEGIES[name] = Strategy(name, category, wrapped, dict(default_params))
+        def wrapped(df, **params):
+            return _finalize(fn(df, **params), df.index)
+        STRATEGIES[name] = Strategy(name, category, wrapped,
+                                    dict(default_params), grid or {})
         return wrapped
     return deco
 
 
 def _finalize(sig, index) -> pd.Series:
-    """Align, shift one bar (kill look-ahead), clamp to {-1,0,1}."""
-    s = pd.Series(sig, index=index) if not isinstance(sig, pd.Series) else sig
-    s = s.reindex(index).astype(float)
-    s = np.sign(s).fillna(0.0)          # any nonzero magnitude -> direction
-    s = s.shift(1).fillna(0.0)          # today uses data up to yesterday
-    return s.clip(-1, 1).astype(int)
+    """Align, reduce to direction, shift one bar (kill look-ahead), clamp."""
+    s = sig if isinstance(sig, pd.Series) else pd.Series(sig, index=index)
+    s = np.sign(s.reindex(index).astype(float)).fillna(0.0)
+    return s.shift(1).fillna(0.0).clip(-1, 1).astype(int)
+
+
+def _hold(pos: pd.Series) -> pd.Series:
+    """Forward-fill a sparse long/short signal into a held position."""
+    return pos.replace(0, np.nan).ffill().fillna(0)
 
 
 def list_strategies(category: str | None = None) -> List[str]:
@@ -323,115 +457,212 @@ def run_strategy(name: str, df: pd.DataFrame, **overrides) -> pd.Series:
     return STRATEGIES[name](df, **overrides)
 
 
-# --------------------------------------------------------------------------- #
+# =========================================================================== #
 # TREND
-# --------------------------------------------------------------------------- #
+# =========================================================================== #
 
-@strategy("sma_crossover", "trend", fast=20, slow=100)
-def _sma_crossover(df, fast, slow):
-    f, s = sma(df["Close"], fast), sma(df["Close"], slow)
-    return np.where(f > s, 1, -1)
-
-
-@strategy("ema_crossover", "trend", fast=12, slow=26)
-def _ema_crossover(df, fast, slow):
-    f, s = ema(df["Close"], fast), ema(df["Close"], slow)
-    return np.where(f > s, 1, -1)
+@strategy("ma_crossover", "trend", grid={"fast": [5, 10, 20, 50],
+          "slow": [50, 100, 150, 200]}, fast=20, slow=100)
+def _ma_crossover(df, fast, slow):
+    return np.where(sma(df["Close"], fast) > sma(df["Close"], slow), 1, -1)
 
 
-@strategy("price_vs_sma", "trend", n=200)
-def _price_vs_sma(df, n):
-    # Classic long/flat trend filter.
-    return (df["Close"] > sma(df["Close"], n)).astype(float)
+@strategy("ts_momentum", "trend", grid={"n": [60, 120, 180, 252]}, n=120)
+def _ts_momentum(df, n):
+    return np.sign(df["Close"] / df["Close"].shift(n) - 1)
 
 
-@strategy("macd", "trend", fast=12, slow=26, signal=9)
-def _macd(df, fast, slow, signal):
-    line, sig, _ = macd(df["Close"], fast, slow, signal)
+@strategy("roc_momentum", "trend",
+          grid={"n": [20, 60, 120, 200], "threshold": [0.0, 0.02]},
+          n=60, threshold=0.0)
+def _roc_momentum(df, n, threshold):
+    roc = df["Close"].pct_change(n)
+    return np.where(roc > threshold, 1, np.where(roc < -threshold, -1, 0))
+
+
+@strategy("macd", "trend",
+          grid={"params": [(12, 26, 9), (8, 21, 5), (19, 39, 9)]},
+          params=(12, 26, 9))
+def _macd(df, params):
+    line, sig, _ = macd(df["Close"], *params)
     return np.where(line > sig, 1, -1)
 
 
-@strategy("donchian_breakout", "trend", n=20)
+@strategy("donchian_breakout", "trend", grid={"n": [20, 40, 55, 100]}, n=20)
 def _donchian(df, n):
     hi = df["High"].rolling(n, min_periods=n).max().shift(1)
     lo = df["Low"].rolling(n, min_periods=n).min().shift(1)
     pos = pd.Series(0.0, index=df.index)
     pos[df["Close"] > hi] = 1
     pos[df["Close"] < lo] = -1
-    return pos.replace(0, np.nan).ffill().fillna(0)
+    return _hold(pos)
 
 
-@strategy("adx_trend", "trend", n=14, threshold=25)
+@strategy("bollinger_breakout", "trend",
+          grid={"n": [20, 50, 100], "k": [1.5, 2.0, 2.5]}, n=20, k=2.0)
+def _bollinger_breakout(df, n, k):
+    m, sd = sma(df["Close"], n), rolling_std(df["Close"], n)
+    pos = pd.Series(0.0, index=df.index)
+    pos[df["Close"] > m + k * sd] = 1
+    pos[df["Close"] < m - k * sd] = -1
+    return _hold(pos)
+
+
+@strategy("supertrend", "trend",
+          grid={"n": [7, 10, 14, 20], "mult": [2.0, 3.0]}, n=10, mult=3.0)
+def _supertrend(df, n, mult):
+    hl2 = (df["High"] + df["Low"]) / 2
+    a = atr(df, n)
+    upper, lower = (hl2 + mult * a).values, (hl2 - mult * a).values
+    close = df["Close"].values
+    dir_ = np.ones(len(df))
+    fu, fl = upper.copy(), lower.copy()
+    for i in range(1, len(df)):
+        fu[i] = min(upper[i], fu[i - 1]) if close[i - 1] <= fu[i - 1] else upper[i]
+        fl[i] = max(lower[i], fl[i - 1]) if close[i - 1] >= fl[i - 1] else lower[i]
+        dir_[i] = (1 if close[i] > fu[i - 1] else
+                   -1 if close[i] < fl[i - 1] else dir_[i - 1])
+    return pd.Series(dir_, index=df.index)
+
+
+@strategy("parabolic_sar", "trend", grid={"af_step": [0.01, 0.02, 0.03]},
+          af_step=0.02, af_max=0.2)
+def _psar(df, af_step, af_max):
+    return np.sign(df["Close"] - parabolic_sar(df, af_step, af_max))
+
+
+@strategy("adx_trend", "trend", grid={"threshold": [20, 25, 30]},
+          n=14, threshold=25)
 def _adx_trend(df, n, threshold):
-    adx_n, plus_di, minus_di = adx(df, n)
-    strong = adx_n > threshold
+    a, plus_di, minus_di = adx(df, n)
+    strong = a > threshold
     return np.where(strong & (plus_di > minus_di), 1,
                     np.where(strong & (minus_di > plus_di), -1, 0))
 
 
-@strategy("supertrend", "trend", n=10, mult=3.0)
-def _supertrend(df, n, mult):
-    hl2 = (df["High"] + df["Low"]) / 2
-    a = atr(df, n)
-    upper = hl2 + mult * a
-    lower = hl2 - mult * a
-    close = df["Close"]
-    dir_ = pd.Series(1, index=df.index)
-    fu, fl = upper.copy(), lower.copy()
-    for i in range(1, len(df)):
-        fu.iloc[i] = (min(upper.iloc[i], fu.iloc[i - 1])
-                      if close.iloc[i - 1] <= fu.iloc[i - 1] else upper.iloc[i])
-        fl.iloc[i] = (max(lower.iloc[i], fl.iloc[i - 1])
-                      if close.iloc[i - 1] >= fl.iloc[i - 1] else lower.iloc[i])
-        if close.iloc[i] > fu.iloc[i - 1]:
-            dir_.iloc[i] = 1
-        elif close.iloc[i] < fl.iloc[i - 1]:
-            dir_.iloc[i] = -1
-        else:
-            dir_.iloc[i] = dir_.iloc[i - 1]
-    return dir_.astype(float)
+@strategy("ichimoku", "trend",
+          grid={"params": [(9, 26, 52), (7, 22, 44), (12, 30, 60)]},
+          params=(9, 26, 52))
+def _ichimoku(df, params):
+    conv, base, span_a, span_b = ichimoku(df, *params)
+    cloud_top = pd.concat([span_a, span_b], axis=1).max(axis=1)
+    cloud_bot = pd.concat([span_a, span_b], axis=1).min(axis=1)
+    pos = pd.Series(0.0, index=df.index)
+    pos[(df["Close"] > cloud_top) & (conv > base)] = 1
+    pos[(df["Close"] < cloud_bot) & (conv < base)] = -1
+    return _hold(pos)
 
 
-@strategy("roc_momentum", "trend", n=126)
-def _roc_momentum(df, n):
-    roc = df["Close"].pct_change(n)
-    return np.sign(roc)
+@strategy("linreg_slope", "trend", grid={"n": [20, 50, 100, 150]}, n=50)
+def _linreg(df, n):
+    return np.sign(linreg_slope(df["Close"], n))
 
 
-# --------------------------------------------------------------------------- #
+@strategy("aroon", "trend", grid={"n": [14, 25]}, n=25)
+def _aroon(df, n):
+    up, down = aroon(df, n)
+    return np.where(up > down, 1, -1)
+
+
+@strategy("vortex", "trend", grid={"n": [14, 21]}, n=14)
+def _vortex(df, n):
+    vip, vim = vortex(df, n)
+    return np.where(vip > vim, 1, -1)
+
+
+@strategy("trix", "trend", grid={"n": [9, 15]}, n=15, signal=9)
+def _trix(df, n, signal):
+    t = trix(df["Close"], n)
+    return np.where(t > ema(t, signal), 1, -1)
+
+
+@strategy("hull_ma", "trend", grid={"n": [9, 16, 25, 49]}, n=16)
+def _hull(df, n):
+    h = hull_ma(df["Close"], n)
+    return np.sign(h.diff())
+
+
+@strategy("kama", "trend", grid={"n": [10, 20]}, n=10)
+def _kama(df, n):
+    k = kama(df["Close"], n)
+    return np.sign(df["Close"] - k)
+
+
+@strategy("turtle", "trend", grid={"entry": [20, 55], "exit": [10, 20]},
+          entry=20, exit=10)
+def _turtle(df, entry, exit):
+    hi = df["High"].rolling(entry, min_periods=entry).max().shift(1)
+    lo = df["Low"].rolling(entry, min_periods=entry).min().shift(1)
+    xlo = df["Low"].rolling(exit, min_periods=exit).min().shift(1)
+    xhi = df["High"].rolling(exit, min_periods=exit).max().shift(1)
+    state = np.zeros(len(df))
+    c = df["Close"].values
+    hi_v, lo_v, xlo_v, xhi_v = hi.values, lo.values, xlo.values, xhi.values
+    cur = 0
+    for i in range(len(df)):
+        if cur == 0:
+            if c[i] > hi_v[i]:
+                cur = 1
+            elif c[i] < lo_v[i]:
+                cur = -1
+        elif cur == 1 and c[i] < xlo_v[i]:
+            cur = 0
+        elif cur == -1 and c[i] > xhi_v[i]:
+            cur = 0
+        state[i] = cur
+    return pd.Series(state, index=df.index)
+
+
+@strategy("dual_momentum", "trend", grid={"n": [120, 252]}, n=252)
+def _dual_momentum(df, n):
+    # Single-asset absolute momentum: long when trailing return positive, else flat.
+    return (df["Close"] / df["Close"].shift(n) - 1 > 0).astype(float)
+
+
+@strategy("elder_ray", "trend", grid={"n": [13, 21]}, n=13)
+def _elder_ray(df, n):
+    bull, bear, e = elder_ray(df, n)
+    rising = e.diff() > 0
+    pos = pd.Series(0.0, index=df.index)
+    pos[rising & (bull > 0)] = 1
+    pos[(~rising) & (bear < 0)] = -1
+    return _hold(pos)
+
+
+# =========================================================================== #
 # MEAN REVERSION
-# --------------------------------------------------------------------------- #
+# =========================================================================== #
 
-@strategy("rsi_reversion", "meanrev", n=14, low=30, high=70)
-def _rsi_reversion(df, n, low, high):
+@strategy("rsi_revert", "meanrev",
+          grid={"n": [2, 3, 7, 14], "bounds": [(10, 90), (20, 80), (30, 70)]},
+          n=14, bounds=(30, 70))
+def _rsi_revert(df, n, bounds):
+    low, high = bounds
     r = rsi(df["Close"], n)
     pos = pd.Series(np.nan, index=df.index)
     pos[r < low] = 1
     pos[r > high] = -1
-    pos[(r >= 50 - 1e-9) & (r <= 50 + 1e-9)] = 0  # rare exact-50 exit
     return pos.ffill().fillna(0)
 
 
-@strategy("bollinger_reversion", "meanrev", n=20, k=2.0)
-def _bollinger_reversion(df, n, k):
-    m = sma(df["Close"], n)
-    sd = rolling_std(df["Close"], n)
-    upper, lower = m + k * sd, m - k * sd
+@strategy("bollinger_revert", "meanrev",
+          grid={"n": [20, 50], "k": [2.0, 2.5, 3.0]}, n=20, k=2.0)
+def _bollinger_revert(df, n, k):
+    m, sd = sma(df["Close"], n), rolling_std(df["Close"], n)
     pos = pd.Series(np.nan, index=df.index)
-    pos[df["Close"] < lower] = 1
-    pos[df["Close"] > upper] = -1
-    pos[df["Close"].between(m - 1e-9, m + 1e-9)] = 0
-    # exit back to flat once price crosses the mean
-    cross_up = (df["Close"] >= m) & (df["Close"].shift(1) < m)
-    cross_dn = (df["Close"] <= m) & (df["Close"].shift(1) > m)
-    pos[cross_up | cross_dn] = 0
+    pos[df["Close"] < m - k * sd] = 1
+    pos[df["Close"] > m + k * sd] = -1
+    cross = ((df["Close"] >= m) & (df["Close"].shift(1) < m)) | \
+            ((df["Close"] <= m) & (df["Close"].shift(1) > m))
+    pos[cross] = 0
     return pos.ffill().fillna(0)
 
 
-@strategy("zscore_reversion", "meanrev", n=20, entry=1.5, exit=0.5)
-def _zscore_reversion(df, n, entry, exit):
-    m = sma(df["Close"], n)
-    z = (df["Close"] - m) / rolling_std(df["Close"], n).replace(0, np.nan)
+@strategy("zscore_revert", "meanrev",
+          grid={"n": [20, 50], "entry": [1.0, 1.5, 2.0]},
+          n=20, entry=1.5, exit=0.5)
+def _zscore_revert(df, n, entry, exit):
+    z = (df["Close"] - sma(df["Close"], n)) / rolling_std(df["Close"], n).replace(0, np.nan)
     pos = pd.Series(np.nan, index=df.index)
     pos[z <= -entry] = 1
     pos[z >= entry] = -1
@@ -439,8 +670,9 @@ def _zscore_reversion(df, n, entry, exit):
     return pos.ffill().fillna(0)
 
 
-@strategy("stochastic_reversion", "meanrev", n=14, d=3, low=20, high=80)
-def _stochastic_reversion(df, n, d, low, high):
+@strategy("stochastic", "meanrev", grid={"n": [14, 21]}, n=14, d=3,
+          low=20, high=80)
+def _stochastic(df, n, d, low, high):
     _, dline = stochastic(df, n, d)
     pos = pd.Series(np.nan, index=df.index)
     pos[dline < low] = 1
@@ -448,7 +680,18 @@ def _stochastic_reversion(df, n, d, low, high):
     return pos.ffill().fillna(0)
 
 
-@strategy("williams_r", "meanrev", n=14, low=-80, high=-20)
+@strategy("cci", "meanrev", grid={"n": [20, 40], "level": [100, 150]},
+          n=20, level=100)
+def _cci(df, n, level):
+    c = cci(df, n)
+    pos = pd.Series(np.nan, index=df.index)
+    pos[c < -level] = 1
+    pos[c > level] = -1
+    return pos.ffill().fillna(0)
+
+
+@strategy("williams_r", "meanrev", grid={"n": [10, 14, 21]}, n=14,
+          low=-80, high=-20)
 def _williams_r(df, n, low, high):
     wr = williams_r(df, n)
     pos = pd.Series(np.nan, index=df.index)
@@ -457,56 +700,24 @@ def _williams_r(df, n, low, high):
     return pos.ffill().fillna(0)
 
 
-@strategy("cci_reversion", "meanrev", n=20, level=100)
-def _cci_reversion(df, n, level):
-    c = cci(df, n)
+@strategy("keltner_revert", "meanrev", grid={"mult": [1.5, 2.0, 2.5]},
+          n=20, atr_n=10, mult=2.0)
+def _keltner_revert(df, n, atr_n, mult):
+    mid, a = ema(df["Close"], n), atr(df, atr_n)
     pos = pd.Series(np.nan, index=df.index)
-    pos[c < -level] = 1
-    pos[c > level] = -1
-    pos[c.abs() < 1e-9] = 0
+    pos[df["Close"] < mid - mult * a] = 1
+    pos[df["Close"] > mid + mult * a] = -1
+    cross = ((df["Close"] >= mid) & (df["Close"].shift(1) < mid)) | \
+            ((df["Close"] <= mid) & (df["Close"].shift(1) > mid))
+    pos[cross] = 0
     return pos.ffill().fillna(0)
 
 
-# --------------------------------------------------------------------------- #
-# VOLUME
-# --------------------------------------------------------------------------- #
-
-@strategy("obv_trend", "volume", n=20)
-def _obv_trend(df, n):
-    o = obv(df)
-    return np.where(o > sma(o, n), 1, -1)
-
-
-@strategy("mfi_reversion", "volume", n=14, low=20, high=80)
-def _mfi(df, n, low, high):
-    m = mfi(df, n)
-    pos = pd.Series(np.nan, index=df.index)
-    pos[m < low] = 1
-    pos[m > high] = -1
-    return pos.ffill().fillna(0)
-
-
-@strategy("cmf_trend", "volume", n=20, threshold=0.05)
-def _cmf(df, n, threshold):
-    c = cmf(df, n)
-    return np.where(c > threshold, 1, np.where(c < -threshold, -1, 0))
-
-
-@strategy("volume_breakout", "volume", n=20, vol_n=20, vol_mult=1.5)
-def _volume_breakout(df, n, vol_n, vol_mult):
-    hi = df["High"].rolling(n, min_periods=n).max().shift(1)
-    lo = df["Low"].rolling(n, min_periods=n).min().shift(1)
-    vol_ok = df["Volume"] > vol_mult * sma(df["Volume"], vol_n)
-    pos = pd.Series(np.nan, index=df.index)
-    pos[(df["Close"] > hi) & vol_ok] = 1
-    pos[(df["Close"] < lo) & vol_ok] = -1
-    return pos.ffill().fillna(0)
-
-
-@strategy("vwap_reversion", "volume", n=20, k=1.0)
-def _vwap_reversion(df, n, k):
+@strategy("vwap_revert", "meanrev",
+          grid={"n": [20, 50], "k": [1.0, 1.5]}, n=20, k=1.0)
+def _vwap_revert(df, n, k):
     vw = rolling_vwap(df, n)
-    dev = (df["Close"] - vw)
+    dev = df["Close"] - vw
     band = k * dev.rolling(n, min_periods=n).std(ddof=0)
     pos = pd.Series(np.nan, index=df.index)
     pos[dev < -band] = 1
@@ -515,85 +726,145 @@ def _vwap_reversion(df, n, k):
     return pos.ffill().fillna(0)
 
 
-# --------------------------------------------------------------------------- #
-# VOLATILITY
-# --------------------------------------------------------------------------- #
-
-@strategy("bollinger_breakout", "volatility", n=20, k=2.0)
-def _bollinger_breakout(df, n, k):
-    m = sma(df["Close"], n)
-    sd = rolling_std(df["Close"], n)
+@strategy("percent_b", "meanrev", grid={"n": [20, 50]}, n=20, k=2.0)
+def _percent_b(df, n, k):
+    m, sd = sma(df["Close"], n), rolling_std(df["Close"], n)
+    upper, lower = m + k * sd, m - k * sd
+    pb = (df["Close"] - lower) / (upper - lower).replace(0, np.nan)
     pos = pd.Series(np.nan, index=df.index)
-    pos[df["Close"] > m + k * sd] = 1
-    pos[df["Close"] < m - k * sd] = -1
+    pos[pb < 0] = 1
+    pos[pb > 1] = -1
+    pos[(pb >= 0.5 - 1e-6) & (pb <= 0.5 + 1e-6)] = 0
     return pos.ffill().fillna(0)
 
 
-@strategy("atr_channel_breakout", "volatility", n=20, atr_n=14, mult=2.0)
-def _atr_channel(df, n, atr_n, mult):
-    mid = sma(df["Close"], n)
-    a = atr(df, atr_n)
-    upper = (mid + mult * a).shift(1)
-    lower = (mid - mult * a).shift(1)
+@strategy("connors_rsi", "meanrev", grid={"bounds": [(10, 90), (20, 80)]},
+          rsi_n=3, streak_n=2, rank_n=100, bounds=(10, 90))
+def _connors(df, rsi_n, streak_n, rank_n, bounds):
+    low, high = bounds
+    crsi = connors_rsi(df["Close"], rsi_n, streak_n, rank_n)
     pos = pd.Series(np.nan, index=df.index)
-    pos[df["Close"] > upper] = 1
-    pos[df["Close"] < lower] = -1
+    pos[crsi < low] = 1
+    pos[crsi > high] = -1
     return pos.ffill().fillna(0)
 
 
-@strategy("keltner_breakout", "volatility", n=20, atr_n=10, mult=2.0)
-def _keltner(df, n, atr_n, mult):
-    mid = ema(df["Close"], n)
-    a = atr(df, atr_n)
+@strategy("ultimate_oscillator", "meanrev", grid={"bounds": [(30, 70), (35, 65)]},
+          bounds=(30, 70))
+def _ult(df, bounds):
+    low, high = bounds
+    u = ultimate_osc(df)
     pos = pd.Series(np.nan, index=df.index)
-    pos[df["Close"] > mid + mult * a] = 1
-    pos[df["Close"] < mid - mult * a] = -1
+    pos[u < low] = 1
+    pos[u > high] = -1
     return pos.ffill().fillna(0)
 
 
-@strategy("vol_regime_trend", "volatility", vol_n=20, vol_lookback=100, trend_n=50)
-def _vol_regime(df, vol_n, vol_lookback, trend_n):
-    # Follow trend only when realized vol is below its median regime.
-    ret = df["Close"].pct_change()
-    vol = ret.rolling(vol_n, min_periods=vol_n).std(ddof=0)
-    calm = vol < vol.rolling(vol_lookback, min_periods=vol_lookback).median()
-    trend = np.sign(df["Close"] - sma(df["Close"], trend_n))
-    return np.where(calm, trend, 0)
-
-
-# --------------------------------------------------------------------------- #
-# PATTERN
-# --------------------------------------------------------------------------- #
-
-@strategy("high_low_52w_breakout", "pattern", n=252)
-def _hl_52w(df, n):
-    hi = df["High"].rolling(n, min_periods=n).max().shift(1)
-    lo = df["Low"].rolling(n, min_periods=n).min().shift(1)
-    pos = pd.Series(np.nan, index=df.index)
-    pos[df["Close"] >= hi] = 1
-    pos[df["Close"] <= lo] = -1
-    return pos.ffill().fillna(0)
-
-
-@strategy("gap_fade", "pattern", gap_pct=0.02)
+@strategy("gap_fade", "meanrev", grid={"gap_pct": [0.01, 0.02, 0.03]},
+          gap_pct=0.02)
 def _gap_fade(df, gap_pct):
     gap = df["Open"] / df["Close"].shift(1) - 1
-    # Fade the gap: gap up -> short, gap down -> long (held one bar).
     pos = pd.Series(0.0, index=df.index)
     pos[gap > gap_pct] = -1
     pos[gap < -gap_pct] = 1
-    return pos
+    return pos  # one-bar fade, no hold
 
 
-@strategy("inside_bar_breakout", "pattern")
-def _inside_bar(df):
-    inside = (df["High"] < df["High"].shift(1)) & (df["Low"] > df["Low"].shift(1))
-    prev_inside = inside.shift(1).fillna(False)
+# =========================================================================== #
+# VOLUME
+# =========================================================================== #
+
+@strategy("obv_trend", "volume", grid={"n": [20, 50, 100]}, n=20)
+def _obv_trend(df, n):
+    o = obv(df)
+    return np.where(o > sma(o, n), 1, -1)
+
+
+@strategy("chaikin_money_flow", "volume",
+          grid={"n": [20], "threshold": [0.05, 0.10]}, n=20, threshold=0.05)
+def _cmf(df, n, threshold):
+    c = cmf(df, n)
+    return np.where(c > threshold, 1, np.where(c < -threshold, -1, 0))
+
+
+@strategy("money_flow_index", "volume", grid={"bounds": [(20, 80), (15, 85)]},
+          n=14, bounds=(20, 80))
+def _mfi(df, n, bounds):
+    low, high = bounds
+    m = mfi(df, n)
     pos = pd.Series(np.nan, index=df.index)
-    pos[prev_inside & (df["Close"] > df["High"].shift(1))] = 1
-    pos[prev_inside & (df["Close"] < df["Low"].shift(1))] = -1
+    pos[m < low] = 1
+    pos[m > high] = -1
     return pos.ffill().fillna(0)
 
+
+@strategy("volume_surge", "volume", grid={"mult": [1.5, 2.0]},
+          n=20, mult=1.5)
+def _volume_surge(df, n, mult):
+    surge = df["Volume"] > mult * sma(df["Volume"], n)
+    ret = df["Close"].pct_change()
+    pos = pd.Series(np.nan, index=df.index)
+    pos[surge & (ret > 0)] = 1
+    pos[surge & (ret < 0)] = -1
+    return pos.ffill().fillna(0)
+
+
+@strategy("force_index", "volume", grid={"n": [13, 21, 34]}, n=13)
+def _force(df, n):
+    return np.sign(force_index(df, n))
+
+
+@strategy("chaikin_oscillator", "volume",
+          grid={"params": [(3, 10), (5, 20)]}, params=(3, 10))
+def _chaikin(df, params):
+    return np.sign(chaikin_osc(df, *params))
+
+
+# =========================================================================== #
+# VOLATILITY
+# =========================================================================== #
+
+@strategy("atr_breakout", "volatility",
+          grid={"mult": [1.5, 2.0, 2.5, 3.0]}, n=20, atr_n=14, mult=2.0)
+def _atr_breakout(df, n, atr_n, mult):
+    mid, a = sma(df["Close"], n), atr(df, atr_n)
+    upper, lower = (mid + mult * a).shift(1), (mid - mult * a).shift(1)
+    pos = pd.Series(0.0, index=df.index)
+    pos[df["Close"] > upper] = 1
+    pos[df["Close"] < lower] = -1
+    return _hold(pos)
+
+
+@strategy("volatility_breakout", "volatility",
+          grid={"k": [0.5, 1.0, 1.5, 2.0]}, k=1.0, atr_n=14)
+def _vol_breakout(df, k, atr_n):
+    a = atr(df, atr_n)
+    up = df["Close"].shift(1) + k * a
+    dn = df["Close"].shift(1) - k * a
+    pos = pd.Series(0.0, index=df.index)
+    pos[df["Close"] > up] = 1
+    pos[df["Close"] < dn] = -1
+    return _hold(pos)
+
+
+@strategy("squeeze_breakout", "volatility",
+          grid={"kc_mult": [1.5, 2.0]}, n=20, k=2.0, atr_n=20, kc_mult=1.5)
+def _squeeze(df, n, k, atr_n, kc_mult):
+    m, sd = sma(df["Close"], n), rolling_std(df["Close"], n)
+    a = atr(df, atr_n)
+    bb_up, bb_dn = m + k * sd, m - k * sd
+    kc_up, kc_dn = m + kc_mult * a, m - kc_mult * a
+    squeeze_on = (bb_up < kc_up) & (bb_dn > kc_dn)
+    released = squeeze_on.shift(1).fillna(False) & ~squeeze_on
+    mom = np.sign(df["Close"] - m)
+    pos = pd.Series(np.nan, index=df.index)
+    pos[released] = mom[released]
+    return pos.ffill().fillna(0)
+
+
+# =========================================================================== #
+# PATTERN
+# =========================================================================== #
 
 @strategy("engulfing", "pattern")
 def _engulfing(df):
@@ -607,54 +878,108 @@ def _engulfing(df):
     return pos.ffill().fillna(0)
 
 
-@strategy("three_bar_momentum", "pattern", n=3)
-def _three_bar(df, n):
-    up = (df["Close"] > df["Close"].shift(1)).rolling(n).sum() == n
-    dn = (df["Close"] < df["Close"].shift(1)).rolling(n).sum() == n
+@strategy("three_bar_reversal", "pattern")
+def _three_bar(df):
+    c = df["Close"]
+    down = (c.shift(2) < c.shift(3)) & (c.shift(1) < c.shift(2))
+    up = (c.shift(2) > c.shift(3)) & (c.shift(1) > c.shift(2))
+    pos = pd.Series(np.nan, index=df.index)
+    pos[down & (c > c.shift(1))] = 1
+    pos[up & (c < c.shift(1))] = -1
+    return pos.ffill().fillna(0)
+
+
+@strategy("higher_highs_lows", "pattern", grid={"n": [5, 10, 20]}, n=10)
+def _hh_ll(df, n):
+    hh = (df["High"] > df["High"].shift(1)) & (df["Low"] > df["Low"].shift(1))
+    ll = (df["High"] < df["High"].shift(1)) & (df["Low"] < df["Low"].shift(1))
+    up = hh.rolling(n, min_periods=n).sum() == n
+    dn = ll.rolling(n, min_periods=n).sum() == n
     pos = pd.Series(np.nan, index=df.index)
     pos[up] = 1
     pos[dn] = -1
     return pos.ffill().fillna(0)
 
 
-# --------------------------------------------------------------------------- #
-# COMPOSITE
-# --------------------------------------------------------------------------- #
-
-@strategy("trend_filtered_reversion", "composite",
-          trend_n=200, rsi_n=2, low=10, high=90)
-def _trend_filtered_reversion(df, trend_n, rsi_n, low, high):
-    # Connors-style: only buy dips in an uptrend, sell rips in a downtrend.
-    up = df["Close"] > sma(df["Close"], trend_n)
-    r = rsi(df["Close"], rsi_n)
+@strategy("pivot_bounce", "pattern", grid={"n": [10, 20]}, n=10)
+def _pivot_bounce(df, n):
+    pivot = ((df["High"] + df["Low"] + df["Close"]) / 3).shift(1)
+    s1 = 2 * pivot - df["High"].shift(1)
+    r1 = 2 * pivot - df["Low"].shift(1)
     pos = pd.Series(np.nan, index=df.index)
-    pos[up & (r < low)] = 1
-    pos[up & (r > high)] = 0
-    pos[~up & (r > high)] = -1
-    pos[~up & (r < low)] = 0
+    pos[df["Low"] <= s1] = 1
+    pos[df["High"] >= r1] = -1
+    cross = ((df["Close"] >= pivot) & (df["Close"].shift(1) < pivot)) | \
+            ((df["Close"] <= pivot) & (df["Close"].shift(1) > pivot))
+    pos[cross] = 0
     return pos.ffill().fillna(0)
 
 
-@strategy("golden_cross_rsi", "composite", fast=50, slow=200, rsi_n=14, rsi_min=50)
-def _golden_cross_rsi(df, fast, slow, rsi_n, rsi_min):
-    bull = sma(df["Close"], fast) > sma(df["Close"], slow)
+# =========================================================================== #
+# COMPOSITE
+# =========================================================================== #
+
+@strategy("macd_rsi_confirm", "composite", grid={"rsi_min": [45, 50, 55]},
+          rsi_n=14, rsi_min=50)
+def _macd_rsi(df, rsi_n, rsi_min):
+    line, sig, _ = macd(df["Close"])
     r = rsi(df["Close"], rsi_n)
-    return np.where(bull & (r > rsi_min), 1,
-                    np.where(~bull & (r < (100 - rsi_min)), -1, 0))
+    return np.where((line > sig) & (r > rsi_min), 1,
+                    np.where((line < sig) & (r < 100 - rsi_min), -1, 0))
 
 
-@strategy("majority_vote", "composite",
-          members=("sma_crossover", "macd", "rsi_reversion",
-                   "bollinger_breakout", "donchian_breakout"))
-def _majority_vote(df, members):
-    # Note: members already shift internally; we re-derive raw votes by calling
-    # the registered (shifted) strategies and summing, then sign. The outer
-    # _finalize shift would double-shift, so we pre-undo one shift here.
-    votes = pd.Series(0.0, index=df.index)
-    for m in members:
-        s = STRATEGIES[m](df).shift(-1).fillna(0)  # undo the member's shift
-        votes = votes.add(s, fill_value=0)
-    return np.sign(votes)
+@strategy("triple_screen", "composite", grid={"trend_n": [100, 200]},
+          trend_n=200, k_low=30, k_high=70)
+def _triple_screen(df, trend_n, k_low, k_high):
+    trend = np.sign(ema(df["Close"], trend_n).diff())
+    _, dline = stochastic(df, 14, 3)
+    pos = pd.Series(np.nan, index=df.index)
+    pos[(trend > 0) & (dline < k_low)] = 1     # buy pullbacks in uptrend
+    pos[(trend < 0) & (dline > k_high)] = -1   # sell rallies in downtrend
+    pos[trend == 0] = 0
+    return pos.ffill().fillna(0)
+
+
+@strategy("chandelier", "composite", grid={"mult": [2.0, 2.5, 3.0]},
+          n=22, atr_n=22, mult=3.0)
+def _chandelier(df, n, atr_n, mult):
+    a = atr(df, atr_n)
+    long_stop = df["High"].rolling(n, min_periods=n).max() - mult * a
+    short_stop = df["Low"].rolling(n, min_periods=n).min() + mult * a
+    pos = pd.Series(np.nan, index=df.index)
+    pos[df["Close"] > short_stop] = 1
+    pos[df["Close"] < long_stop] = -1
+    return pos.ffill().fillna(0)
+
+
+# --------------------------------------------------------------------------- #
+# Parameter grid -> config builder
+# --------------------------------------------------------------------------- #
+
+def build_configs() -> List[Tuple[str, Strategy, Dict, str]]:
+    """Expand every family across its parameter grid.
+
+    Returns a list of (name, function, params, category) tuples. The function is
+    the registered Strategy (callable as ``fn(df, **params)``). Invalid param
+    combinations (e.g. fast >= slow) are filtered out.
+    """
+    configs: List[Tuple[str, Strategy, Dict, str]] = []
+    for name, st in STRATEGIES.items():
+        grid = st.grid if st.grid else {}
+        if not grid:
+            configs.append((name, st, dict(st.params), st.category))
+            continue
+        keys = list(grid.keys())
+        for combo in itertools.product(*(grid[k] for k in keys)):
+            params = dict(zip(keys, combo))
+            full = {**st.params, **params}
+            if "fast" in full and "slow" in full and full["fast"] >= full["slow"]:
+                continue
+            if "entry" in full and "exit" in full and full["exit"] >= full["entry"]:
+                continue
+            label = ",".join(f"{k}={v}" for k, v in params.items())
+            configs.append((f"{name}[{label}]", st, full, st.category))
+    return configs
 
 
 # --------------------------------------------------------------------------- #
@@ -662,43 +987,53 @@ def _majority_vote(df, members):
 # --------------------------------------------------------------------------- #
 
 def _self_test(data: Dict[str, pd.DataFrame]) -> None:
+    configs = build_configs()
+    by_cat_fam: Dict[str, int] = {c: 0 for c in CATEGORIES}
+    for st in STRATEGIES.values():
+        by_cat_fam[st.category] += 1
+    by_cat_cfg: Dict[str, int] = {c: 0 for c in CATEGORIES}
+    for _, _, _, cat in configs:
+        by_cat_cfg[cat] += 1
+
     print("\n" + "=" * 70)
-    print(f"STRATEGY LIBRARY — {len(STRATEGIES)} strategies")
+    print("STRATEGY LIBRARY")
     print("=" * 70)
-    by_cat: Dict[str, List[str]] = {c: [] for c in CATEGORIES}
-    for name, st in STRATEGIES.items():
-        by_cat[st.category].append(name)
-    for cat in CATEGORIES:
-        print(f"  {cat:11s}: {', '.join(by_cat[cat])}")
+    print(f"{'category':12s}{'families':>10}{'configs':>10}")
+    for c in CATEGORIES:
+        print(f"{c:12s}{by_cat_fam[c]:>10}{by_cat_cfg[c]:>10}")
+    print("-" * 32)
+    print(f"{'TOTAL':12s}{len(STRATEGIES):>10}{len(configs):>10}")
+    n_assets = len(data) if data else len(ALL_TICKERS)
+    print(f"\nTOTAL CONFIGS: {len(configs)}")
+    print(f"x {n_assets} assets = {len(configs) * n_assets} backtests")
 
     if not data:
         print("\n(no market data available — skipping live signal test)")
         return
 
-    sample_key = "SPY" if "SPY" in data else next(iter(data))
-    sample = data[sample_key]
-    print(f"\nSignal sanity check on {sample_key} ({len(sample)} bars):")
-    print(f"{'strategy':28s}{'cat':11s}{'long':>6}{'flat':>6}{'short':>6}  ok")
-    for name, st in STRATEGIES.items():
-        pos = st(sample)
+    key = "SPY" if "SPY" in data else next(iter(data))
+    sample = data[key]
+    print(f"\nValidating every config on {key} ({len(sample)} bars) ...")
+    fails = 0
+    for name, fn, params, _ in configs:
+        pos = fn(sample, **params)
         vals = set(pd.unique(pos.dropna()))
-        in_set = vals.issubset({-1, 0, 1})
-        no_lookahead = pos.iloc[0] == 0
-        ok = in_set and no_lookahead
-        n_long = int((pos == 1).sum())
-        n_flat = int((pos == 0).sum())
-        n_short = int((pos == -1).sum())
-        print(f"{name:28s}{st.category:11s}{n_long:6d}{n_flat:6d}"
-              f"{n_short:6d}  {'PASS' if ok else 'FAIL'}")
+        ok = (vals.issubset({-1, 0, 1}) and pos.iloc[0] == 0
+              and len(pos) == len(sample) and pos.dtype.kind in "iu")
+        if not ok:
+            fails += 1
+            print(f"  FAIL {name}: vals={vals} first={pos.iloc[0]}")
+    print(f"Validation: {len(configs) - fails}/{len(configs)} configs passed"
+          + ("  ALL PASS" if fails == 0 else f"  {fails} FAILED"))
 
 
 def main():
     print("Layer 1 — downloading universe ...\n")
     data = download_data()
     _self_test(data)
-    print("\nDone. Import this module from later layers via:")
+    print("\nDone. Import from later layers via:")
     print("    from layer1_data_strategies import "
-          "load_universe, STRATEGIES, run_strategy")
+          "load_universe, build_configs, run_strategy")
 
 
 if __name__ == "__main__":
