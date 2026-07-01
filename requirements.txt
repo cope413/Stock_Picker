@@ -6,3 +6,8 @@ yfinance>=0.2.40     # data download only; tests run without it
 
 # Dev
 pytest>=8.0
+
+# Web UI (webapp.py)
+fastapi>=0.110
+uvicorn>=0.29
+httpx>=0.27          # only needed to run the webapp tests

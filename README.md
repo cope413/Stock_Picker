@@ -222,6 +222,25 @@ exposure per asset — the trade list. Note the spec's `portfolio_sharpe` mixes
 dev and holdout bars and is descriptive only; the Layer 5 holdout table remains
 the number to believe.
 
+## Web UI (`webapp.py`)
+
+A local dashboard over the whole pipeline — same artifacts as the CLI, so the
+two stay interchangeable:
+
+```bash
+pip install fastapi uvicorn
+python webapp.py        # http://127.0.0.1:8713
+```
+
+Tabs: **Signals** (net exposure per asset — the trade list — plus per-strategy
+detail, with one-click refresh from cache or fresh data), **Pipeline** (run the
+full build with tunable correlation threshold, vol target, weight/gross caps,
+and DSR floor; live log streaming), **Holdout**, **Clusters**, and
+**Portfolio**. The verdict strip at the top shows the only numbers that
+matter: independent edges, achieved vol, gross, and data freshness with a
+staleness lamp wired to the actual cache dates. One job runs at a time;
+binding is localhost-only.
+
 ## Known caveats
 
 **Survivorship bias in the universe.** The large-cap list (AAPL, MSFT, NVDA,

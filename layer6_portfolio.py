@@ -337,6 +337,7 @@ def build(data: Optional[Dict[str, pd.DataFrame]] = None,
     if ho.empty:
         print("\nNo survivors reached the holdout — no portfolio to build.")
         return None
+    ho.to_csv(V.HOLDOUT_CSV, index=False)
 
     eligible = ho[ho["dsr"] >= min_dsr]
     if require_confirmed:

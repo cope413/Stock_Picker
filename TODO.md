@@ -84,6 +84,12 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
 
 ## P3 — Engineering hygiene
 
+- [x] **14. Web UI.** `webapp.py` + `webui/index.html`: local FastAPI dashboard
+  (localhost-only) — signals/trade list, full-build runner with tunable
+  parameters and live logs, holdout, clusters, and portfolio views; single
+  background job at a time; reads/writes the same artifacts as the CLI.
+
+
 - [x] **11. `requirements.txt`** with pinned minimum versions.
 - [x] **12. CI** — `.github/workflows/tests.yml` runs `pytest -q` on push/PR
   (Python 3.12, installs from `requirements.txt`; suite is fast and offline).
