@@ -406,6 +406,8 @@ def main():
     ap.add_argument("--min-dsr", type=float, default=MIN_DSR)
     ap.add_argument("--allow-unconfirmed", action="store_true",
                     help="drop the positive-holdout-Sharpe requirement")
+    ap.add_argument("--refresh", action="store_true",
+                    help="force fresh data download before running")
     args = ap.parse_args()
 
     if args.signals:
@@ -415,11 +417,11 @@ def main():
             return
         with open(PORTFOLIO_JSON) as f:
             spec = json.load(f)
-        data = L.load_universe()
+        data = L.load_universe(refresh=args.refresh)
         print_signals(signals_today(spec, data))
         return
 
-    data = L.load_universe()
+    data = L.load_universe(refresh=args.refresh)
     spec = build(data, corr_threshold=args.corr, target_vol=args.vol,
                  max_weight=args.max_weight, max_gross=args.max_gross,
                  min_dsr=args.min_dsr,

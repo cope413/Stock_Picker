@@ -67,10 +67,20 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
   per-asset net trade list without re-running validation. All knobs are CLI
   flags. Still open (folded into #4/#10): slippage-aware sizing and live data
   refresh for the daily signal run.
-- [ ] **10. Parameterize the date range + data hygiene.** `END` is hardcoded to
-  2025-01-01 and the parquet cache never invalidates. Add `--end today`,
-  cache staleness checks, and data-quality validation (gap detection, split
-  anomalies, zero-volume days).
+- [x] **10. Parameterize the date range + data hygiene.** **Done in Layer 1:**
+  `END` is now a `"today"` sentinel resolved at call time (explicit dates still
+  work; `--start/--end` CLI flags added). Cached parquet gets a meta sidecar
+  and is checked for staleness — missing expected bars at the end (business
+  days for equities, calendar days for crypto, 2-bar tolerance for
+  weekends/holidays) or a widened start trigger a **full** re-download (not an
+  incremental append: `auto_adjust` rewrites history on splits/dividends).
+  `validate_data()` screens every frame for non-positive prices,
+  duplicate/unsorted dates, OHLC violations, split-sized returns, zero-volume
+  days, and calendar gaps; `--strict` drops critical failures. Results are now
+  sliced to the requested `[start, end)` even when the cache holds more —
+  fixing a latent bug where a wide cache could leak post-`END` bars past
+  holdout boundaries. `layer6_portfolio.py --signals --refresh` pulls fresh
+  bars for the daily run.
 
 ## P3 — Engineering hygiene
 

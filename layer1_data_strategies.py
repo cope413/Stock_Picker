@@ -48,8 +48,9 @@ import pandas as pd
 # --------------------------------------------------------------------------- #
 
 START = "2010-01-01"
-END = "2025-01-01"
+END = "today"          # sentinel resolved at call time; any "YYYY-MM-DD" works
 MIN_BARS = 500
+MAX_END_GAP_BARS = 2   # missing expected bars at the end before cache is stale
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data_cache")
 
 TICKERS: Dict[str, List[str]] = {
@@ -72,6 +73,155 @@ def _cache_path(ticker: str) -> str:
     return os.path.join(CACHE_DIR, f"{ticker.replace('/', '_')}.parquet")
 
 
+def _meta_path(ticker: str) -> str:
+    return _cache_path(ticker).replace(".parquet", ".meta.json")
+
+
+def resolve_end(end: str | None = END) -> str:
+    """Resolve the ``end`` argument: ``None``/``"today"`` -> today's date."""
+    if end is None or str(end).lower() == "today":
+        return pd.Timestamp.today().normalize().strftime("%Y-%m-%d")
+    return str(end)
+
+
+def _is_crypto(ticker: str) -> bool:
+    return ticker.upper().endswith("-USD")
+
+
+def _write_meta(ticker: str, start: str, end: str) -> None:
+    import json
+    try:
+        with open(_meta_path(ticker), "w") as f:
+            json.dump({"start": start, "end": end,
+                       "downloaded_at": pd.Timestamp.now().isoformat()}, f)
+    except Exception:
+        pass
+
+
+def _read_meta(ticker: str) -> dict | None:
+    import json
+    try:
+        with open(_meta_path(ticker)) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def cache_is_stale(df: pd.DataFrame, ticker: str, start: str, end: str,
+                   max_end_gap_bars: int = MAX_END_GAP_BARS) -> str | None:
+    """Return a reason string if the cached frame can't serve [start, end).
+
+    Two checks:
+    - **end staleness**: more than ``max_end_gap_bars`` *expected* bars
+      (business days for equities, calendar days for crypto) lie strictly
+      between the last cached bar and the requested end. The tolerance absorbs
+      weekends/holidays and yfinance's exclusive-end convention.
+    - **start coverage**: the recorded download started later than the
+      requested start (only checkable when a meta sidecar exists; the first
+      cached bar alone can't distinguish "asset listed late" from "cache
+      built with a later start").
+    """
+    end_ts = pd.Timestamp(end)
+    last = df.index.max()
+    if _is_crypto(ticker):
+        missing = max((end_ts - last).days - 1, 0)
+    else:
+        missing = len(pd.bdate_range(last, end_ts, inclusive="neither"))
+    if missing > max_end_gap_bars:
+        return (f"last cached bar {last.date()} is {missing} expected bars "
+                f"behind requested end {end_ts.date()}")
+
+    meta = _read_meta(ticker)
+    if meta and pd.Timestamp(start) < pd.Timestamp(meta["start"]):
+        return (f"cache was built from {meta['start']}, "
+                f"requested start {start} is earlier")
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# Data quality (TODO #10)
+# --------------------------------------------------------------------------- #
+
+def validate_data(df: pd.DataFrame, ticker: str,
+                  split_return_threshold: float = 0.50,
+                  zero_volume_frac: float = 0.05,
+                  max_gap_bars: int = 10) -> List[Tuple[str, str]]:
+    """Screen an OHLCV frame for the ways yfinance data quietly breaks.
+
+    Returns a list of ``(severity, message)`` where severity is ``"critical"``
+    (data unusable as-is) or ``"warn"`` (usable, but know about it).
+    """
+    issues: List[Tuple[str, str]] = []
+    close = df["Close"]
+
+    if (close <= 0).any():
+        issues.append(("critical",
+                       f"{int((close <= 0).sum())} non-positive Close values"))
+    if df.index.duplicated().any():
+        issues.append(("critical",
+                       f"{int(df.index.duplicated().sum())} duplicate dates"))
+    if not df.index.is_monotonic_increasing:
+        issues.append(("critical", "index is not sorted"))
+
+    if {"High", "Low"}.issubset(df.columns):
+        bad = (df["High"] < df["Low"]).sum()
+        if bad:
+            issues.append(("warn", f"{int(bad)} bars with High < Low"))
+        out = ((close > df["High"] * 1.001) | (close < df["Low"] * 0.999)).sum()
+        if out:
+            issues.append(("warn",
+                           f"{int(out)} bars with Close outside [Low, High]"))
+
+    r = close.pct_change().abs()
+    n_ext = int((r > split_return_threshold).sum())
+    if n_ext:
+        worst = r.idxmax()
+        issues.append(("warn",
+                       f"{n_ext} bar(s) with |return| > "
+                       f"{split_return_threshold:.0%} (worst {worst.date()}: "
+                       f"{r.max():+.0%}) — possible unadjusted split"))
+
+    if "Volume" in df.columns and len(df):
+        zfrac = float((df["Volume"] <= 0).mean())
+        if zfrac > zero_volume_frac:
+            issues.append(("warn",
+                           f"{zfrac:.1%} of bars have zero volume"))
+
+    if len(df) > 1:
+        if _is_crypto(ticker):
+            gaps = df.index.to_series().diff().dt.days.dropna() - 1
+        else:
+            expected = pd.bdate_range(df.index.min(), df.index.max())
+            present = df.index
+            missing_mask = ~expected.isin(present)
+            # longest run of consecutive missing expected bars
+            runs, run = [], 0
+            for m in missing_mask:
+                if m:
+                    run += 1
+                elif run:
+                    runs.append(run)
+                    run = 0
+            if run:
+                runs.append(run)
+            gaps = pd.Series(runs, dtype=float)
+        max_gap = int(gaps.max()) if len(gaps) else 0
+        if max_gap > max_gap_bars:
+            issues.append(("warn",
+                           f"largest calendar gap is {max_gap} expected bars"))
+    return issues
+
+
+def _report_quality(ticker: str, issues: List[Tuple[str, str]],
+                    verbose: bool) -> bool:
+    """Print issues; return True if any is critical."""
+    critical = any(sev == "critical" for sev, _ in issues)
+    if verbose:
+        for sev, msg in issues:
+            print(f"  {'!!' if sev == 'critical' else ' ~'} {ticker}: {msg}")
+    return critical
+
+
 def _normalize(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
     """Coerce a yfinance result into a clean Open/High/Low/Close/Volume frame."""
     df = raw.copy()
@@ -91,20 +241,37 @@ def _normalize(raw: pd.DataFrame, ticker: str) -> pd.DataFrame:
 def download_data(
     tickers: List[str] | None = None,
     start: str = START,
-    end: str = END,
+    end: str | None = END,
     min_bars: int = MIN_BARS,
     cache_dir: str = CACHE_DIR,
     use_cache: bool = True,
+    refresh: bool = False,
+    validate: bool = True,
+    strict: bool = False,
     verbose: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """Download daily OHLCV for ``tickers`` and return {ticker: DataFrame}.
 
-    Assets with fewer than ``min_bars`` rows are skipped. Results are cached to
-    parquet so repeat runs (and later layers) are instant.
+    ``end`` defaults to the ``"today"`` sentinel (resolved at call time), so a
+    plain run is always current. Cached parquet is reused only if it covers
+    the requested range and isn't stale (see :func:`cache_is_stale`); a stale
+    cache triggers a **full** re-download rather than an incremental append,
+    because ``auto_adjust=True`` rewrites the whole history whenever a split
+    or dividend lands — appending new adjusted bars onto old adjusted bars
+    silently corrupts the series. ``refresh=True`` forces re-download.
+
+    Results are sliced to ``[start, end)`` even when the cache holds more, so
+    holdout boundaries in later layers can't be leaked by a wide cache.
+
+    With ``validate=True`` each frame is screened for non-positive prices,
+    duplicate/unsorted dates, OHLC violations, split-sized returns,
+    zero-volume days, and calendar gaps. Warnings are printed; assets with
+    *critical* issues are dropped when ``strict=True``.
     """
     import yfinance as yf
 
     tickers = tickers or ALL_TICKERS
+    end = resolve_end(end)
     os.makedirs(cache_dir, exist_ok=True)
     out: Dict[str, pd.DataFrame] = {}
     skipped: List[str] = []
@@ -112,9 +279,14 @@ def download_data(
     for t in tickers:
         cpath = _cache_path(t)
         df = None
-        if use_cache and os.path.exists(cpath):
+        if use_cache and not refresh and os.path.exists(cpath):
             try:
-                df = pd.read_parquet(cpath)
+                cached = pd.read_parquet(cpath)
+                reason = cache_is_stale(cached, t, start, end)
+                if reason is None:
+                    df = cached
+                elif verbose:
+                    print(f"  ~ {t}: cache stale ({reason}) -> re-downloading")
             except Exception:
                 df = None
         if df is None:
@@ -134,14 +306,27 @@ def download_data(
             df = _normalize(raw, t)
             try:
                 df.to_parquet(cpath)
+                _write_meta(t, start, end)
             except Exception:
                 pass
+
+        # honor the requested window even when the cache holds more
+        df = df.loc[(df.index >= pd.Timestamp(start))
+                    & (df.index < pd.Timestamp(end))]
 
         if len(df) < min_bars:
             if verbose:
                 print(f"  - {t}: only {len(df)} bars (< {min_bars}) -> skipped")
             skipped.append(t)
             continue
+
+        if validate:
+            critical = _report_quality(t, validate_data(df, t), verbose)
+            if critical and strict:
+                if verbose:
+                    print(f"  ! {t}: dropped (critical data issues, strict mode)")
+                skipped.append(t)
+                continue
 
         out[t] = df
         if verbose:
@@ -150,7 +335,8 @@ def download_data(
 
     if verbose:
         print(f"\nUniverse: {len(out)} kept, {len(skipped)} skipped"
-              + (f"  ({', '.join(skipped)})" if skipped else ""))
+              + (f"  ({', '.join(skipped)})" if skipped else "")
+              + f"  |  window [{start} .. {end})")
     return out
 
 
@@ -1024,8 +1210,21 @@ def _self_test(data: Dict[str, pd.DataFrame]) -> None:
 
 
 def main():
-    print("Layer 1 — downloading universe ...\n")
-    data = download_data()
+    import argparse
+    ap = argparse.ArgumentParser(description="Layer 1 — data + strategies")
+    ap.add_argument("--start", default=START)
+    ap.add_argument("--end", default=END,
+                    help='"today" (default) or YYYY-MM-DD')
+    ap.add_argument("--refresh", action="store_true",
+                    help="force re-download, ignoring the cache")
+    ap.add_argument("--strict", action="store_true",
+                    help="drop assets with critical data-quality issues")
+    args = ap.parse_args()
+
+    print(f"Layer 1 — downloading universe "
+          f"[{args.start} .. {resolve_end(args.end)}) ...\n")
+    data = download_data(start=args.start, end=args.end,
+                         refresh=args.refresh, strict=args.strict)
     _self_test(data)
     print("\nDone. Import from later layers via:")
     print("    from layer1_data_strategies import "

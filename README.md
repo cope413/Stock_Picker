@@ -47,6 +47,27 @@ for name, fn, params, category in configs:
         signal = fn(df, **params)             # daily position in {-1, 0, 1}
 ```
 
+### Data hygiene
+
+`END` defaults to a `"today"` sentinel resolved at call time, so every run is
+current; pass `--end 2024-01-01` (or `end=` in code) to pin a window. The
+parquet cache carries a meta sidecar and invalidates itself when expected bars
+are missing at the end (2-bar tolerance for weekends/holidays; calendar days
+for crypto) or when the requested start predates the cached download. Stale
+caches trigger a *full* re-download — never an incremental append, because
+`auto_adjust` rewrites the whole history whenever a split or dividend lands.
+Every frame is screened for non-positive prices, duplicate dates, OHLC
+violations, split-sized returns, zero-volume days, and calendar gaps
+(`--strict` drops critical failures). Returned frames are always sliced to the
+requested `[start, end)`, so a wide cache can never leak bars past a holdout
+boundary.
+
+```bash
+python layer1_data_strategies.py                      # through today
+python layer1_data_strategies.py --end 2024-01-01    # pinned window
+python layer1_data_strategies.py --refresh --strict  # force fresh + validate hard
+```
+
 ## Layer 2 — Backtest, Walk-Forward & the Survival Funnel (`layer2_funnel.py`)
 
 **Backtest:** a strategy's daily return is its (Layer-1, already-lagged) position
@@ -190,7 +211,8 @@ just:
 ```bash
 python layer6_portfolio.py             # full build: validate → cluster →
                                        # weight → save spec → today's signals
-python layer6_portfolio.py --signals   # signals only, from the saved spec
+python layer6_portfolio.py --signals            # from the saved spec
+python layer6_portfolio.py --signals --refresh  # pull fresh bars first
 python layer6_portfolio.py --corr 0.6 --vol 0.08 --max-weight 0.2 \
                            --max-gross 1.5 --min-dsr 0.9
 ```
