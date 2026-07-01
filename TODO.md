@@ -37,9 +37,13 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
   bootstrap is now the default in `layer3.bootstrap_stress`
   (`method="block"`, block length ~n^(1/3) by default); `"iid"` and
   `"permute"` remain available.
-- [ ] **6. De-duplicate survivors.** The funnel counts each (config × asset) row
+- [x] **6. De-duplicate survivors.** The funnel counts each (config × asset) row
   separately, so ten near-identical `ma_crossover` variants on SPY read as ten
-  edges. Cluster survivors by return correlation and report independent edges.
+  edges. **Done in `layer6_portfolio.py`:** `cluster_survivors()` computes each
+  survivor's daily return stream and greedily clusters on absolute return
+  correlation (|ρ| ≥ 0.70, best-quality-first, negative correlation counts as
+  the same edge); one representative per cluster survives. Cluster detail is
+  written to `layer6_clusters.csv`.
 - [x] **7. `gap_fade` removed.** The central one-bar signal shift meant the fade
   executed the day *after* the gap — the strategy as coded could not do what
   its name claimed. Removed (46 families / 168 configs now) rather than
@@ -53,9 +57,16 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
 
 ## P2 — The missing product
 
-- [ ] **9. Build the actual picker (Layer 6).** Combine vetted survivors into a
-  portfolio: correlation-aware weights, vol targeting, position limits, and a
-  `signals_today` CLI that prints current positions.
+- [x] **9. Build the actual picker (Layer 6).** **Done in
+  `layer6_portfolio.py`:** eligible survivors (DSR ≥ 0.95 *and* confirmed on
+  the holdout by default) are de-duplicated (#6), combined with
+  equal-risk-contribution weights (cyclical algorithm, no scipy), capped per
+  strategy (25% of gross), and scaled to a 10% annualized vol target under a
+  1.0× gross-leverage cap. The spec persists to `layer6_portfolio.json`;
+  `python layer6_portfolio.py --signals` prints per-strategy exposures and the
+  per-asset net trade list without re-running validation. All knobs are CLI
+  flags. Still open (folded into #4/#10): slippage-aware sizing and live data
+  refresh for the daily signal run.
 - [ ] **10. Parameterize the date range + data hygiene.** `END` is hardcoded to
   2025-01-01 and the parquet cache never invalidates. Add `--end today`,
   cache staleness checks, and data-quality validation (gap detection, split
@@ -64,7 +75,8 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
 ## P3 — Engineering hygiene
 
 - [x] **11. `requirements.txt`** with pinned minimum versions.
-- [ ] **12. CI** — GitHub Actions running `pytest -q` (suite is fast and offline).
+- [x] **12. CI** — `.github/workflows/tests.yml` runs `pytest -q` on push/PR
+  (Python 3.12, installs from `requirements.txt`; suite is fast and offline).
 - [ ] **13. Small cleanups** — move `CLAUDE Trading System.pdf` into `docs/`;
   either add the plotting module the "for charting" comments promise or fix
   the comments; add a LICENSE.

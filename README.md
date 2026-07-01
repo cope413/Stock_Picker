@@ -163,6 +163,43 @@ python layer5_validation.py --costs    # also run cost sensitivity
 Writes `sweep_results_dev.csv`, `layer5_holdout.csv`, and (with `--costs`)
 `cost_sensitivity.csv`.
 
+## Layer 6 — Portfolio + Signals: the actual picker (`layer6_portfolio.py`)
+
+Layers 1–5 test strategies; Layer 6 produces something you can trade.
+
+**Eligibility.** Only survivors with DSR ≥ 0.95 *and* a positive holdout Sharpe
+enter the portfolio (both thresholds are CLI flags; `--allow-unconfirmed`
+relaxes the holdout requirement). If nothing qualifies, Layer 6 refuses to
+build a portfolio — an empty book beats a book of noise.
+
+**De-duplication.** Each eligible survivor's daily return stream is computed
+and survivors are greedily clustered on absolute return correlation
+(|ρ| ≥ 0.70, best-quality-first; a strategy and its mirror count as one idea).
+One representative per cluster survives, turning e.g. ten near-identical
+`ma_crossover` grid variants on the same asset into the single edge they
+actually are. Cluster detail lands in `layer6_clusters.csv`.
+
+**Weights.** Independent edges get equal-risk-contribution weights (cyclical
+coordinate algorithm on the annualized sample covariance — no scipy), capped at
+25% of gross per strategy, then scaled so in-sample portfolio vol hits a 10%
+annual target subject to a 1.0× gross-leverage cap.
+
+**Signals.** The spec persists to `layer6_portfolio.json`, so the daily run is
+just:
+
+```bash
+python layer6_portfolio.py             # full build: validate → cluster →
+                                       # weight → save spec → today's signals
+python layer6_portfolio.py --signals   # signals only, from the saved spec
+python layer6_portfolio.py --corr 0.6 --vol 0.08 --max-weight 0.2 \
+                           --max-gross 1.5 --min-dsr 0.9
+```
+
+`signals_today` prints each strategy's current position × weight and the net
+exposure per asset — the trade list. Note the spec's `portfolio_sharpe` mixes
+dev and holdout bars and is descriptive only; the Layer 5 holdout table remains
+the number to believe.
+
 ## Known caveats
 
 **Survivorship bias in the universe.** The large-cap list (AAPL, MSFT, NVDA,
@@ -185,7 +222,11 @@ pytest -q
 
 `tests/test_pipeline.py` covers no-look-ahead, the metric primitives, the six
 filters, walk-forward stitching, the bootstrap method, and the cross-sectional
-portfolio (dollar-neutrality, costs, no look-ahead).
+portfolio (dollar-neutrality, costs, no look-ahead). `tests/test_validation.py`
+covers the holdout split and Deflated Sharpe math. `tests/test_portfolio.py`
+covers correlation clustering (including mirrored strategies and low-overlap
+pairs), ERC weights (equal risk contributions, caps), vol targeting, and
+`signals_today`. 36 tests, all offline.
 
 ## Roadmap
 
@@ -196,4 +237,5 @@ See **TODO.md** for the full prioritized list.
 - Layer 3 — parameter sensitivity + block-bootstrap stress test ✅
 - Layer 4 — cross-sectional momentum vs single-asset ✅
 - Layer 5 — true holdout + Deflated Sharpe + cost sensitivity ✅
-- Layer 6 — portfolio construction + `signals_today` (the actual picker) ⬜
+- Layer 6 — de-duplication + ERC portfolio + `signals_today` ✅
+- CI — GitHub Actions runs the suite on every push/PR ✅
