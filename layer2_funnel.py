@@ -7,7 +7,8 @@ Builds on Layer 1. Provides:
   * BACKTEST: a strategy's daily return is its (lagged) position times the
     asset's return, minus a per-side transaction cost (default 1bp, configurable,
     higher for crypto). Metrics on any return series: annualized Sharpe
-    (mean/std * sqrt(252)), max drawdown, and trade count (position changes).
+    (mean/std * sqrt(bars-per-year), inferred per asset: ~252 equity, ~365
+    crypto), max drawdown, and trade count (position changes).
 
   * WALK-FORWARD: split each asset's history into 5 sequential windows. Within
     each window the first 70% is in-sample, the last 30% out-of-sample. Keep ONLY
@@ -88,15 +89,59 @@ def strategy_returns(position: pd.Series, ret: pd.Series,
     return pos * r - cost
 
 
-def sharpe(returns: pd.Series, periods: int = TRADING_DAYS) -> float:
-    """Annualized Sharpe = mean/std * sqrt(periods). Risk-free assumed 0."""
+def periods_per_year(index) -> float:
+    """Observed bars per year of a *contiguous* daily index.
+
+    count/span inference: ~252 for equity weekdays, ~365 for crypto that trades
+    every calendar day. Falls back to TRADING_DAYS when the index is not
+    datetime-like or too short. NOTE: pass an asset's full contiguous index —
+    a stitched/gappy series (e.g. walk-forward OOS tails) spans more calendar
+    time than it has bars and would under-count; the walk-forward code handles
+    this by inferring frequency once from the input series and passing it down.
+    """
+    try:
+        idx = pd.DatetimeIndex(index)
+    except (TypeError, ValueError):
+        return float(TRADING_DAYS)
+    if len(idx) < 3:
+        return float(TRADING_DAYS)
+    span_days = (idx[-1] - idx[0]).days
+    if span_days <= 0:
+        return float(TRADING_DAYS)
+    return float(len(idx) - 1) / (span_days / 365.25)
+
+
+def sharpe(returns: pd.Series, periods: float | None = None) -> float:
+    """Annualized Sharpe = mean/std * sqrt(periods). Risk-free assumed 0.
+
+    ``periods`` is the number of bars per year. If None, it is inferred from
+    the return series' index via periods_per_year() (fallback 252), so crypto
+    (~365 bars/yr) and equities (~252) are annualized consistently.
+    """
     r = pd.Series(returns).dropna()
     if len(r) < 2:
         return 0.0
     sd = r.std(ddof=0)
     if sd == 0 or not np.isfinite(sd):
         return 0.0
+    if periods is None:
+        periods = periods_per_year(r.index)
     return float(r.mean() / sd * np.sqrt(periods))
+
+
+def sharpe_se(returns: pd.Series, periods: float | None = None) -> float:
+    """Approximate standard error of the annualized Sharpe (iid-normal
+    approximation): SE = sqrt((1 + SR_p^2/2) * periods / T) with SR_p the
+    per-period Sharpe. A 0.6 OOS Sharpe on ~4.5y of daily bars carries an SE
+    around 0.45 — report it next to the point estimate.
+    """
+    r = pd.Series(returns).dropna()
+    if len(r) < 2:
+        return float("inf")
+    if periods is None:
+        periods = periods_per_year(r.index)
+    sr_p = sharpe(r, periods) / np.sqrt(periods)
+    return float(np.sqrt((1.0 + 0.5 * sr_p ** 2) * periods / len(r)))
 
 
 def max_drawdown(returns: pd.Series) -> float:
@@ -139,8 +184,8 @@ def backtest(position: pd.Series, df: pd.DataFrame,
              cost_bps: float = 1.0) -> BacktestResult:
     """Full-sample backtest of a Layer-1 position series against ``df``."""
     sr = strategy_returns(position, asset_returns(df), cost_bps)
-    return BacktestResult(sr, sharpe(sr), max_drawdown(sr),
-                          trade_count(position), len(sr))
+    return BacktestResult(sr, sharpe(sr, periods_per_year(df.index)),
+                          max_drawdown(sr), trade_count(position), len(sr))
 
 
 # --------------------------------------------------------------------------- #
@@ -180,18 +225,27 @@ def walk_forward(position: pd.Series, df: pd.DataFrame,
     """
     sr = strategy_returns(position, asset_returns(df), cost_bps)
     return walk_forward_returns(sr, n_windows=n_windows, oos_frac=oos_frac,
-                                position=position)
+                                position=position,
+                                periods=periods_per_year(df.index))
 
 
 def walk_forward_returns(net_returns: pd.Series, n_windows: int = 5,
                          oos_frac: float = 0.30,
-                         position: Optional[pd.Series] = None) -> WalkForwardResult:
+                         position: Optional[pd.Series] = None,
+                         periods: Optional[float] = None) -> WalkForwardResult:
     """Walk-forward score a *precomputed net return series* (single asset or a
     whole portfolio). Same windowing as walk_forward() so the OOS Sharpe/drawdown
     is directly comparable. If ``position`` is given, OOS trade count is computed
     from it; otherwise trades are reported as 0.
+
+    ``periods`` (bars per year) is inferred from the input series' index when
+    not given. It is inferred ONCE here, from the full contiguous input, and
+    passed to every Sharpe below — the stitched OOS tails are gappy in calendar
+    time, so inferring from them directly would under-annualize.
     """
     sr = pd.Series(net_returns).dropna()
+    if periods is None:
+        periods = periods_per_year(sr.index)
     pos = position.reindex(sr.index).fillna(0.0) if position is not None else None
     n = len(sr)
     bounds = [round(i * n / n_windows) for i in range(n_windows + 1)]
@@ -207,15 +261,16 @@ def walk_forward_returns(net_returns: pd.Series, n_windows: int = 5,
         is_parts.append(seg.iloc[:cut])
         oos_seg = seg.iloc[cut:]
         oos_parts.append(oos_seg)
-        win_sharpes.append(sharpe(oos_seg))
+        win_sharpes.append(sharpe(oos_seg, periods))
         if pos is not None:
             oos_trades += trade_count(pos.iloc[bounds[i]:bounds[i + 1]].iloc[cut:])
 
     oos = pd.concat(oos_parts) if oos_parts else pd.Series(dtype=float)
     is_ = pd.concat(is_parts) if is_parts else pd.Series(dtype=float)
     return WalkForwardResult(
-        oos_returns=oos, oos_sharpe=sharpe(oos), oos_max_drawdown=max_drawdown(oos),
-        is_sharpe=sharpe(is_), is_max_drawdown=max_drawdown(is_),
+        oos_returns=oos, oos_sharpe=sharpe(oos, periods),
+        oos_max_drawdown=max_drawdown(oos),
+        is_sharpe=sharpe(is_, periods), is_max_drawdown=max_drawdown(is_),
         n_windows=n_windows, n_oos_bars=len(oos), n_oos_trades=oos_trades,
         window_oos_sharpes=win_sharpes,
     )

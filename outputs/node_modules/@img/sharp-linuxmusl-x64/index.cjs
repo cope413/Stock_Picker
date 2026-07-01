@@ -1,0 +1,1 @@
+module.exports = require('./lib/sharp-linuxmusl-x64-0.35.1.node');

@@ -22,10 +22,12 @@ worked by luck or by one magic parameter setting.
     the worst-case drawdown across resamples, and flag each survivor solid or
     fragile by its worst-case drawdown. Results are written to CSV for charting.
 
-    Note on method: a *pure* order-permutation leaves Sharpe unchanged (mean and
-    std are order-invariant), so it can only vary the drawdown path. To also get a
-    meaningful Sharpe distribution we resample WITH replacement by default
-    (``replace=True``); pass ``replace=False`` for pure path-shuffling.
+    Note on method: the default is a CIRCULAR BLOCK bootstrap (blocks of
+    ~n^(1/3) days with wrap-around), which preserves autocorrelation and
+    volatility clustering — iid resampling destroys vol clustering and
+    understates worst-case drawdowns. ``method="iid"`` (single-day resampling
+    with replacement) and ``method="permute"`` (pure order shuffle; Sharpe is
+    order-invariant so only the drawdown path varies) remain available.
 
     from layer3_robustness import (
         parameter_sensitivity, bootstrap_stress, run_bootstrap,
@@ -112,19 +114,55 @@ class BootResult:
 
 
 def bootstrap_stress(returns: pd.Series, n_reshuffles: int = 200,
-                     replace: bool = True, seed: int = 0) -> Optional[BootResult]:
-    """Resample a return series ``n_reshuffles`` times and summarise the spread."""
+                     method: str = "block", block_size: Optional[int] = None,
+                     replace: Optional[bool] = None, seed: int = 0,
+                     periods: Optional[float] = None) -> Optional[BootResult]:
+    """Resample a return series ``n_reshuffles`` times and summarise the spread.
+
+    method:
+      * "block"   (default) — circular block bootstrap: sample overlapping
+        blocks of length ``block_size`` (default ~n^(1/3), min 5) with
+        wrap-around, preserving autocorrelation and volatility clustering.
+        IID resampling destroys vol clustering and understates worst-case
+        drawdowns — the exact quantity this stress test exists to measure.
+      * "iid"     — resample single days with replacement (old default).
+      * "permute" — pure order shuffle: Sharpe is order-invariant so only the
+        drawdown path varies.
+
+    ``replace`` is kept for backward compatibility: True -> "iid",
+    False -> "permute" (overrides ``method``).
+
+    ``periods`` (bars per year) is used to annualize the resampled Sharpes.
+    Resampled series carry no datetime index, so pass the asset's frequency
+    (F.periods_per_year(df.index)); defaults to 252 if omitted.
+    """
+    if replace is not None:
+        method = "iid" if replace else "permute"
     r = pd.Series(returns).dropna().values
-    if len(r) < 2:
+    n = len(r)
+    if n < 2:
         return None
+    if periods is None:
+        periods = float(F.TRADING_DAYS)
+    if block_size is None:
+        block_size = max(5, int(round(n ** (1 / 3))))
     rng = np.random.default_rng(seed)
     sharpes = np.empty(n_reshuffles)
     dds = np.empty(n_reshuffles)
     for i in range(n_reshuffles):
-        sample = rng.choice(r, size=len(r), replace=True) if replace \
-            else rng.permutation(r)
+        if method == "block":
+            n_blocks = int(np.ceil(n / block_size))
+            starts = rng.integers(0, n, n_blocks)
+            idx = (starts[:, None] + np.arange(block_size)[None, :]) % n
+            sample = r[idx.ravel()][:n]
+        elif method == "iid":
+            sample = rng.choice(r, size=n, replace=True)
+        elif method == "permute":
+            sample = rng.permutation(r)
+        else:
+            raise ValueError(f"unknown bootstrap method {method!r}")
         sr = pd.Series(sample)
-        sharpes[i] = F.sharpe(sr)
+        sharpes[i] = F.sharpe(sr, periods)
         dds[i] = F.max_drawdown(sr)
     return BootResult(
         n=n_reshuffles,
@@ -144,7 +182,8 @@ def classify(worst_drawdown: float, dd_threshold: float = 0.50) -> str:
 
 def run_bootstrap(survivors: pd.DataFrame, data: Dict[str, pd.DataFrame],
                   configs: Optional[list] = None, n_reshuffles: int = 200,
-                  replace: bool = True, dd_threshold: float = 0.50,
+                  method: str = "block", block_size: Optional[int] = None,
+                  replace: Optional[bool] = None, dd_threshold: float = 0.50,
                   top_n: Optional[int] = None, cost_fn=F.default_cost_bps,
                   seed: int = 0, write: bool = True,
                   summary_csv: str = BOOTSTRAP_CSV,
@@ -177,8 +216,10 @@ def run_bootstrap(survivors: pd.DataFrame, data: Dict[str, pd.DataFrame],
         df = data[asset]
         pos = fn(df, **params)
         wf = F.walk_forward(pos, df, cost_bps=cost_fn(asset))
-        boot = bootstrap_stress(wf.oos_returns, n_reshuffles, replace,
-                                seed=seed + k)
+        boot = bootstrap_stress(wf.oos_returns, n_reshuffles, method=method,
+                                block_size=block_size, replace=replace,
+                                seed=seed + k,
+                                periods=F.periods_per_year(df.index))
         if boot is None:
             continue
         flag = classify(boot.worst_drawdown, dd_threshold)

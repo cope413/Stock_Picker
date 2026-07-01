@@ -9,8 +9,10 @@ for ~30 liquid assets (index/sector ETFs, commodities/rates/intl, crypto, large 
 Assets with under 500 bars are skipped. Results are cached to parquet under
 `data_cache/` so later layers don't re-download.
 
-**Strategy library:** 47 families spanning the popular-retail spectrum (trend 19,
-meanrev 12, volume 6, volatility 3, pattern 4, composite 3). Each is a function
+**Strategy library:** 46 families spanning the popular-retail spectrum (trend 19,
+meanrev 11, volume 6, volatility 3, pattern 4, composite 3). (A `gap_fade`
+family was removed: the central one-bar shift meant it executed the day *after*
+the gap — see TODO.md #7.) Each is a function
 taking a price DataFrame (+ params) and returning a daily position series in
 `{-1, 0, 1}` (long / flat / short) with **no look-ahead** — signals are shifted one
 bar centrally by the `@strategy` decorator. Each family is tagged with a category:
@@ -18,13 +20,13 @@ bar centrally by the `@strategy` decorator. Each family is tagged with a categor
 
 **Parameter grid:** each family carries a small grid of settings. `build_configs()`
 expands every family across its grid and returns `(name, function, params, category)`
-tuples — **171 configs**, so running all of them across ~30 assets yields several
+tuples — **168 configs**, so running all of them across ~30 assets yields several
 thousand backtests.
 
 ### Usage
 
 ```bash
-pip install yfinance numpy pandas pyarrow
+pip install -r requirements.txt
 python layer1_data_strategies.py        # download universe + run self-test
 ```
 
@@ -50,7 +52,9 @@ for name, fn, params, category in configs:
 **Backtest:** a strategy's daily return is its (Layer-1, already-lagged) position
 times the asset's return, minus a per-side transaction cost (default 1bp,
 configurable, 10bp for crypto). Metrics on any return series: annualized Sharpe
-(`mean/std * sqrt(252)`), max drawdown, trade count.
+(`mean/std * sqrt(bars per year)`, with the bar frequency inferred per asset —
+~252 for equities, ~365 for crypto, so both are annualized consistently), max
+drawdown, trade count, and a Sharpe standard error (`sharpe_se`).
 
 **Walk-forward:** each asset's history is split into 5 sequential windows; within
 each, the first 70% is in-sample and the last 30% out-of-sample. Only the 5 OOS
@@ -58,8 +62,8 @@ tails are kept and stitched into one series — Sharpe and max drawdown on that
 stitched OOS series are the numbers that matter, because the strategy was never
 tuned on them.
 
-**Sweep:** `run_sweep()` runs every (config × asset) walk-forward (171 × ~28 ≈
-4,800 backtests), records IS Sharpe / OOS Sharpe / OOS max drawdown / OOS trade
+**Sweep:** `run_sweep()` runs every (config × asset) walk-forward (168 × ~28 ≈
+4,700 backtests), records IS Sharpe / OOS Sharpe / OOS max drawdown / OOS trade
 count to `sweep_results.csv`, and prints the total count.
 
 **Six-filter survival funnel** (`apply_filters` / `funnel_report`, all thresholds
@@ -98,10 +102,11 @@ and flags each survivor **solid** or **fragile** by whether its worst-case
 drawdown is still survivable. Written to `bootstrap_results.csv` (summary) and
 `bootstrap_samples.csv` (per-resample, for charting in Layer 4).
 
-> Method note: a pure order-permutation leaves Sharpe unchanged (mean/std are
-> order-invariant), so to obtain a Sharpe distribution the bootstrap resamples
-> *with replacement* by default; `replace=False` gives pure path-shuffling
-> (Sharpe constant, only drawdown varies).
+> Method note: the default is a **circular block bootstrap** (blocks of
+> ~n^(1/3) days, wrap-around), which preserves autocorrelation and volatility
+> clustering — iid resampling destroys vol clustering and understates
+> worst-case drawdowns. `method="iid"` and `method="permute"` remain available
+> (a pure permutation leaves Sharpe unchanged; only the drawdown path varies).
 
 ```bash
 python layer3_robustness.py      # sensitivity + bootstrap, reuses sweep_results.csv
@@ -126,6 +131,51 @@ returns, for charting). Nothing is tuned — it reports what happens.
 python layer4_xsec_momentum.py
 ```
 
+## Layer 5 — Validation: Holdout, Deflated Sharpe, Cost Sensitivity (`layer5_validation.py`)
+
+The funnel has a structural flaw if used alone: selecting survivors by their
+walk-forward "OOS" Sharpe across ~4,700 backtests means that number is no longer
+out-of-sample — with that many trials, chance alone clears any fixed threshold.
+Layer 5 is the correction, and its output is the number to believe:
+
+**True holdout.** The sweep and funnel run only on data before `HOLDOUT_START`
+(default 2022-01-01). Survivors are then scored exactly once on the untouched
+holdout years (positions are computed on full history so indicators stay warm;
+only holdout returns are scored, with Sharpe ± standard error reported).
+
+**Deflated Sharpe Ratio** (Bailey & López de Prado): for each survivor, the
+probability that its OOS Sharpe exceeds the *expected maximum* Sharpe of the N
+trials run on the same asset, given the trial count/variance and the return
+series' length, skew, and kurtosis. DSR ≥ 0.95 means the edge is unlikely to be
+a multiple-testing artifact. (Trials are correlated, so the benchmark is
+conservative — clearing it is a strong sign.)
+
+**Cost sensitivity** (`--costs`): re-scores the entire sweep at 1×/5×/10× the
+base per-side cost, reusing positions (~1.3× the cost of one sweep), and reports
+how the survivor count decays. Anything that dies at 5× base cost was never a
+real edge once slippage is acknowledged.
+
+```bash
+python layer5_validation.py            # holdout + DSR pipeline
+python layer5_validation.py --costs    # also run cost sensitivity
+```
+
+Writes `sweep_results_dev.csv`, `layer5_holdout.csv`, and (with `--costs`)
+`cost_sensitivity.csv`.
+
+## Known caveats
+
+**Survivorship bias in the universe.** The large-cap list (AAPL, MSFT, NVDA,
+TSLA, AMZN, GOOGL, META, JPM) is 2025's known winners backtested from 2010.
+Long-biased results on that group are inflated for reasons that have nothing to
+do with the strategies — discount them accordingly. A point-in-time universe
+(or adding delisted/stagnant names) is on the roadmap (TODO.md #2).
+
+**Costs are still simplified.** Per-side bps on turnover, no explicit slippage
+model, and shorting is treated as free (no borrow cost or feasibility check).
+Use the Layer 5 cost-sensitivity report to see which results are fragile to
+this assumption (TODO.md #4).
+
 ## Testing
 
 ```bash
@@ -139,7 +189,11 @@ portfolio (dollar-neutrality, costs, no look-ahead).
 
 ## Roadmap
 
+See **TODO.md** for the full prioritized list.
+
 - Layer 1 — data + strategy library + parameter grid ✅
 - Layer 2 — backtest + walk-forward + six-filter survival funnel ✅
-- Layer 3 — parameter sensitivity + bootstrap stress test ✅
+- Layer 3 — parameter sensitivity + block-bootstrap stress test ✅
 - Layer 4 — cross-sectional momentum vs single-asset ✅
+- Layer 5 — true holdout + Deflated Sharpe + cost sensitivity ✅
+- Layer 6 — portfolio construction + `signals_today` (the actual picker) ⬜

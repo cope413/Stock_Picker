@@ -10,11 +10,14 @@ data_cache/
 
 # Generated analysis outputs
 sweep_results.csv
+sweep_results_dev.csv
 parameter_sensitivity.csv
 bootstrap_results.csv
 bootstrap_samples.csv
 layer4_xsec_momentum.csv
 layer4_xsec_returns.csv
+layer5_holdout.csv
+cost_sensitivity.csv
 
 # pytest
 .pytest_cache/

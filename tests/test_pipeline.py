@@ -51,9 +51,10 @@ def universe() -> dict:
 @pytest.mark.unit
 def test_families_and_categories():
     counts = {c: len(L.list_strategies(c)) for c in L.CATEGORIES}
-    assert counts == {"trend": 19, "meanrev": 12, "volume": 6,
+    assert counts == {"trend": 19, "meanrev": 11, "volume": 6,
                       "volatility": 3, "pattern": 4, "composite": 3}
-    assert len(L.STRATEGIES) == 47
+    assert len(L.STRATEGIES) == 46
+    assert "gap_fade" not in L.STRATEGIES   # removed: see TODO.md #7
 
 
 @pytest.mark.unit
@@ -106,6 +107,36 @@ def test_metric_primitives():
     assert F.sharpe(pd.Series(np.full(300, 0.001))) > 0
     assert F.sharpe(pd.Series([0.0, 0.0, 0.0])) == 0.0
     assert abs(F.max_drawdown(pd.Series([0, -0.5, 0.0])) - 0.5) < 1e-9
+
+
+@pytest.mark.unit
+def test_periods_per_year_inference():
+    weekdays = pd.bdate_range("2018-01-01", periods=1000)
+    everyday = pd.date_range("2018-01-01", periods=1000, freq="D")
+    assert 255 <= F.periods_per_year(weekdays) <= 266   # equity calendar
+    assert 360 <= F.periods_per_year(everyday) <= 370   # crypto calendar
+    assert F.periods_per_year(range(100)) == F.TRADING_DAYS  # fallback
+
+    # same daily returns => crypto calendar annualizes higher by sqrt(365/252)
+    g = np.random.default_rng(0)
+    r = g.normal(0.0006, 0.01, 1000)
+    s_eq = F.sharpe(pd.Series(r, index=weekdays))
+    s_cr = F.sharpe(pd.Series(r, index=everyday))
+    assert s_cr > s_eq > 0
+    assert abs(s_cr / s_eq - np.sqrt(F.periods_per_year(everyday)
+                                     / F.periods_per_year(weekdays))) < 1e-9
+
+
+@pytest.mark.unit
+def test_sharpe_se_reasonable():
+    g = np.random.default_rng(0)
+    r = pd.Series(g.normal(0.0004, 0.01, 1130),
+                  index=pd.bdate_range("2018-01-01", periods=1130))
+    se = F.sharpe_se(r)
+    assert 0.35 < se < 0.60           # ~4.5y of daily bars -> SE ~ 0.48
+    long = pd.Series(g.normal(0.0004, 0.01, 4 * 1130),
+                     index=pd.bdate_range("2005-01-01", periods=4 * 1130))
+    assert F.sharpe_se(long) < se     # more data, tighter estimate
 
 
 @pytest.mark.unit
@@ -174,14 +205,28 @@ def test_parameter_sensitivity_aggregation():
 def test_bootstrap_method():
     g = np.random.default_rng(1)
     rets = pd.Series(g.normal(0.0005, 0.01, 800))
-    rep = R.bootstrap_stress(rets, n_reshuffles=300, replace=True)
-    perm = R.bootstrap_stress(rets, n_reshuffles=300, replace=False)
-    assert rep.sharpe_p5 <= rep.sharpe_p50 <= rep.sharpe_p95
-    assert rep.worst_drawdown >= rep.median_drawdown
-    assert rep.sharpes.std() > 1e-6              # resample varies Sharpe
-    assert perm.sharpes.std() < 1e-9            # permutation does not
+    block = R.bootstrap_stress(rets, n_reshuffles=300)               # default
+    rep = R.bootstrap_stress(rets, n_reshuffles=300, replace=True)   # iid
+    perm = R.bootstrap_stress(rets, n_reshuffles=300, replace=False) # permute
+    for b in (block, rep):
+        assert b.sharpe_p5 <= b.sharpe_p50 <= b.sharpe_p95
+        assert b.worst_drawdown >= b.median_drawdown
+        assert b.sharpes.std() > 1e-6            # resampling varies Sharpe
+    assert perm.sharpes.std() < 1e-9             # permutation does not
+    assert perm.drawdowns.std() > 1e-9           # ... but varies the path
     assert R.classify(0.30, 0.50) == "solid"
     assert R.classify(0.70, 0.50) == "fragile"
+
+
+@pytest.mark.unit
+def test_bootstrap_periods_scale():
+    """Crypto-frequency annualization must scale resampled Sharpes by
+    sqrt(365/252) relative to equity-frequency annualization."""
+    g = np.random.default_rng(2)
+    rets = pd.Series(g.normal(0.0008, 0.01, 600))
+    eq = R.bootstrap_stress(rets, n_reshuffles=50, periods=252, seed=3)
+    cr = R.bootstrap_stress(rets, n_reshuffles=50, periods=365, seed=3)
+    assert np.allclose(cr.sharpes, eq.sharpes * np.sqrt(365 / 252))
 
 
 # --------------------------------------------------------------------------- #

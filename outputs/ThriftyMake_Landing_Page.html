@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MatterHackers ThriftyMake Filament | MatterHackers</title>
+<meta name="description" content="MatterHackers ThriftyMake is our most affordable 3D printer filament — reliable PLA+, ABS, and PETG at the lowest price per spool. Quality that costs less." />
+<style>
+  :root{
+    --blue:#009BFF; --blue-d:#0082d6; --blue-dd:#00659f;
+    --green:#4a9d33; --green-d:#3f8a2b;      /* add-to-cart / value accent */
+    --orange:#e8641e;                          /* sale price */
+    --ink:#23262b; --body:#4c5560; --muted:#8a94a2;
+    --border:#e3e7ec; --border2:#eef1f4;
+    --bg:#fff; --gray:#f5f6f8; --dark:#20242b;
+    --wrap:1240px;
+    --sans:"Helvetica Neue",Helvetica,Arial,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:var(--sans);color:var(--body);background:var(--bg);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:var(--wrap);margin:0 auto;padding:0 20px}
+  h1,h2,h3,h4{color:var(--ink);line-height:1.2;font-weight:700}
+
+  /* utility bar */
+  .util{background:#eef1f4;color:#5a6270;font-size:12.5px}
+  .util .wrap{display:flex;justify-content:space-between;align-items:center;height:34px}
+  .util a{color:#5a6270}
+  .util b{color:var(--ink)}
+  @media(max-width:700px){.util .wrap>span:last-child{display:none}}
+
+  /* header */
+  header.site{border-bottom:1px solid var(--border);background:#fff}
+  .head-in{display:flex;align-items:center;gap:24px;height:70px}
+  .logo{font-size:23px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+  .logo b{color:var(--blue);font-weight:800}
+  .search{flex:1;display:flex;max-width:620px}
+  .search input{flex:1;border:1.5px solid var(--border);border-right:none;border-radius:5px 0 0 5px;padding:10px 14px;font-size:14px;outline:none}
+  .search input:focus{border-color:var(--blue)}
+  .search button{background:var(--blue);border:none;color:#fff;padding:0 18px;border-radius:0 5px 5px 0;cursor:pointer;font-size:15px}
+  .head-ic{display:flex;gap:22px;align-items:center;color:var(--body);font-size:13px;font-weight:600}
+  .head-ic a{color:var(--body);display:flex;flex-direction:column;align-items:center;gap:2px}
+  .head-ic svg{width:22px;height:22px;stroke:var(--body);fill:none;stroke-width:1.7}
+  @media(max-width:860px){.search{display:none}}
+
+  /* category nav */
+  .catnav{background:var(--dark)}
+  .catnav .wrap{display:flex;gap:2px;height:44px;align-items:stretch;overflow-x:auto}
+  .catnav a{color:#d3d8df;font-size:13.5px;font-weight:600;display:flex;align-items:center;padding:0 16px;white-space:nowrap}
+  .catnav a:hover{background:rgba(255,255,255,.08);color:#fff;text-decoration:none}
+  .catnav a.on{color:#fff;box-shadow:inset 0 -3px 0 var(--blue)}
+
+  /* banner */
+  .banner{background:#eef7ea;border-bottom:1px solid #dcebd4}
+  .banner .wrap{display:flex;align-items:center;justify-content:space-between;gap:30px;padding:34px 20px}
+  .banner .txt{max-width:660px}
+  .banner .tier{display:inline-block;background:var(--green);color:#fff;font-size:11.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:5px 12px;border-radius:4px}
+  .banner h1{font-size:40px;font-weight:800;color:var(--ink);margin:12px 0 4px;letter-spacing:-.02em}
+  .banner h1 small{display:block;font-size:14px;font-weight:800;letter-spacing:.2em;color:var(--green-d);margin-bottom:2px}
+  .banner .tag{font-size:20px;font-style:italic;font-weight:700;color:var(--green-d);margin-bottom:10px}
+  .banner p{font-size:15.5px;color:var(--body)}
+  .banner .art{flex-shrink:0}
+  .banner .art svg{width:150px;height:150px}
+  @media(max-width:820px){.banner .art{display:none}}
+
+  /* breadcrumb */
+  .crumb{font-size:12.5px;color:var(--muted);padding:14px 0}
+  .crumb a{color:var(--muted)}
+  .crumb span{color:var(--ink);font-weight:600}
+
+  /* intro copy */
+  .intro{padding:4px 0 26px;max-width:900px}
+  .intro h2{font-size:20px;margin-bottom:10px}
+  .intro p{font-size:15px;margin-bottom:10px}
+
+  /* sub-collections */
+  .subs{padding:6px 0 30px}
+  .subs .h{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:14px}
+  .sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .sub{display:flex;gap:14px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:16px;background:#fff;transition:.12s}
+  .sub:hover{border-color:var(--green);box-shadow:0 6px 16px rgba(0,0,0,.06);text-decoration:none}
+  .sub .sp{width:52px;height:52px;flex-shrink:0}
+  .sub b{color:var(--ink);font-size:15px;display:block}
+  .sub span{color:var(--body);font-size:13px}
+  @media(max-width:760px){.sub-grid{grid-template-columns:1fr}}
+
+  /* main two-col */
+  .main{display:grid;grid-template-columns:212px 1fr;gap:28px;padding:8px 0 40px}
+  .side h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:8px;margin:18px 0 10px}
+  .side h4:first-child{margin-top:0}
+  .side label{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--body);padding:4px 0;cursor:pointer}
+  .side label input{accent-color:var(--blue)}
+  .side .cnt{color:var(--muted);font-size:12px;margin-left:auto}
+  .side .clear{font-size:12.5px;font-weight:600}
+  @media(max-width:860px){.main{grid-template-columns:1fr}.side{display:none}}
+
+  .grid-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .grid-head .res{font-size:13px;color:var(--muted)}
+  .grid-head select{border:1px solid var(--border);border-radius:5px;padding:7px 10px;font-size:13px;color:var(--body)}
+  .prod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  @media(max-width:1100px){.prod-grid{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:760px){.prod-grid{grid-template-columns:repeat(2,1fr)}}
+  .prod{border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden;display:flex;flex-direction:column;transition:.12s;position:relative}
+  .prod:hover{box-shadow:0 8px 20px rgba(0,0,0,.09)}
+  .ribbons{position:absolute;top:8px;left:8px;display:flex;gap:5px;z-index:2}
+  .rb{font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:3px 7px;border-radius:3px;color:#fff}
+  .rb.bs{background:var(--blue)}
+  .rb.ep{background:#f0f3f6;color:#5a6270}
+  .swatch{height:158px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--border2)}
+  .swatch svg{width:96px;height:96px}
+  .pin{padding:13px 14px 15px;display:flex;flex-direction:column;flex:1}
+  .pin .mat{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green-d)}
+  .pin h4{font-size:13.5px;font-weight:600;color:var(--ink);margin:5px 0 12px;line-height:1.35;flex:1}
+  .pin h4 a{color:var(--ink)}
+  .price{font-size:18px;font-weight:800;color:var(--ink)}
+  .price .old{font-size:12.5px;color:var(--muted);text-decoration:line-through;font-weight:600;margin-left:6px}
+  .bulk{font-size:11.5px;color:var(--muted);margin:2px 0 11px}
+  .add{background:var(--green);color:#fff;border:none;border-radius:5px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;width:100%}
+  .add:hover{background:var(--green-d)}
+  .eta{font-size:12px;color:var(--muted);text-align:center;padding:10px 0 2px;font-weight:600}
+
+  /* compare strip */
+  .compare{background:var(--gray);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+  .compare .wrap{padding:34px 20px}
+  .compare .h{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:4px}
+  .compare .sh{font-size:14px;color:var(--body);margin-bottom:20px}
+  .cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .cmp{background:#fff;border:1px solid var(--border);border-radius:8px;padding:18px 20px;position:relative}
+  .cmp.on{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+  .cmp .t{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:4px;color:#fff;display:inline-block;margin-bottom:9px}
+  .cmp h3{font-size:17px;color:var(--ink)}
+  .cmp h3 small{display:block;font-size:11px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+  .cmp p{font-size:13.5px;color:var(--body);margin:7px 0 10px}
+  .cmp .lvl{font-size:12.5px;font-weight:700;color:var(--muted)}
+  .here{position:absolute;top:-10px;right:14px;background:var(--green);color:#fff;font-size:10px;font-weight:800;letter-spacing:.05em;padding:3px 10px;border-radius:12px;text-transform:uppercase}
+  @media(max-width:760px){.cmp-grid{grid-template-columns:1fr}}
+
+  /* guides */
+  .guides{padding:38px 0}
+  .guides .h{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:16px}
+  .g-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .g{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+  .g .thumb{height:96px;background:linear-gradient(135deg,#e8f4ff,#d4e9fb)}
+  .g .gin{padding:14px}
+  .g .gin b{font-size:13.5px;color:var(--ink);display:block;line-height:1.35}
+  .g .gin span{font-size:12px;color:var(--muted);display:block;margin-top:6px}
+  @media(max-width:900px){.g-grid{grid-template-columns:repeat(2,1fr)}}
+
+  /* newsletter */
+  .news{background:var(--dark);color:#cdd4dd}
+  .news .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:26px 20px;flex-wrap:wrap}
+  .news b{color:#fff;font-size:16px}
+  .news form{display:flex;gap:0}
+  .news input{border:none;border-radius:5px 0 0 5px;padding:11px 14px;font-size:14px;width:260px;outline:none}
+  .news button{background:var(--blue);border:none;color:#fff;font-weight:700;padding:0 20px;border-radius:0 5px 5px 0;cursor:pointer}
+
+  /* footer */
+  footer{background:#181b21;color:#8b95a2;font-size:13px;padding:36px 0 26px}
+  .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:26px;padding-bottom:24px;border-bottom:1px solid #2a2f38}
+  footer h5{color:#fff;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+  footer a{color:#8b95a2;display:block;padding:3px 0}
+  footer a:hover{color:#fff}
+  .foot-logo{font-size:20px;font-weight:800;color:#fff;margin-bottom:10px}
+  .foot-logo b{color:var(--blue)}
+  .foot-bot{padding-top:18px;font-size:12px;color:#6b7480}
+  @media(max-width:820px){.foot-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<!-- utility -->
+<div class="util"><div class="wrap">
+  <span><b>FREE, FAST Shipping</b> on orders over $35 in the U.S.*</span>
+  <span>Customer Service &nbsp;·&nbsp; +1 (800) 613-4290</span>
+</div></div>
+
+<!-- header -->
+<header class="site"><div class="wrap head-in">
+  <div class="logo">Matter<b>Hackers</b></div>
+  <div class="search">
+    <input type="text" placeholder="Search 20,000+ products" />
+    <button aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" width="18" height="18"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+    </button>
+  </div>
+  <div class="head-ic">
+    <a href="#"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Account</a>
+    <a href="#"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.4 13h11L21 7H6"/></svg>Cart</a>
+  </div>
+</div></header>
+
+<!-- category nav -->
+<div class="catnav"><div class="wrap">
+  <a href="#">3D Printers</a>
+  <a class="on" href="#">3D Printer Filament</a>
+  <a href="#">Bambu Lab</a>
+  <a href="#">PLA</a>
+  <a href="#">ABS</a>
+  <a href="#">PETG</a>
+  <a href="#">PRO Series</a>
+  <a href="#">Build Series</a>
+  <a href="#">Resins</a>
+  <a href="#">Sale</a>
+</div></div>
+
+<!-- banner -->
+<div class="banner"><div class="wrap">
+  <div class="txt">
+    <span class="tier">Value Line</span>
+    <h1><small>MATTERHACKERS</small>ThriftyMake Filament</h1>
+    <div class="tag">"Quality that costs less."</div>
+    <p>Reliable, easy-to-print PLA+, ABS, and PETG at the lowest price per spool — made for makers who print constantly.</p>
+  </div>
+  <div class="art">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="44" fill="#4a9d33" stroke="#3f8a2b" stroke-width="2"/>
+      <circle cx="50" cy="50" r="28" fill="#fff" opacity=".92"/>
+      <circle cx="50" cy="50" r="10" fill="#4a9d33"/>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 4" opacity=".6"/>
+    </svg>
+  </div>
+</div></div>
+
+<div class="wrap">
+  <!-- breadcrumb -->
+  <div class="crumb"><a href="#">Home</a> &nbsp;›&nbsp; <a href="#">Store</a> &nbsp;›&nbsp; <a href="#">3D Printer Filament</a> &nbsp;›&nbsp; <span>ThriftyMake Filament</span></div>
+
+  <!-- intro -->
+  <div class="intro">
+    <h2>Reliable quality at the lowest price we offer</h2>
+    <p>MatterHackers ThriftyMake is the most affordable filament in our catalog — reliable, easy-to-print PLA+, ABS, and PETG at the lowest price per spool. It's made for makers who print constantly: prototypes, practice runs, jigs, and high-volume jobs where every dollar counts.</p>
+    <p>You get dependable results and clean prints without paying for premium features you don't need. When you just need quality plastic that costs less, reach for ThriftyMake. Need tighter spool-to-spool consistency? Step up to <a href="#compare">MatterHackers Build</a>. Need professional tolerances and engineering materials? See <a href="#compare">MatterHackers PRO</a>.</p>
+  </div>
+
+  <!-- sub collections -->
+  <div class="subs">
+    <div class="h">ThriftyMake Filament Collections</div>
+    <div class="sub-grid">
+      <a class="sub" href="#products">
+        <svg class="sp" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#1c1f24"/><circle cx="50" cy="50" r="26" fill="#fff" opacity=".9"/><circle cx="50" cy="50" r="9" fill="#1c1f24"/></svg>
+        <span><b>ThriftyMake PLA+</b>Our most affordable PLA filament per spool.</span>
+      </a>
+      <a class="sub" href="#products">
+        <svg class="sp" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#8a94a6"/><circle cx="50" cy="50" r="26" fill="#fff" opacity=".95"/><circle cx="50" cy="50" r="9" fill="#8a94a6"/></svg>
+        <span><b>ThriftyMake ABS</b>Our most affordable ABS filament per spool.</span>
+      </a>
+      <a class="sub" href="#products">
+        <svg class="sp" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#009BFF"/><circle cx="50" cy="50" r="26" fill="#fff" opacity=".95"/><circle cx="50" cy="50" r="9" fill="#009BFF"/></svg>
+        <span><b>ThriftyMake PETG</b>Our most affordable PETG filament per spool.</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- main: filters + products -->
+  <div class="main" id="products">
+    <aside class="side">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:14px;color:var(--ink)">Filter</strong>
+        <a class="clear" href="#">Clear</a>
+      </div>
+      <h4>Material</h4>
+      <label><input type="checkbox" checked> PLA+ <span class="cnt">14</span></label>
+      <label><input type="checkbox"> ABS <span class="cnt">9</span></label>
+      <label><input type="checkbox"> PETG <span class="cnt">7</span></label>
+      <h4>Color</h4>
+      <label><input type="checkbox"> Black <span class="cnt">6</span></label>
+      <label><input type="checkbox"> White <span class="cnt">6</span></label>
+      <label><input type="checkbox"> Gray <span class="cnt">4</span></label>
+      <label><input type="checkbox"> Red <span class="cnt">3</span></label>
+      <label><input type="checkbox"> Blue <span class="cnt">3</span></label>
+      <h4>Spool Weight</h4>
+      <label><input type="checkbox" checked> 1&nbsp;kg <span class="cnt">30</span></label>
+      <h4>Packaging</h4>
+      <label><input type="checkbox"> Spools <span class="cnt">18</span></label>
+      <label><input type="checkbox"> Refills <span class="cnt">12</span></label>
+    </aside>
+
+    <div>
+      <div class="grid-head">
+        <div class="res">30 products</div>
+        <select><option>Sort: Best Selling</option><option>Price: Low to High</option><option>Price: High to Low</option><option>Newest</option></select>
+      </div>
+      <div class="prod-grid" id="prodGrid"></div>
+      <div style="text-align:center;margin-top:26px">
+        <a href="#" style="display:inline-block;border:1.5px solid var(--blue);color:var(--blue);font-weight:700;border-radius:6px;padding:12px 26px">Load more ThriftyMake filament</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- compare strip -->
+<div class="compare" id="compare"><div class="wrap">
+  <div class="h">Where ThriftyMake fits</div>
+  <div class="sh">Three lines, one simple ladder — start here for the lowest price, step up as your needs grow.</div>
+  <div class="cmp-grid">
+    <div class="cmp on">
+      <div class="here">You're here</div>
+      <span class="t" style="background:var(--green)">Value</span>
+      <h3><small>MATTERHACKERS</small>ThriftyMake</h3>
+      <p>Reliable quality at the lowest catalog price, for high-volume everyday printing.</p>
+      <div class="lvl">$ · Lowest price</div>
+    </div>
+    <div class="cmp">
+      <span class="t" style="background:var(--blue)">Core</span>
+      <h3><small>MATTERHACKERS</small>Build</h3>
+      <p>Consistent color and performance spool after spool, in the widest range of materials.</p>
+      <div class="lvl">$$ · #1-selling filament</div>
+    </div>
+    <div class="cmp">
+      <span class="t" style="background:#C0392B">Premium</span>
+      <h3><small>MATTERHACKERS</small>PRO</h3>
+      <p>Professional-grade performance and tight tolerances, including engineering composites.</p>
+      <div class="lvl">$$$ · Performance when it counts</div>
+    </div>
+  </div>
+</div></div>
+
+<!-- guides -->
+<div class="wrap guides">
+  <div class="h">Guides &amp; Articles</div>
+  <div class="g-grid">
+    <a class="g" href="#"><div class="thumb"></div><div class="gin"><b>How To Succeed When 3D Printing With PLA Filament</b><span>Best practices for great PLA prints.</span></div></a>
+    <a class="g" href="#"><div class="thumb"></div><div class="gin"><b>How To Succeed When Printing With ABS</b><span>Strong, heat-resistant parts, done right.</span></div></a>
+    <a class="g" href="#"><div class="thumb"></div><div class="gin"><b>How to Succeed When 3D Printing With PETG</b><span>Durable, easy-to-print PETG tips.</span></div></a>
+    <a class="g" href="#"><div class="thumb"></div><div class="gin"><b>3D Printer Filament Comparison Guide</b><span>Pick the right material for the job.</span></div></a>
+  </div>
+</div>
+
+<!-- newsletter -->
+<div class="news"><div class="wrap">
+  <b>Get the latest from MatterHackers</b>
+  <form onsubmit="return false"><input type="email" placeholder="Email address" /><button>Subscribe</button></form>
+</div></div>
+
+<!-- footer -->
+<footer><div class="wrap">
+  <div class="foot-grid">
+    <div>
+      <div class="foot-logo">Matter<b>Hackers</b></div>
+      <p style="max-width:320px">The most affordable filament in our catalog — reliable PLA+, ABS, and PETG at the lowest price per spool.</p>
+    </div>
+    <div><h5>Shop</h5><a href="#">3D Printer Filament</a><a href="#">ThriftyMake</a><a href="#">Build</a><a href="#">PRO</a></div>
+    <div><h5>Browse</h5><a href="#">News</a><a href="#">Guides</a><a href="#">Support</a><a href="#">Professional</a></div>
+    <div><h5>MatterHackers</h5><a href="#">About</a><a href="#">Contact</a><a href="#">Rewards</a><a href="#">Returns</a></div>
+  </div>
+  <div class="foot-bot">© 2026 MatterHackers Inc. &nbsp;·&nbsp; Draft landing-page concept for internal review.</div>
+</div></footer>
+
+<script>
+  var P = [
+    {n:"ThriftyMake PLA+ Filament — 1.75mm (1kg) — White", mat:"PLA+", price:"$15.99", c:"#eef1f5", bs:true, ep:true},
+    {n:"ThriftyMake PLA+ Filament — 1.75mm (1kg) — Black", mat:"PLA+", price:"$15.99", c:"#1c1f24", bs:true, ep:true},
+    {n:"ThriftyMake PLA+ Filament — 1.75mm (1kg) — Gray",  mat:"PLA+", price:"$15.99", c:"#8a94a6", bs:false, ep:true},
+    {n:"ThriftyMake PLA+ Filament — 1.75mm (1kg) — Red",   mat:"PLA+", price:"$15.99", c:"#c0392b", bs:false, ep:true},
+    {n:"ThriftyMake PETG Filament Refill — 1.75mm (1kg) — Black", mat:"PETG", price:"$15.49", c:"#20242b", bs:true, ep:true, eta:"Est. In Stock: Jul 20th"},
+    {n:"ThriftyMake PETG Filament Refill — 1.75mm (1kg) — Blue",  mat:"PETG", price:"$15.49", c:"#009BFF", bs:false, ep:true},
+    {n:"ThriftyMake ABS Filament — 1.75mm (1kg) — White", mat:"ABS", price:"$15.99", c:"#eef1f5", bs:true, ep:true},
+    {n:"ThriftyMake ABS Filament — 1.75mm (1kg) — Gray",  mat:"ABS", price:"$15.99", c:"#7c8698", bs:false, ep:true},
+  ];
+  function spool(c){
+    var lightish = (c.toLowerCase()==="#eef1f5");
+    var stroke = lightish ? "#c7cfda" : "rgba(0,0,0,.14)";
+    return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">'
+      +'<ellipse cx="50" cy="86" rx="30" ry="5" fill="rgba(0,0,0,.06)"/>'
+      +'<circle cx="50" cy="48" r="40" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/>'
+      +'<circle cx="50" cy="48" r="25" fill="#fff" opacity=".92"/>'
+      +'<circle cx="50" cy="48" r="8" fill="'+c+'" stroke="'+stroke+'" stroke-width="1.3"/>'
+      +'</svg>';
+  }
+  document.getElementById('prodGrid').innerHTML = P.map(function(p){
+    var bg = (p.c.toLowerCase()==="#eef1f5") ? "#f7f9fb" : "#fcfdfe";
+    var ribbons = '<div class="ribbons">'+(p.bs?'<span class="rb bs">Best Seller</span>':'')+(p.ep?'<span class="rb ep">Expert Pick</span>':'')+'</div>';
+    var action = p.eta ? '<div class="eta">'+p.eta+'</div>' : '<button class="add">Add to Cart</button>';
+    return '<div class="prod">'+ribbons
+      +'<div class="swatch" style="background:'+bg+'">'+spool(p.c)+'</div>'
+      +'<div class="pin"><div class="mat">'+p.mat+'</div>'
+      +'<h4><a href="#">'+p.n+'</a></h4>'
+      +'<div class="price">'+p.price+'</div>'
+      +'<div class="bulk">Volume pricing available</div>'
+      + action +'</div></div>';
+  }).join('');
+</script>
+</body>
+</html>

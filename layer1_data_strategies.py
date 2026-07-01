@@ -8,7 +8,7 @@ Foundation layer of a 4-layer strategy testing system.
     ~30 liquid assets. Assets with < 500 bars are skipped. On-disk caching so
     later layers don't re-download.
 
-  * STRATEGY LIBRARY: the full popular-retail spectrum (47 families). Every
+  * STRATEGY LIBRARY: the full popular-retail spectrum (46 families). Every
     strategy is a function taking a price DataFrame (+ params) and returning a
     daily position series in {-1, 0, 1} (long / flat / short) with NO look-ahead
     — signals are shifted one bar centrally so today's position only uses data up
@@ -760,14 +760,10 @@ def _ult(df, bounds):
     return pos.ffill().fillna(0)
 
 
-@strategy("gap_fade", "meanrev", grid={"gap_pct": [0.01, 0.02, 0.03]},
-          gap_pct=0.02)
-def _gap_fade(df, gap_pct):
-    gap = df["Open"] / df["Close"].shift(1) - 1
-    pos = pd.Series(0.0, index=df.index)
-    pos[gap > gap_pct] = -1
-    pos[gap < -gap_pct] = 1
-    return pos  # one-bar fade, no hold
+# NOTE: a "gap_fade" family used to live here. It was removed: the central
+# one-bar signal shift in _finalize means any signal computed from today's Open
+# executes tomorrow — a gap fade that trades the day AFTER the gap is not a gap
+# fade. Re-add only with an explicit intraday execution model (see TODO.md #7).
 
 
 # =========================================================================== #
