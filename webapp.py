@@ -185,6 +185,35 @@ def status():
             "defaults": BuildParams().model_dump()}
 
 
+class UniverseUpdate(BaseModel):
+    custom: list[str]
+
+
+@app.get("/api/universe")
+def universe():
+    return {"groups": L.TICKERS,
+            "custom": L.custom_tickers(),
+            "total": len(L.universe_tickers())}
+
+
+@app.post("/api/universe")
+def set_universe(u: UniverseUpdate):
+    """Replace the custom-ticker list; validated before anything is written."""
+    tickers: list[str] = []
+    for raw in u.custom:
+        t = raw.strip().upper()
+        if not t:
+            continue
+        if not L.TICKER_RE.match(t):
+            raise HTTPException(422, f"{raw.strip()!r} is not a ticker symbol")
+        if t not in tickers:
+            tickers.append(t)
+    with open(L.CUSTOM_TICKERS_FILE, "w") as f:
+        f.write("# Custom tickers — one per line; edited via the web UI.\n")
+        f.writelines(t + "\n" for t in tickers)
+    return {"custom": tickers, "total": len(L.universe_tickers())}
+
+
 @app.post("/api/run/build")
 def run_build(params: BuildParams):
     if not _launch("build", lambda: _do_build(params)):

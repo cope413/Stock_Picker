@@ -1,0 +1,33 @@
+# Stock_Picker behind a Cloudflare Tunnel — see DEPLOY.md.
+#
+#   cp .env.example .env      # paste your tunnel token
+#   docker compose up -d --build
+#
+# The webapp is NOT published to the internet directly: cloudflared dials
+# out to Cloudflare and proxies stockpicker.landryfam.com -> webapp:8713
+# over the compose network. The only host port is loopback, for local use.
+
+services:
+  webapp:
+    build: .
+    container_name: stockpicker
+    restart: unless-stopped
+    # Run as your host user so bind-mounted artifacts aren't root-owned.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      - HOME=/tmp          # yfinance/requests need a writable cache dir
+    volumes:
+      # Bind the repo so data_cache/ and the layer5/6 artifacts persist on
+      # the host and stay shared with the CLI (same files, either way).
+      - .:/app
+    ports:
+      - "127.0.0.1:8713:8713"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: stockpicker-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      webapp:
+        condition: service_healthy

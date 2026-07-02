@@ -112,7 +112,50 @@ def test_signals_job_requires_spec(client, monkeypatch):
 
 
 @pytest.mark.unit
+def test_universe_get_and_update(client, tmp_path, monkeypatch):
+    import layer1_data_strategies as L
+    monkeypatch.setattr(L, "CUSTOM_TICKERS_FILE",
+                        str(tmp_path / "universe_custom.txt"))
+
+    uni = client.get("/api/universe").json()
+    assert "sp100" in uni["groups"]
+    assert uni["custom"] == []
+    assert uni["total"] == sum(len(g) for g in uni["groups"].values())
+
+    r = client.post("/api/universe", json={"custom": ["shop", "ETSY ", "shop"]})
+    assert r.status_code == 200
+    assert r.json()["custom"] == ["SHOP", "ETSY"]
+
+    uni = client.get("/api/universe").json()
+    assert uni["custom"] == ["SHOP", "ETSY"]
+    assert uni["total"] == sum(len(g) for g in uni["groups"].values()) + 2
+
+
+@pytest.mark.unit
+def test_universe_update_rejects_bad_tickers(client, tmp_path, monkeypatch):
+    import layer1_data_strategies as L
+    monkeypatch.setattr(L, "CUSTOM_TICKERS_FILE",
+                        str(tmp_path / "universe_custom.txt"))
+    r = client.post("/api/universe", json={"custom": ["not a ticker!!"]})
+    assert r.status_code == 422
+    # file untouched on rejection
+    assert client.get("/api/universe").json()["custom"] == []
+
+
+@pytest.mark.unit
 def test_index_served(client):
     r = client.get("/")
     assert r.status_code == 200
     assert "Stock_Picker" in r.text
+
+
+@pytest.mark.unit
+def test_index_has_guide_walkthrough(client):
+    html = client.get("/").text
+    # Guide tab exists in the nav and as a section
+    assert 'data-t="guide"' in html
+    assert '<section id="guide"' in html
+    # walkthrough covers the core flow: build, read, daily signals, CLI
+    assert "Run full build" in html
+    assert "Update with fresh data" in html
+    assert "layer6_portfolio.py --signals" in html

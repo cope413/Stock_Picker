@@ -68,6 +68,9 @@
        font:13px var(--mono);margin-top:4px}
   .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;
        color:var(--text);padding-top:14px}
+  textarea{width:100%;max-width:420px;background:var(--ink);color:var(--text);
+       border:1px solid var(--edge);border-radius:5px;padding:8px;
+       font:13px var(--mono);resize:vertical;display:block}
   .actions{display:flex;gap:10px;margin:14px 0;flex-wrap:wrap}
   button.act{background:var(--amber);color:#1a1408;border:none;
        border-radius:6px;padding:9px 16px;font:600 13px var(--sans);
@@ -83,6 +86,30 @@
   .state{font:12px var(--mono);color:var(--dim)}
   .state.running{color:var(--amber)} .state.error{color:var(--short)}
   .state.done{color:var(--long)}
+  /* ---- guide ---- */
+  #guide{max-width:78ch}
+  #guide ol.steps{list-style:none;padding:0;counter-reset:step}
+  #guide ol.steps>li{counter-increment:step;position:relative;
+      padding:0 0 22px 44px}
+  #guide ol.steps>li::before{content:counter(step);position:absolute;
+      left:0;top:-2px;width:26px;height:26px;border:1px solid var(--edge);
+      border-radius:50%;background:var(--panel);color:var(--amber);
+      font:600 13px/26px var(--mono);text-align:center}
+  #guide h3{font:600 13.5px var(--sans);color:var(--text);margin-bottom:6px}
+  #guide p{color:var(--dim);font-size:13px;margin-bottom:8px}
+  #guide ul{margin:6px 0 8px 18px;color:var(--dim);font-size:13px}
+  #guide ul li{margin-bottom:5px}
+  #guide table{margin:10px 0}
+  #guide th,#guide td{text-align:left;white-space:normal;font-size:12px}
+  #guide .go{cursor:pointer}
+  .btn-ref{font:600 11.5px var(--sans);color:#1a1408;background:var(--amber);
+      border-radius:4px;padding:1px 7px;white-space:nowrap}
+  .btn-ref.ghost{background:var(--panel2);color:var(--text);
+      border:1px solid var(--edge)}
+  pre.cli{background:#141619;border:1px solid var(--edge);border-radius:8px;
+      padding:12px 14px;font:12px/1.7 var(--mono);color:#aab2ba;
+      overflow:auto;margin-top:8px}
+  pre.cli .c{color:var(--faint)}
   @media (prefers-reduced-motion:no-preference){
     .state.running::after{content:"";display:inline-block;width:7px;height:7px;
       border-radius:50%;background:var(--amber);margin-left:8px;
@@ -106,6 +133,7 @@
   <button data-t="holdout">Holdout</button>
   <button data-t="clusters">Clusters</button>
   <button data-t="portfolio">Portfolio</button>
+  <button data-t="guide">Guide</button>
 </nav>
 
 <main>
@@ -147,6 +175,18 @@
       <button class="act ghost" id="btnRefresh">Refresh data only</button>
       <span class="state" id="jobState"></span>
     </div>
+    <h2>Universe</h2>
+    <p class="note">Built-in: <span id="uniCount">&hellip;</span> — index,
+      sector and macro ETFs, crypto, and the S&amp;P 100. Add your own tickers
+      below (one per line or comma-separated); they join the next build or
+      data refresh. More tickers means more trials, which raises the deflated
+      Sharpe bar for every survivor.</p>
+    <textarea id="uniCustom" rows="4" spellcheck="false"
+      placeholder="SHOP&#10;ETSY"></textarea>
+    <div class="actions">
+      <button class="act ghost" id="btnUniverse">Save universe</button>
+      <span class="state" id="uniState"></span>
+    </div>
     <pre id="log">No job has run in this session.</pre>
   </section>
 
@@ -169,6 +209,100 @@
     <h2>Weights</h2>
     <div id="weightsTable"></div>
   </section>
+
+  <section id="guide">
+    <p class="note">From an empty cache to today's trade list. Tab names
+      below are clickable.</p>
+    <ol class="steps">
+      <li>
+        <h3>Run the first build</h3>
+        <p>On the <a class="go" data-go="pipeline">Pipeline</a> tab, click
+          <span class="btn-ref">Run full build</span>. The first run downloads
+          the full universe via yfinance and sweeps every strategy config
+          across every asset (~20,000 backtests over ~120 assets) — expect it
+          to run for a while. Then: survival funnel &rarr; deflated Sharpe
+          &rarr; one holdout pass &rarr; correlation clustering &rarr;
+          equal-risk-contribution weights &rarr; today's signals. The log
+          streams live; one job runs at a time.</p>
+        <p>The form next to the button holds the portfolio knobs:</p>
+        <table>
+          <thead><tr><th>Knob</th><th>Default</th><th>What it controls</th></tr></thead>
+          <tbody>
+            <tr><td>Correlation threshold</td><td>0.70</td>
+              <td>How aggressively near-duplicate strategies are merged into one idea</td></tr>
+            <tr><td>Target vol</td><td>0.10</td>
+              <td>Annualized portfolio volatility the weights are scaled to</td></tr>
+            <tr><td>Max weight / strategy</td><td>0.25</td>
+              <td>Cap on any single strategy's share of gross</td></tr>
+            <tr><td>Max gross leverage</td><td>1.0&times;</td>
+              <td>Gross-leverage ceiling</td></tr>
+            <tr><td>Min DSR</td><td>0.95</td>
+              <td>Deflated-Sharpe floor for a strategy to be eligible</td></tr>
+          </tbody>
+        </table>
+        <p>The scan universe is the built-in list (index/sector/macro ETFs,
+          crypto, the S&amp;P 100) plus any tickers you add in the
+          <b>Universe</b> box on the same tab.</p>
+        <p>If nothing clears the DSR floor <em>and</em> a positive holdout
+          Sharpe, no portfolio is built — that is the system working, not
+          failing. An empty book beats a book of noise.</p>
+      </li>
+      <li>
+        <h3>Read the results</h3>
+        <ul>
+          <li><b>Verdict strip</b> (top of every tab) — independent edges,
+            achieved vol, gross, and data freshness with a staleness lamp.
+            The only numbers that matter at a glance.</li>
+          <li><a class="go" data-go="signals">Signals</a> — net exposure per
+            asset (the trade list) plus per-strategy position &times; weight
+            detail.</li>
+          <li><a class="go" data-go="holdout">Holdout</a> — each survivor
+            scored once on data the sweep never saw. This is the number to
+            believe; everything in-sample is descriptive only.</li>
+          <li><a class="go" data-go="clusters">Clusters</a> — which strategies
+            were merged as one idea, and which representative survived.</li>
+          <li><a class="go" data-go="portfolio">Portfolio</a> — the saved
+            spec: weights, vol scaling, caps.</li>
+        </ul>
+      </li>
+      <li>
+        <h3>Daily routine</h3>
+        <p>Once a spec exists you don't rebuild every day. On the
+          <a class="go" data-go="signals">Signals</a> tab:</p>
+        <ul>
+          <li><span class="btn-ref ghost">Update with fresh data</span> —
+            pulls the latest bars, then recomputes today's positions from the
+            saved spec. The one-click daily run.</li>
+          <li><span class="btn-ref">Update signals</span> — same, but from
+            cached data (no download).</li>
+          <li>The staleness lamp in the verdict strip warns when the cache is
+            too old to trust.</li>
+        </ul>
+        <p>Rebuild (step 1) only to change the knobs or re-qualify the
+          strategy set; <span class="btn-ref ghost">Refresh data only</span>
+          on the Pipeline tab just updates the cache.</p>
+      </li>
+      <li>
+        <h3>CLI equivalents</h3>
+        <p>The web UI and the CLI write the same artifact files
+          (<code>layer5_holdout.csv</code>, <code>layer6_clusters.csv</code>,
+          <code>layer6_portfolio.json</code>, <code>layer6_signals.json</code>)
+          and stay interchangeable:</p>
+        <pre class="cli">python layer6_portfolio.py                      <span class="c"># = Run full build</span>
+python layer6_portfolio.py --signals            <span class="c"># = Update signals</span>
+python layer6_portfolio.py --signals --refresh  <span class="c"># = Update with fresh data</span>
+python layer6_portfolio.py --corr 0.6 --vol 0.08 --max-weight 0.2 \
+                           --max-gross 1.5 --min-dsr 0.9   <span class="c"># custom knobs</span></pre>
+      </li>
+    </ol>
+    <h2>Before trusting any output</h2>
+    <p>The large-cap list (AAPL, MSFT, NVDA, &hellip;) is 2025's known
+      winners backtested from 2010 — long-biased results on that group are
+      inflated by survivorship bias. Costs are simplified: per-side bps on
+      turnover, no slippage model, shorting treated as free. See the Layer 5
+      cost-sensitivity report for which results are fragile to that
+      assumption.</p>
+  </section>
 </main>
 
 <script>
@@ -178,11 +312,19 @@ const pct=(x,d=1)=>x==null||isNaN(x)?"—":(100*x).toFixed(d)+"%";
 let polling=null, defaultsSet=false;
 
 /* ---------- tabs ---------- */
+function showTab(t){
+  const btn=document.querySelector(`nav button[data-t="${t}"]`);
+  if(!btn)return;
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b===btn));
+  document.querySelectorAll("main section").forEach(s=>s.classList.toggle("on",s.id===t));
+  load(t);
+}
 $("#tabs").addEventListener("click",e=>{
   if(e.target.dataset.t===undefined)return;
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b===e.target));
-  document.querySelectorAll("main section").forEach(s=>s.classList.toggle("on",s.id===e.target.dataset.t));
-  load(e.target.dataset.t);
+  showTab(e.target.dataset.t);
+});
+$("#guide").addEventListener("click",e=>{
+  if(e.target.dataset.go)showTab(e.target.dataset.go);
 });
 
 /* ---------- verdict strip ---------- */
@@ -337,12 +479,34 @@ $("#btnBuild").onclick=()=>{
   document.querySelector('[data-t=pipeline]').click();
 };
 $("#btnRefresh").onclick=()=>start("/api/run/refresh");
+
+async function loadUniverse(){
+  try{
+    const d=await j("/api/universe");
+    $("#uniCount").textContent=`${d.total} assets (${d.custom.length} custom)`;
+    if(document.activeElement!==$("#uniCustom"))
+      $("#uniCustom").value=d.custom.join("\n");
+  }catch(e){$("#uniCount").textContent="unavailable";}
+}
+$("#btnUniverse").onclick=async()=>{
+  const s=$("#uniState");
+  const list=$("#uniCustom").value.split(/[\s,]+/).filter(Boolean);
+  try{
+    const r=await fetch("/api/universe",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({custom:list})});
+    if(!r.ok){const e=await r.json();
+      s.className="state error";s.textContent=e.detail;return;}
+    s.className="state done";s.textContent="saved";
+    loadUniverse();
+  }catch(e){s.className="state error";s.textContent=e;}
+};
 $("#btnSignals").onclick=()=>start("/api/run/signals?refresh=false");
 $("#btnSignalsFresh").onclick=()=>start("/api/run/signals?refresh=true");
 
 function load(tab){
   ({signals:loadSignals,holdout:loadHoldout,clusters:loadClusters,
-    portfolio:loadPortfolio}[tab]||(()=>{}))();
+    portfolio:loadPortfolio,pipeline:loadUniverse}[tab]||(()=>{}))();
 }
 
 (async()=>{
@@ -350,6 +514,7 @@ function load(tab){
   setJob(st.job);
   if(st.job.state==="running")poll();
   loadSignals();
+  loadUniverse();
 })();
 </script>
 </body>

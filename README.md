@@ -2,12 +2,105 @@
 
 A strategy testing system in Python, built in four layers.
 
+## Walkthrough — from clean checkout to today's trade list
+
+The layer-by-layer detail lives in the sections below; this is the short path
+for actually using the tool.
+
+### 1. Set up
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Start the web UI
+
+```bash
+python webapp.py        # then open http://127.0.0.1:8713
+```
+
+Everything below can also be done from the CLI (equivalents in step 6) — the
+two write the same artifact files and stay interchangeable.
+
+### 3. Run the first build
+
+On the **Pipeline** tab, click **Run full build**. The first run downloads the
+full universe via yfinance (~120 tickers) and sweeps every config across every
+asset — ~20,000 backtests, so expect it to run for a while — then runs the
+rest of the pipeline: validate survivors on the holdout → de-duplicate
+correlated strategies → equal-risk-contribution weights → save the portfolio
+spec → print today's signals. The log streams live; one job runs at a time.
+The Universe box on the same tab lets you add tickers beyond the built-in
+list (ETFs, crypto, S&P 100).
+
+The build parameters next to the button are the portfolio knobs, prefilled
+with the defaults:
+
+| Knob | Default | What it controls |
+|---|---|---|
+| Correlation threshold | 0.70 | How aggressively near-duplicate strategies are merged |
+| Vol target | 0.10 | Annualized portfolio volatility the weights are scaled to |
+| Max weight | 0.25 | Cap on any single strategy's share of gross |
+| Max gross | 1.0× | Gross-leverage ceiling |
+| Min DSR | 0.95 | Deflated-Sharpe floor for a strategy to be eligible |
+
+If nothing clears the DSR floor *and* a positive holdout Sharpe, the build
+refuses to produce a portfolio — that's by design, not a bug (an empty book
+beats a book of noise).
+
+### 4. Read the results
+
+- **Verdict strip** (top of every tab): independent edges, achieved vol,
+  gross, and data freshness with a staleness lamp — the only numbers that
+  matter at a glance.
+- **Signals** tab: net exposure per asset — **the trade list** — plus
+  per-strategy position × weight detail.
+- **Holdout** tab: out-of-sample Sharpe per survivor. This is the number to
+  believe; anything in-sample is descriptive only.
+- **Clusters** tab: which strategies got merged as one idea, and which
+  representative survived.
+- **Portfolio** tab: the saved spec — weights, vol scaling, caps.
+
+### 5. Daily routine
+
+Once a spec exists you don't rebuild every day. On the **Signals** tab:
+
+- **Update with fresh data** — pulls the latest bars, then recomputes today's
+  positions from the saved spec. This is the one-click daily run.
+- **Update signals** — same, but from cached data (no download).
+- The staleness lamp in the verdict strip tells you when the cache is too old
+  to trust.
+
+Rebuild (step 3) only when you want to change the knobs or re-qualify the
+strategy set; **Refresh data only** on the Pipeline tab just updates the cache.
+
+### 6. CLI equivalents
+
+```bash
+python layer6_portfolio.py                      # = Run full build
+python layer6_portfolio.py --signals            # = Update signals
+python layer6_portfolio.py --signals --refresh  # = Update with fresh data
+python layer6_portfolio.py --corr 0.6 --vol 0.08 --max-weight 0.2 \
+                           --max-gross 1.5 --min-dsr 0.9   # custom knobs
+```
+
+Artifacts land next to the code: `layer5_holdout.csv`, `layer6_clusters.csv`,
+`layer6_portfolio.json`, `layer6_signals.json`, with price data cached under
+`data_cache/`.
+
+Before trusting any output, read **Known caveats** below — the large-cap list
+has survivorship bias and the cost model is simplified.
+
 ## Layer 1 — Data + Strategy Library (`layer1_data_strategies.py`)
 
 **Data:** daily OHLCV via `yfinance` (`auto_adjust=True`), 2010-01-01 to 2025-01-01,
-for ~30 liquid assets (index/sector ETFs, commodities/rates/intl, crypto, large caps).
-Assets with under 500 bars are skipped. Results are cached to parquet under
-`data_cache/` so later layers don't re-download.
+for ~120 liquid assets: index/sector ETFs, commodities/rates/intl, crypto,
+and the S&P 100 individual stocks (a current-membership snapshot — see the
+survivorship caveat below). Add your own tickers via `universe_custom.txt`
+(one per line, `#` comments) or the web UI's Universe box; `universe_tickers()`
+merges them in. Assets with under 500 bars are skipped. Results are cached to
+parquet under `data_cache/` so later layers don't re-download.
 
 **Strategy library:** 46 families spanning the popular-retail spectrum (trend 19,
 meanrev 11, volume 6, volatility 3, pattern 4, composite 3). (A `gap_fade`
@@ -241,13 +334,19 @@ matter: independent edges, achieved vol, gross, and data freshness with a
 staleness lamp wired to the actual cache dates. One job runs at a time;
 binding is localhost-only.
 
+To serve it publicly (Docker + Cloudflare Tunnel behind Cloudflare Access),
+see **DEPLOY.md**.
+
 ## Known caveats
 
-**Survivorship bias in the universe.** The large-cap list (AAPL, MSFT, NVDA,
-TSLA, AMZN, GOOGL, META, JPM) is 2025's known winners backtested from 2010.
-Long-biased results on that group are inflated for reasons that have nothing to
-do with the strategies — discount them accordingly. A point-in-time universe
-(or adding delisted/stagnant names) is on the roadmap (TODO.md #2).
+**Survivorship bias in the universe.** The individual-stock lists — the eight
+hand-picked large caps *and* the S&P 100 snapshot — are today's known winners
+backtested from 2010: every name earned its place in the index by going up.
+Long-biased results on those groups are inflated for reasons that have nothing
+to do with the strategies — discount them accordingly. The honest fix is
+point-in-time index membership (scanning who was *in* the index on each
+historical date, including the dropped and delisted); that needs a historical
+constituents dataset and is on the roadmap (TODO.md #2).
 
 **Costs are still simplified.** Per-side bps on turnover, no explicit slippage
 model, and shorting is treated as free (no borrow cost or feasibility check).

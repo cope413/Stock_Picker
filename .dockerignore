@@ -1,0 +1,23 @@
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+.env
+
+# runtime state lives in the bind mount, not the image
+data_cache/
+layer5_holdout.csv
+layer6_clusters.csv
+layer6_portfolio.json
+layer6_signals.json
+*.csv
+
+# unrelated collateral
+outputs/
+*.pdf

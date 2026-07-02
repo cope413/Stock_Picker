@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Tuple
 
@@ -59,10 +60,61 @@ TICKERS: Dict[str, List[str]] = {
     "commodity_rates_intl": ["GLD", "USO", "TLT", "HYG", "EFA", "EEM", "EWZ"],
     "crypto": ["BTC-USD", "ETH-USD"],
     "large_cap": ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "GOOGL", "META", "JPM"],
+    # S&P 100 snapshot (mid-2026), minus the large_cap names above and the
+    # GOOG share-class twin of GOOGL. A snapshot of *current* members is a
+    # winners list — see the survivorship-bias caveat in the README. Names
+    # that fail to download or lack 500 bars are skipped gracefully.
+    "sp100": [
+        "ABBV", "ABT", "ACN", "ADBE", "AIG", "AMD", "AMGN", "AMT", "AVGO",
+        "AXP", "BA", "BAC", "BK", "BKNG", "BLK", "BMY", "BRK-B", "C", "CAT",
+        "CHTR", "CL", "CMCSA", "COF", "COP", "COST", "CRM", "CSCO", "CVS",
+        "CVX", "DE", "DHR", "DIS", "DUK", "EMR", "F", "FDX", "GD", "GE",
+        "GILD", "GM", "GS", "HD", "HON", "IBM", "INTC", "INTU", "ISRG",
+        "JNJ", "KO", "LIN", "LLY", "LMT", "LOW", "MA", "MCD", "MDLZ", "MDT",
+        "MET", "MMM", "MO", "MRK", "MS", "NEE", "NFLX", "NKE", "NOW",
+        "ORCL", "PEP", "PFE", "PG", "PLTR", "PM", "PYPL", "QCOM", "RTX",
+        "SBUX", "SCHW", "SO", "SPG", "T", "TGT", "TMO", "TMUS", "TXN",
+        "UBER", "UNH", "UNP", "UPS", "USB", "V", "VZ", "WFC", "WMT", "XOM",
+    ],
 }
 
 ALL_TICKERS: List[str] = [t for group in TICKERS.values() for t in group]
 OHLCV = ["Open", "High", "Low", "Close", "Volume"]
+
+# User additions: one ticker per line, '#' comments, case-insensitive.
+# Editable by hand or from the web UI (Pipeline tab); read at load time.
+CUSTOM_TICKERS_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "universe_custom.txt")
+TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,10}$")
+
+
+def custom_tickers(path: str | None = None) -> List[str]:
+    """Parse the user's custom-ticker file; [] if it doesn't exist.
+
+    Raises ``ValueError`` on a malformed line — a typo should fail the run
+    loudly, not silently scan the wrong universe.
+    """
+    path = path or CUSTOM_TICKERS_FILE
+    if not os.path.exists(path):
+        return []
+    out: List[str] = []
+    with open(path) as f:
+        for lineno, line in enumerate(f, 1):
+            t = line.split("#", 1)[0].strip().upper()
+            if not t:
+                continue
+            if not TICKER_RE.match(t):
+                raise ValueError(
+                    f"{os.path.basename(path)}:{lineno}: {t!r} is not a ticker")
+            if t not in out:
+                out.append(t)
+    return out
+
+
+def universe_tickers() -> List[str]:
+    """Built-in universe plus custom additions (built-in dupes dropped)."""
+    extra = [t for t in custom_tickers() if t not in ALL_TICKERS]
+    return ALL_TICKERS + extra
 
 
 # --------------------------------------------------------------------------- #
@@ -270,7 +322,7 @@ def download_data(
     """
     import yfinance as yf
 
-    tickers = tickers or ALL_TICKERS
+    tickers = tickers or universe_tickers()
     end = resolve_end(end)
     os.makedirs(cache_dir, exist_ok=True)
     out: Dict[str, pd.DataFrame] = {}

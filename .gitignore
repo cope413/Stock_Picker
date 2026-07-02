@@ -6,6 +6,7 @@
 # pytest
 *.egg-info/
 *.py[cod]
+.env
 .DS_Store
 .idea/
 .pytest_cache/
@@ -25,4 +26,5 @@ layer6_signals.json
 parameter_sensitivity.csv
 sweep_results.csv
 sweep_results_dev.csv
+universe_custom.txt
 venv/
