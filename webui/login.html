@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock_Picker — sign in</title>
+<style>
+  :root{
+    --ink:#1a1d21; --panel:#22262b; --edge:#33383f;
+    --text:#c9cfd6; --dim:#7a828c; --amber:#e8a33d; --short:#e5484d;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--ink);color:var(--text);font:14px/1.5 var(--sans);
+       min-height:100vh;display:flex;align-items:center;justify-content:center}
+  form{background:var(--panel);border:1px solid var(--edge);border-radius:8px;
+       padding:28px;width:min(340px,92vw);display:grid;gap:14px}
+  h1{font:600 15px var(--mono);letter-spacing:.08em;color:var(--dim);
+     text-transform:uppercase}
+  h1 b{color:var(--text)}
+  label{font-size:11.5px;color:var(--dim);display:block}
+  input{width:100%;background:var(--ink);color:var(--text);
+        border:1px solid var(--edge);border-radius:5px;padding:8px 10px;
+        font:13px var(--mono);margin-top:4px}
+  input:focus-visible{outline:2px solid var(--amber);outline-offset:-1px}
+  button{background:var(--amber);color:#1a1408;border:none;border-radius:6px;
+         padding:10px 16px;font:600 13px var(--sans);cursor:pointer}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+  .err{color:var(--short);font-size:12.5px;min-height:1.2em}
+  .hint{color:var(--dim);font-size:11.5px}
+</style>
+</head>
+<body>
+
+<form id="f">
+  <h1><b>Stock_Picker</b> · sign in</h1>
+  <label>Username
+    <input name="username" autocomplete="username" autofocus required></label>
+  <label>Password
+    <input name="password" type="password"
+           autocomplete="current-password" required></label>
+  <div class="err" id="err"></div>
+  <button id="go">Sign in</button>
+  <div class="hint">Accounts are created from the CLI:
+    <code>python webapp.py adduser &lt;name&gt;</code></div>
+</form>
+
+<script>
+const f=document.getElementById("f"),err=document.getElementById("err"),
+      go=document.getElementById("go");
+f.addEventListener("submit",async e=>{
+  e.preventDefault();
+  err.textContent="";go.disabled=true;
+  try{
+    const r=await fetch("/api/login",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username:f.username.value.trim(),
+                           password:f.password.value})});
+    if(r.ok){location.replace("/");return;}
+    const d=await r.json().catch(()=>({}));
+    err.textContent=d.detail??`Login failed (${r.status}).`;
+  }catch(_){err.textContent="Network error — try again.";}
+  go.disabled=false;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+tunnel: aadc2932-4fa5-406f-8a1f-26a2236d2815
+credentials-file: /home/nonroot/.cloudflared/aadc2932-4fa5-406f-8a1f-26a2236d2815.json
+
+ingress:
+  - hostname: stockpicker.landryfam.com
+    service: http://webapp:8713
+  - service: http_status:404

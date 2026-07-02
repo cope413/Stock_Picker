@@ -17,23 +17,121 @@ import io
 import json
 import os
 import threading
+import time
 import traceback
 from typing import Dict, Optional
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
+import auth
 import layer1_data_strategies as L
 import layer5_validation as V
 import layer6_portfolio as P
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX_HTML = os.path.join(_HERE, "webui", "index.html")
+LOGIN_HTML = os.path.join(_HERE, "webui", "login.html")
 SIGNALS_JSON = os.path.join(_HERE, "layer6_signals.json")
 
 app = FastAPI(title="Stock_Picker")
+
+
+# --------------------------------------------------------------------------- #
+# Auth — everything requires a session except the login flow and healthcheck
+# --------------------------------------------------------------------------- #
+
+_PUBLIC_PATHS = {"/login", "/api/login", "/healthz"}
+
+# Per-IP failed-login lockout: after LOCKOUT_MAX failures within
+# LOCKOUT_WINDOW seconds, reject further attempts until the window passes.
+LOCKOUT_MAX = 10
+LOCKOUT_WINDOW = 15 * 60
+_FAILS: Dict[str, list] = {}            # ip -> [count, first_failure_ts]
+
+
+def _client_ip(request: Request) -> str:
+    # Behind cloudflared the peer address is the tunnel container; the real
+    # client IP arrives in a header. Locally the peer address is real.
+    return (request.headers.get("cf-connecting-ip")
+            or (request.client.host if request.client else "?"))
+
+
+def _locked_out(ip: str) -> bool:
+    rec = _FAILS.get(ip)
+    if not rec:
+        return False
+    if time.time() - rec[1] > LOCKOUT_WINDOW:
+        del _FAILS[ip]
+        return False
+    return rec[0] >= LOCKOUT_MAX
+
+
+def _note_failure(ip: str) -> None:
+    rec = _FAILS.get(ip)
+    if rec and time.time() - rec[1] <= LOCKOUT_WINDOW:
+        rec[0] += 1
+    else:
+        _FAILS[ip] = [1, time.time()]
+
+
+@app.middleware("http")
+async def require_login(request: Request, call_next):
+    user = auth.verify_token(request.cookies.get(auth.SESSION_COOKIE, ""))
+    request.state.user = user
+    if user is None and request.url.path not in _PUBLIC_PATHS:
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "Not authenticated."},
+                                status_code=401)
+        return RedirectResponse("/login", status_code=303)
+    return await call_next(request)
+
+
+class LoginParams(BaseModel):
+    username: str
+    password: str
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
+
+@app.get("/login")
+def login_page(request: Request):
+    if request.state.user:
+        return RedirectResponse("/", status_code=303)
+    return FileResponse(LOGIN_HTML)
+
+
+@app.post("/api/login")
+def login(p: LoginParams, request: Request):
+    ip = _client_ip(request)
+    if _locked_out(ip):
+        raise HTTPException(429, "Too many failed attempts — "
+                            "try again in a few minutes.")
+    if not auth.verify_user(p.username, p.password):
+        _note_failure(ip)
+        time.sleep(0.5)                 # cheap brake on guessing
+        raise HTTPException(401, "Wrong username or password.")
+    _FAILS.pop(ip, None)
+    resp = JSONResponse({"ok": True})
+    secure = (request.headers.get("x-forwarded-proto",
+                                  request.url.scheme) == "https")
+    resp.set_cookie(auth.SESSION_COOKIE,
+                    auth.issue_token(p.username.strip().lower()),
+                    max_age=auth.SESSION_TTL, httponly=True,
+                    samesite="lax", secure=secure, path="/")
+    return resp
+
+
+@app.post("/api/logout")
+def logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(auth.SESSION_COOKIE, path="/")
+    return resp
 
 
 # --------------------------------------------------------------------------- #
@@ -141,7 +239,7 @@ def index():
 
 
 @app.get("/api/status")
-def status():
+def status(request: Request):
     spec = None
     if os.path.exists(P.PORTFOLIO_JSON):
         with open(P.PORTFOLIO_JSON) as f:
@@ -173,6 +271,7 @@ def status():
         stale = gap > L.MAX_END_GAP_BARS
 
     return {"job": JOB.snapshot(),
+            "user": request.state.user,
             "portfolio": spec,
             "cache": cache,
             "cache_stale": stale,
@@ -278,5 +377,8 @@ def signals():
 
 
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1:               # user management: adduser/passwd/...
+        raise SystemExit(auth.cli(sys.argv[1:]))
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8713)
