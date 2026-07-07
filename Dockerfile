@@ -12,7 +12,7 @@ COPY . .
 EXPOSE 8713
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8713/api/status', timeout=4)"
+  CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8713/healthz', timeout=4)"
 
 # Exactly one worker: the job runner is a process-global (webapp.JOB), so
 # multiple workers would each get their own job state and log.

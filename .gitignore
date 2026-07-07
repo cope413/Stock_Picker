@@ -28,3 +28,7 @@ sweep_results.csv
 sweep_results_dev.csv
 universe_custom.txt
 venv/
+
+# Web UI auth (secrets — never commit)
+webapp_users.json
+webapp_secret.key

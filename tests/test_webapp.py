@@ -13,19 +13,81 @@ import pytest
 fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
+import auth as A                           # noqa: E402
 import layer5_validation as V              # noqa: E402
 import layer6_portfolio as P               # noqa: E402
 import webapp as W                         # noqa: E402
 
+TEST_USER, TEST_PW = "tester", "correct-horse"
+
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch):
+def anon_client(tmp_path, monkeypatch):
+    """App with one user configured, but nobody logged in."""
     monkeypatch.setattr(V, "HOLDOUT_CSV", str(tmp_path / "holdout.csv"))
     monkeypatch.setattr(P, "CLUSTERS_CSV", str(tmp_path / "clusters.csv"))
     monkeypatch.setattr(P, "PORTFOLIO_JSON", str(tmp_path / "portfolio.json"))
     monkeypatch.setattr(W, "SIGNALS_JSON", str(tmp_path / "signals.json"))
     monkeypatch.setattr(W, "JOB", W._Job())
+    monkeypatch.setattr(W, "_FAILS", {})
+    monkeypatch.setattr(A, "USERS_FILE", str(tmp_path / "users.json"))
+    monkeypatch.setattr(A, "SECRET_FILE", str(tmp_path / "secret.key"))
+    A.create_user(TEST_USER, TEST_PW)
     return TestClient(W.app)
+
+
+@pytest.fixture()
+def client(anon_client):
+    r = anon_client.post("/api/login", json={"username": TEST_USER,
+                                             "password": TEST_PW})
+    assert r.status_code == 200
+    return anon_client
+
+
+@pytest.mark.unit
+def test_auth_required(anon_client):
+    assert anon_client.get("/api/status").status_code == 401
+    assert anon_client.post("/api/run/refresh").status_code == 401
+    r = anon_client.get("/", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    # public paths stay open
+    assert anon_client.get("/healthz").status_code == 200
+    assert "sign in" in anon_client.get("/login").text
+
+
+@pytest.mark.unit
+def test_login_logout_cycle(anon_client):
+    bad = anon_client.post("/api/login", json={"username": TEST_USER,
+                                               "password": "wrong-password"})
+    assert bad.status_code == 401
+
+    ok = anon_client.post("/api/login", json={"username": TEST_USER,
+                                              "password": TEST_PW})
+    assert ok.status_code == 200
+    st = anon_client.get("/api/status")
+    assert st.status_code == 200 and st.json()["user"] == TEST_USER
+
+    anon_client.post("/api/logout")
+    assert anon_client.get("/api/status").status_code == 401
+
+
+@pytest.mark.unit
+def test_login_lockout(anon_client, monkeypatch):
+    monkeypatch.setattr(W.time, "sleep", lambda s: None)
+    for _ in range(W.LOCKOUT_MAX):
+        r = anon_client.post("/api/login", json={"username": TEST_USER,
+                                                 "password": "nope-nope"})
+        assert r.status_code == 401
+    r = anon_client.post("/api/login", json={"username": TEST_USER,
+                                             "password": TEST_PW})
+    assert r.status_code == 429      # even the right password is rejected
+
+
+@pytest.mark.unit
+def test_password_change_invalidates_session(client):
+    assert client.get("/api/status").status_code == 200
+    A.set_password(TEST_USER, "a-new-password")
+    assert client.get("/api/status").status_code == 401
 
 
 @pytest.mark.unit

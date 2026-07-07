@@ -34,19 +34,27 @@ browser ──HTTPS──> Cloudflare edge ──tunnel──> cloudflared conta
    (`webapp` is the compose service name; cloudflared resolves it on the
    compose network.) This also creates the DNS record automatically.
 
-## 2. Protect it with Cloudflare Access — do this before going live
+## 2. Create a login — do this before going live
 
-The webapp has **no authentication** and anyone who can reach it can trigger
-builds and data downloads on your machine. Put Cloudflare Access in front:
+The webapp has its own login: every page and API call requires a session
+cookie, obtained at `/login` with a username + password. Accounts are
+managed from the CLI (no self-registration); passwords are scrypt-hashed
+in `webapp_users.json` and sessions are signed with `webapp_secret.key`
+(both git-ignored, both bind-mounted so they survive rebuilds):
 
-1. Zero Trust → **Access → Applications → Add an application → Self-hosted**.
-2. Application domain: `stockpicker.landryfam.com`.
-3. Add a policy: Action **Allow**, Include → Emails →
-   your email address(es). The default One-time PIN login method is fine.
+```bash
+docker compose exec webapp python webapp.py adduser <name>   # prompts twice
+docker compose exec webapp python webapp.py passwd  <name>   # also logs that user out everywhere
+docker compose exec webapp python webapp.py deluser <name>
+docker compose exec webapp python webapp.py users
+```
 
-Now the tunnel only forwards requests from visitors who pass the email PIN
-check. Skipping this step means exposing an unauthenticated job runner to
-the internet — don't.
+Failed logins are throttled (per-IP lockout after 10 misses in 15 min).
+With **zero** users configured nobody can log in at all — create at least
+one account before sharing the URL.
+
+Cloudflare Access in front of this is optional belt-and-suspenders; the
+app no longer depends on it.
 
 ## 3. Configure and launch
 
@@ -63,8 +71,8 @@ docker compose logs cloudflared | tail   # "Registered tunnel connection" x4
 curl -s http://127.0.0.1:8713/api/status | head -c 200   # local sanity check
 ```
 
-Then open **https://stockpicker.landryfam.com** — you should hit the Access
-login first, then the dashboard.
+Then open **https://stockpicker.landryfam.com** — you should land on the
+sign-in page, and the dashboard after logging in.
 
 ## Operations
 

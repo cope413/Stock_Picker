@@ -31,6 +31,13 @@
   .lamp{display:inline-block;width:9px;height:9px;border-radius:50%;
         margin-right:7px;vertical-align:1px;background:var(--faint)}
   .lamp.ok{background:var(--long)} .lamp.warn{background:var(--amber)}
+  .who{margin-left:auto;display:flex;gap:10px;align-items:center;
+       padding-bottom:6px;font:12px var(--mono);color:var(--dim)}
+  .who button{background:var(--panel2);color:var(--text);
+       border:1px solid var(--edge);border-radius:5px;padding:4px 10px;
+       font:12px var(--sans);cursor:pointer}
+  .who button:hover{color:var(--amber)}
+  .who button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
   /* ---- tabs ---- */
   nav{display:flex;gap:2px;padding:0 28px;border-bottom:1px solid var(--edge)}
   nav button{background:none;border:none;border-bottom:2px solid transparent;
@@ -125,6 +132,8 @@
 <header>
   <h1><b>Stock_Picker</b> · holdout-first</h1>
   <div class="verdict" id="verdict"></div>
+  <div class="who"><span id="whoUser"></span>
+    <button id="btnLogout">log out</button></div>
 </header>
 
 <nav id="tabs">
@@ -354,7 +363,12 @@ const sgn=x=>x>1e-9?"pos":x<-1e-9?"neg":"mut";
 const bar=(x,scale,cls)=>`<span class="bar ${cls}" style="width:${Math.min(Math.abs(x)*scale,120)}px"></span>`;
 
 /* ---------- loaders ---------- */
-async function j(url){const r=await fetch(url);if(!r.ok)throw await r.json();return r.json();}
+async function j(url){
+  const r=await fetch(url);
+  if(r.status===401){location.replace("/login");throw {detail:"signed out"};}
+  if(!r.ok)throw await r.json();
+  return r.json();
+}
 
 async function loadSignals(){
   try{
@@ -426,6 +440,7 @@ async function loadPortfolio(){
 async function loadStatus(){
   const st=await j("/api/status");
   verdict(st);
+  $("#whoUser").textContent=st.user??"";
   if(!defaultsSet){
     const f=$("#params");
     for(const [k,v] of Object.entries(st.defaults))
@@ -463,6 +478,7 @@ async function start(url,body){
     const r=await fetch(url,{method:"POST",
       headers:{"Content-Type":"application/json"},
       body:body?JSON.stringify(body):null});
+    if(r.status===401){location.replace("/login");return;}
     if(!r.ok){const e=await r.json();alert(e.detail);return;}
     poll();
   }catch(e){alert(e);}
@@ -500,6 +516,10 @@ $("#btnUniverse").onclick=async()=>{
     s.className="state done";s.textContent="saved";
     loadUniverse();
   }catch(e){s.className="state error";s.textContent=e;}
+};
+$("#btnLogout").onclick=async()=>{
+  await fetch("/api/logout",{method:"POST"});
+  location.replace("/login");
 };
 $("#btnSignals").onclick=()=>start("/api/run/signals?refresh=false");
 $("#btnSignalsFresh").onclick=()=>start("/api/run/signals?refresh=true");
