@@ -93,6 +93,21 @@ Status legend: `[x]` done · `[~]` partially addressed · `[ ]` open
 - [x] **11. `requirements.txt`** with pinned minimum versions.
 - [x] **12. CI** — `.github/workflows/tests.yml` runs `pytest -q` on push/PR
   (Python 3.12, installs from `requirements.txt`; suite is fast and offline).
-- [ ] **13. Small cleanups** — move `CLAUDE Trading System.pdf` into `docs/`;
-  either add the plotting module the "for charting" comments promise or fix
-  the comments; add a LICENSE.
+- [~] **13. Small cleanups** — **Done:** `CLAUDE Trading System.pdf` moved into
+  `docs/`, which now also holds the v7 framework docx, the v4→v7 notes, the
+  PART8 test-run record, the PART11 tracker workbook, and the entry-checklist
+  charts (`docs/charts/`). Still open: the plotting module (or fixing the
+  "for charting" comments); a LICENSE.
+- [x] **15. v7 fundamental framework in code.** `v7_scoring.py` implements the
+  CLAUDE TRADING SYSTEM v7 scoring math and hard rules (composite score,
+  Tier 1 gate, decision thresholds, entry checklist, implied-return tests,
+  sizing modifiers, Part 11 leverage cap / beta overlay / drawdown bands /
+  correlation cap); `part11_tracker.py` automates the Part 11 correlation
+  matrix and drawdown log from the Layer 1 data cache and can fill the Excel
+  tracker. `tests/test_v7_scoring.py` pins the math to the PART8 test run
+  (and documents the ADBE Tier 3 0.14→0.16 arithmetic slip in that record).
+- [x] **16. `download_data` cache-dir bug.** `_cache_path`/`_meta_path` ignored
+  the `cache_dir` argument and always used the module-level `CACHE_DIR`, so a
+  custom cache dir wrote/read the default location (surfaced as a test failure
+  whenever a real `data_cache/` was present locally). `cache_dir` is now
+  threaded through the cache/meta helpers.

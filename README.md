@@ -337,6 +337,44 @@ binding is localhost-only.
 To serve it publicly (Docker + Cloudflare Tunnel behind Cloudflare Access),
 see **DEPLOY.md**.
 
+## The v7 fundamental system (`v7_scoring.py`, `part11_tracker.py`, `docs/`)
+
+Alongside the technical backtester above, `docs/` holds the **CLAUDE TRADING
+SYSTEM v7** — a long-horizon (3–10 yr) fundamental stock-selection framework
+scored by hand (1–5 per indicator) rather than backtested. The two systems are
+independent; nothing in layers 1–6 reads the v7 scores.
+
+- `docs/CLAUDE_TRADING_SYSTEM_v7.docx` — the framework (Parts 1–11)
+- `docs/Notes-Response on Trading Strategy updates (from v4 on).docx` — the
+  v4→v7 design discussion that produced Part 11
+- `docs/PART8_Test_Run_Record_7-6-26.docx` — a hand-worked v6 run on
+  SNEX / MFC / SHEL / CRM / ADBE (the pinned reference for the tests)
+- `docs/PART11_Correlation_Drawdown_Tracker_v6.xlsx` — the manual tracker
+  workbook; `docs/charts/` — the entry-checklist chart pulls
+- `docs/CLAUDE Trading System.pdf` — the original (pre-v7) writeup
+
+`v7_scoring.py` makes the framework's arithmetic and hard rules executable:
+composite score `(Σ score × weight) × 20`, the Tier 1 gate (Rules 6–8),
+decision thresholds, the Part 4 entry checklist and implied-return tests,
+Part 5 sizing with modifiers, and the Part 11 rules (leverage hard cap, beta
+overlay with the v7 round-down convention, bear-case return floor, drawdown
+response bands, correlation cap). `tests/test_v7_scoring.py` pins all of it
+to the PART8 test-run numbers.
+
+`part11_tracker.py` automates the Part 11 tracker from real prices (same
+yfinance cache as Layer 1), replacing manual monthly price entry:
+
+```bash
+python part11_tracker.py --tickers MFC CRM ADBE          # correlation matrix + rule flags
+python part11_tracker.py --tickers MFC CRM ADBE --xlsx   # also fill a copy of the Excel tracker
+python part11_tracker.py --values portfolio_values.csv   # drawdown log (date,value CSV)
+```
+
+Note: the PART8 record contains one arithmetic slip — ADBE's Tier 3
+contribution is 0.14 there, but its own scores (2×0.04 + 3×0.02 + 2×0.01)
+sum to 0.16, making the composite 84.6 rather than 84. The decision
+(STRONG BUY) is unaffected; the code and tests use the correct sum.
+
 ## Known caveats
 
 **Survivorship bias in the universe.** The individual-stock lists — the eight

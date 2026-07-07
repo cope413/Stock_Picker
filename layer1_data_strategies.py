@@ -121,12 +121,13 @@ def universe_tickers() -> List[str]:
 # Data layer
 # --------------------------------------------------------------------------- #
 
-def _cache_path(ticker: str) -> str:
-    return os.path.join(CACHE_DIR, f"{ticker.replace('/', '_')}.parquet")
+def _cache_path(ticker: str, cache_dir: str | None = None) -> str:
+    return os.path.join(cache_dir or CACHE_DIR,
+                        f"{ticker.replace('/', '_')}.parquet")
 
 
-def _meta_path(ticker: str) -> str:
-    return _cache_path(ticker).replace(".parquet", ".meta.json")
+def _meta_path(ticker: str, cache_dir: str | None = None) -> str:
+    return _cache_path(ticker, cache_dir).replace(".parquet", ".meta.json")
 
 
 def resolve_end(end: str | None = END) -> str:
@@ -140,27 +141,29 @@ def _is_crypto(ticker: str) -> bool:
     return ticker.upper().endswith("-USD")
 
 
-def _write_meta(ticker: str, start: str, end: str) -> None:
+def _write_meta(ticker: str, start: str, end: str,
+                cache_dir: str | None = None) -> None:
     import json
     try:
-        with open(_meta_path(ticker), "w") as f:
+        with open(_meta_path(ticker, cache_dir), "w") as f:
             json.dump({"start": start, "end": end,
                        "downloaded_at": pd.Timestamp.now().isoformat()}, f)
     except Exception:
         pass
 
 
-def _read_meta(ticker: str) -> dict | None:
+def _read_meta(ticker: str, cache_dir: str | None = None) -> dict | None:
     import json
     try:
-        with open(_meta_path(ticker)) as f:
+        with open(_meta_path(ticker, cache_dir)) as f:
             return json.load(f)
     except Exception:
         return None
 
 
 def cache_is_stale(df: pd.DataFrame, ticker: str, start: str, end: str,
-                   max_end_gap_bars: int = MAX_END_GAP_BARS) -> str | None:
+                   max_end_gap_bars: int = MAX_END_GAP_BARS,
+                   cache_dir: str | None = None) -> str | None:
     """Return a reason string if the cached frame can't serve [start, end).
 
     Two checks:
@@ -183,7 +186,7 @@ def cache_is_stale(df: pd.DataFrame, ticker: str, start: str, end: str,
         return (f"last cached bar {last.date()} is {missing} expected bars "
                 f"behind requested end {end_ts.date()}")
 
-    meta = _read_meta(ticker)
+    meta = _read_meta(ticker, cache_dir)
     if meta and pd.Timestamp(start) < pd.Timestamp(meta["start"]):
         return (f"cache was built from {meta['start']}, "
                 f"requested start {start} is earlier")
@@ -329,12 +332,13 @@ def download_data(
     skipped: List[str] = []
 
     for t in tickers:
-        cpath = _cache_path(t)
+        cpath = _cache_path(t, cache_dir)
         df = None
         if use_cache and not refresh and os.path.exists(cpath):
             try:
                 cached = pd.read_parquet(cpath)
-                reason = cache_is_stale(cached, t, start, end)
+                reason = cache_is_stale(cached, t, start, end,
+                                        cache_dir=cache_dir)
                 if reason is None:
                     df = cached
                 elif verbose:
@@ -358,7 +362,7 @@ def download_data(
             df = _normalize(raw, t)
             try:
                 df.to_parquet(cpath)
-                _write_meta(t, start, end)
+                _write_meta(t, start, end, cache_dir)
             except Exception:
                 pass
 
