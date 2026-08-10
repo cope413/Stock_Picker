@@ -4,6 +4,10 @@ pandas>=2.1
 pyarrow>=14.0        # parquet cache
 yfinance>=0.2.40     # data download only; tests run without it
 
+# Landry System (landry/) — workbook I/O
+openpyxl>=3.1
+# anthropic>=0.40   # optional: only for `landry draft --evidence` AI drafts
+
 # Dev
 pytest>=8.0
 

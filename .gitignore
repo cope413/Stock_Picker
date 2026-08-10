@@ -32,3 +32,7 @@ venv/
 # Web UI auth (secrets — never commit)
 webapp_users.json
 webapp_secret.key
+landry_snapshot.json
+landry_scores.json
+landry_actions.json
+LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx

@@ -13,12 +13,15 @@ Run:
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
+import glob
 import io
 import json
 import os
 import threading
 import time
 import traceback
+from dataclasses import asdict
 from typing import Dict, Optional
 
 import pandas as pd
@@ -30,11 +33,23 @@ import auth
 import layer1_data_strategies as L
 import layer5_validation as V
 import layer6_portfolio as P
+from landry import scoring as LS
+from landry import xlsx_io as LX
+from landry.approvals import ScoreStore
+from landry.daily import run_daily
+from landry.scoring import CONFIDENCE_LEVELS
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 INDEX_HTML = os.path.join(_HERE, "webui", "index.html")
 LOGIN_HTML = os.path.join(_HERE, "webui", "login.html")
 SIGNALS_JSON = os.path.join(_HERE, "layer6_signals.json")
+
+# Landry System artifacts — module-level so tests can monkeypatch them.
+LANDRY_WORKBOOK_GLOB = os.path.join(_HERE, "LANDRY_SYSTEM_WORKBOOK_*.xlsx")
+LANDRY_SCORES_FILE = os.path.join(_HERE, "landry_scores.json")
+LANDRY_SNAPSHOT_FILE = os.path.join(_HERE, "landry_snapshot.json")
+LANDRY_ACTIONS_FILE = os.path.join(_HERE, "landry_actions.json")
+LANDRY_SNAPSHOT_STALE_DAYS = 7
 
 app = FastAPI(title="Stock_Picker")
 
@@ -374,6 +389,300 @@ def signals():
                             "'Update signals' first.")
     with open(SIGNALS_JSON) as f:
         return json.load(f)
+
+
+# --------------------------------------------------------------------------- #
+# Landry System — fundamental scoring engine (read-mostly; approvals mutate)
+# --------------------------------------------------------------------------- #
+
+def _landry_workbook() -> Optional[str]:
+    """Highest-numbered LANDRY_SYSTEM_WORKBOOK_*.xlsx, or None."""
+    hits = sorted(glob.glob(LANDRY_WORKBOOK_GLOB))
+    return hits[-1] if hits else None
+
+
+def _landry_store() -> ScoreStore:
+    return ScoreStore(LANDRY_SCORES_FILE)
+
+
+def _landry_snapshot() -> Optional[dict]:
+    if not os.path.exists(LANDRY_SNAPSHOT_FILE):
+        return None
+    try:
+        with open(LANDRY_SNAPSHOT_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _snapshot_age_days(snap: Optional[dict]) -> Optional[int]:
+    if not snap or not snap.get("asof"):
+        return None
+    try:
+        asof = dt.datetime.fromisoformat(str(snap["asof"]))
+        if asof.tzinfo is None:
+            asof = asof.replace(tzinfo=dt.timezone.utc)
+        return (dt.datetime.now(dt.timezone.utc) - asof).days
+    except ValueError:
+        return None
+
+
+def _landry_actions() -> tuple:
+    """(actions, source, note): live via run_daily when the workbook is
+    there, else the last saved landry_actions.json, else empty."""
+    note = None
+    wb = _landry_workbook()
+    if wb is not None:
+        try:
+            acts = run_daily(wb, os.path.dirname(LANDRY_SNAPSHOT_FILE),
+                             store=_landry_store())
+            return [asdict(a) for a in acts], "live", None
+        except Exception as e:
+            note = f"live computation failed: {e}"
+    else:
+        note = "workbook missing — no LANDRY_SYSTEM_WORKBOOK_*.xlsx found"
+    if os.path.exists(LANDRY_ACTIONS_FILE):
+        try:
+            with open(LANDRY_ACTIONS_FILE) as f:
+                saved = json.load(f)
+            return (list(saved.get("actions", [])), "file",
+                    note + f" — showing saved actions from {saved.get('date')}")
+        except Exception as e:
+            note += f"; saved actions unreadable: {e}"
+    return [], "none", note
+
+
+def _iso_date(d) -> Optional[str]:
+    if d is None:
+        return None
+    if hasattr(d, "date"):
+        d = d.date()
+    return str(d)
+
+
+def _landry_row(row) -> Dict:
+    """One scoring-tab row + engine recompute + workbook cross-check."""
+    out = {"ticker": row.ticker, "company": row.company,
+           "date_scored": _iso_date(row.date_scored),
+           "tier1_avg": row.tier1_weighted_average,
+           "composite": row.composite, "decision": row.decision,
+           "rule_flags": list(row.rule_flags),
+           "recomputed": None, "mismatch": False}
+    try:
+        card = LS.score_stock(row.ticker, row.scores)
+    except Exception as e:
+        out["recomputed"] = {"error": str(e)}
+        return out
+    f = card.flags
+    out["recomputed"] = {
+        "tier1_avg": card.tier1_weighted_average,
+        "composite": card.composite, "decision": card.decision,
+        "rule_flags": [f.rule1, f.rule2, f.rule3, f.rule4],
+        "notes": card.notes}
+    mismatch = False
+    if (row.tier1_weighted_average is not None
+            and abs(row.tier1_weighted_average
+                    - card.tier1_weighted_average) > 1e-6):
+        mismatch = True
+    if (row.composite is not None and card.composite is not None
+            and abs(row.composite - card.composite) > 1e-6):
+        mismatch = True
+    if row.decision and card.decision and row.decision != card.decision:
+        mismatch = True
+    out["mismatch"] = mismatch
+    return out
+
+
+@app.get("/api/landry/dashboard")
+def landry_dashboard():
+    notes: list = []
+    rows: list = []
+    positions: list = []
+    wb = _landry_workbook()
+    if wb is None:
+        notes.append("workbook missing — no LANDRY_SYSTEM_WORKBOOK_*.xlsx "
+                     "found")
+    else:
+        try:
+            rows = LX.read_scoring_tab(wb)
+            positions = LX.read_positions(wb)
+        except Exception as e:
+            rows, positions = [], []
+            notes.append(f"workbook unreadable: {e}")
+
+    row_out = [_landry_row(r) for r in rows]
+
+    # verdict strip: held names by decision band, equity vs cash, snapshot
+    # age, open action items by priority
+    decision_of = {r["ticker"]: (r["decision"]
+                                 or (r["recomputed"] or {}).get("decision"))
+                   for r in row_out}
+    bands: Dict[str, int] = {}
+    for p in positions:
+        if p.asset_class != "Equity":
+            continue
+        band = decision_of.get(p.ticker) or "UNSCORED"
+        bands[band] = bands.get(band, 0) + 1
+    by_class: Dict[str, float] = {}
+    for p in positions:
+        by_class[p.asset_class] = (by_class.get(p.asset_class, 0.0)
+                                   + p.pct_of_portfolio)
+
+    snap = _landry_snapshot()
+    age = _snapshot_age_days(snap)
+    if snap is None:
+        notes.append("snapshot missing — run `python -m landry refresh`")
+
+    actions, source, note = _landry_actions()
+    if note:
+        notes.append(note)
+    counts = {"act_now": sum(1 for a in actions if a.get("priority") == 1),
+              "due_soon": sum(1 for a in actions if a.get("priority") == 2),
+              "housekeeping": sum(1 for a in actions
+                                  if a.get("priority") == 3)}
+
+    return {"workbook": os.path.basename(wb) if wb else None,
+            "rows": row_out,
+            "verdict": {"bands": bands,
+                        "equity_pct": by_class.get("Equity", 0.0),
+                        "cash_pct": by_class.get("Cash", 0.0),
+                        "by_class": by_class,
+                        "snapshot_age_days": age,
+                        "snapshot_stale": (age is None
+                                           or age > LANDRY_SNAPSHOT_STALE_DAYS),
+                        "actions": counts},
+            "actions_source": source,
+            "notes": notes}
+
+
+@app.get("/api/landry/positions")
+def landry_positions():
+    wb = _landry_workbook()
+    if wb is None:
+        return {"workbook": None, "positions": [], "equity_weights": {},
+                "note": "workbook missing — no LANDRY_SYSTEM_WORKBOOK_*.xlsx "
+                        "found"}
+    try:
+        positions = LX.read_positions(wb)
+    except Exception as e:
+        return {"workbook": os.path.basename(wb), "positions": [],
+                "equity_weights": {}, "note": f"workbook unreadable: {e}"}
+    return {"workbook": os.path.basename(wb),
+            "positions": [asdict(p) for p in positions],
+            "equity_weights": LX.equity_weights(positions),
+            "note": None}
+
+
+@app.get("/api/landry/risk")
+def landry_risk():
+    snap = _landry_snapshot()
+    if snap is None:
+        return {"asof": None, "age_days": None, "correlation": {},
+                "macro": {}, "tickers": {},
+                "note": "snapshot missing — run `python -m landry refresh`"}
+    tickers: Dict[str, Dict] = {}
+    for t, e in (snap.get("tickers") or {}).items():
+        tech = e.get("technicals") or {}
+        beta = e.get("beta") or {}
+        rs = e.get("relative_strength") or {}
+        tickers[t] = {"beta": beta.get("beta"),
+                      "beta_source": beta.get("source"),
+                      "size_reduction_pct": beta.get("size_reduction_pct"),
+                      "above_200w_ma": tech.get("above_200w_ma"),
+                      "macd_positive_or_turning":
+                          tech.get("macd_positive_or_turning"),
+                      "supertrend_bullish": tech.get("supertrend_bullish"),
+                      "staging_ok": tech.get("staging_ok"),
+                      "rs_diff_blended": rs.get("diff_blended"),
+                      "error": e.get("error")}
+    return {"asof": snap.get("asof"),
+            "age_days": _snapshot_age_days(snap),
+            "correlation": snap.get("correlation") or {},
+            "macro": snap.get("macro") or {},
+            "tickers": tickers,
+            "note": None}
+
+
+@app.get("/api/landry/actions")
+def landry_actions():
+    actions, source, note = _landry_actions()
+    return {"actions": actions, "source": source, "note": note,
+            "counts": {"act_now": sum(1 for a in actions
+                                      if a.get("priority") == 1),
+                       "due_soon": sum(1 for a in actions
+                                       if a.get("priority") == 2),
+                       "housekeeping": sum(1 for a in actions
+                                           if a.get("priority") == 3)}}
+
+
+@app.get("/api/landry/pending")
+def landry_pending():
+    store = _landry_store()
+    pending = store.pending()
+    return {"pending": pending,
+            "tickers": store.tickers(),
+            "count": sum(len(d) for d in pending.values())}
+
+
+class LandryApproveParams(BaseModel):
+    ticker: str
+    indicator: str
+    by: str
+    score: Optional[int] = None
+    confidence: Optional[str] = None
+
+
+class LandryRejectParams(BaseModel):
+    ticker: str
+    indicator: str
+    by: str
+    reason: str
+
+
+def _landry_gate_args(ticker: str, indicator: str, by: str) -> tuple:
+    ticker, indicator, by = ticker.strip().upper(), indicator.strip(), by.strip()
+    if not ticker or not indicator or not by:
+        raise HTTPException(400, "ticker, indicator and by are all required.")
+    return ticker, indicator, by
+
+
+@app.post("/api/landry/approve")
+def landry_approve(p: LandryApproveParams):
+    ticker, indicator, by = _landry_gate_args(p.ticker, p.indicator, p.by)
+    if p.score is not None and p.score not in (1, 2, 3, 4, 5):
+        raise HTTPException(400, "score must be an integer 1-5.")
+    confidence = p.confidence.strip().upper() if p.confidence else None
+    if confidence is not None and confidence not in CONFIDENCE_LEVELS:
+        raise HTTPException(
+            400, f"confidence must be one of {'/'.join(CONFIDENCE_LEVELS)}.")
+    store = _landry_store()
+    try:
+        approved = store.approve(ticker, indicator, by,
+                                 score=p.score, confidence=confidence)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "approved": asdict(approved),
+            "pending": store.pending()}
+
+
+@app.post("/api/landry/reject")
+def landry_reject(p: LandryRejectParams):
+    ticker, indicator, by = _landry_gate_args(p.ticker, p.indicator, p.by)
+    reason = p.reason.strip()
+    if not reason:
+        raise HTTPException(400, "a reject needs a documented reason.")
+    store = _landry_store()
+    try:
+        store.reject(ticker, indicator, by, reason)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "pending": store.pending()}
+
+
+@app.get("/api/landry/audit")
+def landry_audit():
+    audit = _landry_store().audit
+    return {"total": len(audit), "audit": list(reversed(audit[-200:]))}
 
 
 if __name__ == "__main__":

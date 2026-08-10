@@ -375,6 +375,40 @@ contribution is 0.14 there, but its own scores (2×0.04 + 3×0.02 + 2×0.01)
 sum to 0.16, making the composite 84.6 rather than 84. The decision
 (STRONG BUY) is unaffected; the code and tests use the correct sum.
 
+## The Landry System (`landry/`)
+
+The **Landry Family Equity Investment Operating System v1.0**
+(`LANDRY_SYSTEM_v1-01_final.docx` + companion workbook
+`LANDRY_SYSTEM_WORKBOOK_11.xlsx`) is the successor to the v7 framework,
+implemented as a rule engine with a strict human-in-the-loop boundary:
+market data, correlations, technicals, and rule math are automated;
+judgment scores (moat, management, revenue visibility) are only ever
+*drafted* — with cited evidence — and count for nothing until approved.
+
+```bash
+python -m landry score NVDA            # recompute from the workbook (Rules 1-4)
+python -m landry refresh               # all objective inputs -> landry_snapshot.json
+python -m landry draft NVDA --evidence ev.json   # AI drafts (needs ANTHROPIC_API_KEY)
+python -m landry pending / approve / reject      # the human gate (audit-logged)
+python -m landry score NVDA --store    # composite from approved scores
+python -m landry daily                 # action items with rule citations + deadlines
+python -m landry import --by "Name"    # seed the score store from the workbook
+python -m landry export --scores       # fill a copy of the Excel workbook
+```
+
+The web UI (below) gains a **Landry** section: Dashboard (verdict strip +
+score table with engine-vs-workbook cross-check), Actions, Approvals
+(approve/reject pending drafts), and Risk (Rule 36 clusters, macro
+overlay, beta/staging). Engine modules: `scoring` (Part 3 + Rules 1-4),
+`data_auto` (Rule 36/20, technicals), `drawdown` (Part 7 state machine),
+`fundamentals` + `macro`, `implied_return`/`entry`/`sizing`/`monitor`
+(Rules 5-42), `ai_analyst`/`approvals` (Part 12 gate), `performance`
+(Part 9 cohorts), `export`/`daily`. Tests pin the math to Workbook 11.
+
+**Daily schedule:** run `python -m landry daily --refresh` each weekday
+after close — e.g. cron `30 13 * * 1-5` (PT) — and review the ACT NOW
+items; the same list is on the web UI's L·Actions tab.
+
 ## Known caveats
 
 **Survivorship bias in the universe.** The individual-stock lists — the eight

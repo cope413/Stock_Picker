@@ -65,12 +65,42 @@
   .bar{display:inline-block;height:8px;border-radius:2px;vertical-align:middle}
   .bar.p{background:var(--long)} .bar.n{background:var(--short)}
   .bar.w{background:var(--amber)}
+  /* ---- Landry ---- */
+  .navlab{font:600 10.5px var(--mono);color:var(--faint);
+          text-transform:uppercase;letter-spacing:.1em;align-self:center;
+          padding-right:8px}
+  .lchips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .chip{background:var(--panel);border:1px solid var(--edge);border-radius:6px;
+        padding:7px 12px;font:12px var(--mono);min-width:78px}
+  .chip .n{font:600 17px/1.2 var(--mono);display:block;
+           font-variant-numeric:tabular-nums}
+  .chip .l{color:var(--dim);font-size:10px;text-transform:uppercase;
+           letter-spacing:.06em}
+  .chip.good .n{color:var(--long)} .chip.warn .n{color:var(--amber)}
+  .chip.bad .n{color:var(--short)}
+  .band{border-radius:4px;padding:1px 7px;font:600 11px var(--sans);
+        white-space:nowrap}
+  .band.sb{background:var(--long);color:#0c1f16}
+  .band.buy{background:rgba(91,185,140,.22);color:var(--long)}
+  .band.watch{background:rgba(232,163,61,.22);color:var(--amber)}
+  .band.avoid{background:rgba(229,72,77,.22);color:var(--short)}
+  .band.none{background:var(--panel2);color:var(--dim)}
+  .flag{font:600 10px var(--mono);border-radius:3px;padding:1px 5px;
+        margin-left:4px;background:rgba(229,72,77,.2);color:var(--short)}
+  .flag.rev{background:rgba(232,163,61,.2);color:var(--amber)}
+  th.sort{cursor:pointer} th.sort:hover{color:var(--text)}
+  .ov{width:52px;margin:0}
+  .rowbtn{background:var(--panel2);color:var(--text);
+        border:1px solid var(--edge);border-radius:5px;padding:3px 9px;
+        font:11.5px var(--sans);cursor:pointer}
+  .rowbtn:hover{color:var(--amber)}
+  .rowbtn.ok:hover{color:var(--long)}
   /* ---- controls ---- */
   form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
        gap:14px;max-width:760px;background:var(--panel);padding:16px;
        border:1px solid var(--edge);border-radius:8px}
   label{font-size:11.5px;color:var(--dim);display:block}
-  input[type=number]{width:100%;background:var(--ink);color:var(--text);
+  input[type=number],input[type=text]{width:100%;background:var(--ink);color:var(--text);
        border:1px solid var(--edge);border-radius:5px;padding:6px 8px;
        font:13px var(--mono);margin-top:4px}
   .chk{display:flex;align-items:center;gap:8px;font-size:12.5px;
@@ -145,6 +175,14 @@
   <button data-t="guide">Guide</button>
 </nav>
 
+<nav id="ltabs">
+  <span class="navlab">Landry</span>
+  <button data-t="ldash">L&middot;Dashboard</button>
+  <button data-t="lactions">L&middot;Actions</button>
+  <button data-t="lapprovals">L&middot;Approvals</button>
+  <button data-t="lrisk">L&middot;Risk</button>
+</nav>
+
 <main>
   <section id="signals" class="on">
     <div class="actions">
@@ -217,6 +255,49 @@
     <div id="specTable"></div>
     <h2>Weights</h2>
     <div id="weightsTable"></div>
+  </section>
+
+  <section id="ldash">
+    <div class="lchips" id="lChips"></div>
+    <p class="note">Landry System fundamental scores from the workbook,
+      re-run through the scoring engine. A <b>mismatch</b> means the
+      workbook's own cells and the engine disagree — investigate before
+      trusting either. Click a column header to sort.</p>
+    <div id="lScoreTable"></div>
+  </section>
+
+  <section id="lactions">
+    <p class="note">Open decisions assembled from the workbook, the latest
+      snapshot and pending drafts — with rule citations and deadlines.
+      Computed live when the workbook is readable, otherwise the last
+      saved <code>landry_actions.json</code>.</p>
+    <div id="lActions"></div>
+  </section>
+
+  <section id="lapprovals">
+    <p class="note">Draft scores confer nothing until a named human approves
+      them (Part 12 boundary). Approve as-is, override score/confidence
+      first, or reject with a documented reason.</p>
+    <div class="actions">
+      <label>Approver
+        <input type="text" id="lApprover" placeholder="your name"
+               style="max-width:180px"></label>
+      <span class="state" id="lAppState"></span>
+    </div>
+    <div id="lPending"></div>
+    <h2>Audit trail (most recent first)</h2>
+    <div id="lAudit"></div>
+  </section>
+
+  <section id="lrisk">
+    <h2>Rule 36 — flagged correlation pairs</h2>
+    <div id="lPairs"></div>
+    <h2>Correlated clusters &amp; exposure</h2>
+    <div id="lClusters"></div>
+    <h2>Macro overlay</h2>
+    <div id="lMacro"></div>
+    <h2>Per-ticker beta &amp; staging</h2>
+    <div id="lBeta"></div>
   </section>
 
   <section id="guide">
@@ -332,6 +413,10 @@ $("#tabs").addEventListener("click",e=>{
   if(e.target.dataset.t===undefined)return;
   showTab(e.target.dataset.t);
 });
+$("#ltabs").addEventListener("click",e=>{
+  if(e.target.dataset.t===undefined)return;
+  showTab(e.target.dataset.t);
+});
 $("#guide").addEventListener("click",e=>{
   if(e.target.dataset.go)showTab(e.target.dataset.go);
 });
@@ -436,6 +521,208 @@ async function loadPortfolio(){
     $("#weightsTable").innerHTML="";}
 }
 
+/* ---------- Landry ---------- */
+const bandCls=d=>d==="STRONG BUY"?"sb":d==="BUY"?"buy":d==="WATCH LIST"?"watch"
+  :(d==="AVOID"||d==="PASS")?"avoid":"none";
+const bandTag=d=>`<span class="band ${bandCls(d)}">${d??"—"}</span>`;
+const flagTags=(fl)=>["1","2","3","4"].map((n,i)=>{
+  const v=(fl??[])[i];
+  return v&&v!=="OK"
+    ?`<span class="flag ${v==="REVIEW"||v==="CAP AT BUY"?"rev":""}">R${n} ${v}</span>`:"";
+}).join("");
+
+let lRows=[], lSort={k:"composite",dir:-1};
+const L_COLS=[
+  {k:"ticker",h:"ticker",f:r=>r.ticker},
+  {k:"company",h:"company",f:r=>r.company},
+  {k:"date_scored",h:"scored",f:r=>r.date_scored??"—"},
+  {k:"tier1_avg",h:"T1 avg",num:true,f:r=>fmt(r.tier1_avg)},
+  {k:"composite",h:"composite",num:true,f:r=>fmt(r.composite,1)},
+  {k:"decision",h:"decision",f:r=>bandTag(r.decision??(r.recomputed&&r.recomputed.decision))},
+  {k:"rule_flags",h:"rules 1-4",f:r=>flagTags(r.rule_flags)||'<span class="mut">OK</span>'},
+  {k:"mismatch",h:"engine check",f:r=>r.mismatch
+    ?'<span class="flag">MISMATCH</span>'
+    :(r.recomputed&&!r.recomputed.error?'<span class="pos">match</span>':'<span class="mut">—</span>')}];
+function renderLScores(){
+  const el=$("#lScoreTable");
+  if(!lRows.length){el.innerHTML='<div class="empty">No scored candidates — is the Landry workbook beside the repo?</div>';return;}
+  const c=L_COLS.find(c=>c.k===lSort.k)||L_COLS[4];
+  const rows=[...lRows].sort((a,b)=>{
+    let x=a[c.k],y=b[c.k];
+    if(x==null&&y==null)return 0; if(x==null)return 1; if(y==null)return -1;
+    return (c.num?x-y:String(x).localeCompare(String(y)))*lSort.dir;
+  });
+  const h=L_COLS.map(c=>`<th class="sort" data-k="${c.k}">${c.h}${c.k===lSort.k?(lSort.dir<0?" ▾":" ▴"):""}</th>`).join("");
+  const b=rows.map(r=>"<tr>"+L_COLS.map(c=>`<td>${c.f(r)}</td>`).join("")+"</tr>").join("");
+  el.innerHTML=`<table><thead><tr>${h}</tr></thead><tbody>${b}</tbody></table>`;
+}
+$("#lScoreTable").addEventListener("click",e=>{
+  const th=e.target.closest("th[data-k]"); if(!th)return;
+  lSort=th.dataset.k===lSort.k?{k:lSort.k,dir:-lSort.dir}:{k:th.dataset.k,dir:-1};
+  renderLScores();
+});
+
+async function loadLDash(){
+  try{
+    const d=await j("/api/landry/dashboard"), v=d.verdict, a=v.actions;
+    const chips=[];
+    for(const band of ["STRONG BUY","BUY","WATCH LIST","AVOID","PASS","UNSCORED"])
+      if(v.bands[band])chips.push({n:v.bands[band],l:`held · ${band.toLowerCase()}`,
+        cls:bandCls(band)==="sb"||bandCls(band)==="buy"?"good":bandCls(band)==="watch"?"warn":bandCls(band)==="avoid"?"bad":""});
+    chips.push({n:pct(v.equity_pct),l:"equity",cls:""});
+    chips.push({n:pct(v.cash_pct),l:"cash",cls:""});
+    chips.push({n:v.snapshot_age_days==null?"—":v.snapshot_age_days+"d",
+      l:"snapshot age",cls:v.snapshot_age_days==null?"bad":v.snapshot_stale?"warn":"good"});
+    chips.push({n:a.act_now,l:"act now",cls:a.act_now?"bad":"good"});
+    chips.push({n:a.due_soon,l:"due soon",cls:a.due_soon?"warn":""});
+    chips.push({n:a.housekeeping,l:"housekeeping",cls:""});
+    $("#lChips").innerHTML=chips.map(c=>
+      `<div class="chip ${c.cls}"><span class="n">${c.n}</span><span class="l">${c.l}</span></div>`).join("");
+    lRows=d.rows;
+    renderLScores();
+    if(d.notes&&d.notes.length)
+      $("#lScoreTable").innerHTML+=`<p class="note" style="margin-top:10px">${d.notes.join(" · ")}</p>`;
+  }catch(e){$("#lChips").innerHTML="";
+    $("#lScoreTable").innerHTML=`<div class="empty">${e.detail??"Not available."}</div>`;}
+}
+
+async function loadLActions(){
+  try{
+    const d=await j("/api/landry/actions");
+    if(!d.actions.length){
+      $("#lActions").innerHTML=`<div class="empty">${d.note??"No open action items."}</div>`;return;}
+    const labels={1:"ACT NOW",2:"DUE SOON",3:"HOUSEKEEPING"};
+    let html=d.note?`<p class="note">${d.note}</p>`:"";
+    for(const p of [1,2,3]){
+      const rows=d.actions.filter(a=>a.priority===p);
+      if(!rows.length)continue;
+      html+=`<h2>${labels[p]} (${rows.length})</h2><div id="lAct${p}"></div>`;
+    }
+    $("#lActions").innerHTML=html;
+    for(const p of [1,2,3]){
+      const rows=d.actions.filter(a=>a.priority===p);
+      if(rows.length)table($(`#lAct${p}`),rows,[
+        {h:"ticker",f:r=>r.ticker},
+        {h:"action",f:r=>`<span style="white-space:normal">${r.action}</span>`},
+        {h:"rule",f:r=>r.rule},
+        {h:"deadline",f:r=>r.deadline??'<span class="mut">—</span>'}]);
+    }
+  }catch(e){$("#lActions").innerHTML=`<div class="empty">${e.detail??"Not available."}</div>`;}
+}
+
+async function loadLApprovals(){
+  try{
+    const d=await j("/api/landry/pending");
+    const rows=[];
+    for(const [t,drafts] of Object.entries(d.pending))
+      for(const [ind,rec] of Object.entries(drafts))
+        rows.push({t,ind,...rec});
+    if(!rows.length)
+      $("#lPending").innerHTML='<div class="empty">No drafts awaiting approval.</div>';
+    else table($("#lPending"),rows,[
+      {h:"ticker",f:r=>r.t},
+      {h:"indicator",f:r=>r.ind},
+      {h:"draft",f:r=>`${r.score} (${r.confidence})`},
+      {h:"source",f:r=>r.source},
+      {h:"rationale",f:r=>`<span class="mut" style="white-space:normal">${r.rationale??""}</span>`},
+      {h:"override",f:r=>`<input class="ov ovScore" type="number" min="1" max="5" step="1" placeholder="${r.score}">
+        <input class="ov ovConf" type="text" maxlength="1" placeholder="${r.confidence}">`},
+      {h:"",f:r=>`<button class="rowbtn ok" data-act="approve" data-ticker="${r.t}" data-ind="${r.ind}">Approve</button>
+        <button class="rowbtn" data-act="reject" data-ticker="${r.t}" data-ind="${r.ind}">Reject</button>`}]);
+    const au=await j("/api/landry/audit");
+    if(!au.audit.length)$("#lAudit").innerHTML='<div class="empty">No audit entries yet.</div>';
+    else table($("#lAudit"),au.audit,[
+      {h:"at",f:r=>r.at},
+      {h:"action",f:r=>r.action},
+      {h:"ticker",f:r=>r.ticker},
+      {h:"indicator",f:r=>r.indicator},
+      {h:"by",f:r=>r.approved_by??'<span class="mut">—</span>'},
+      {h:"detail",f:r=>`<span class="mut" style="white-space:normal">${
+        r.action==="approve"?`${r.original_score}(${r.original_confidence}) → ${r.final_score}(${r.final_confidence})${r.overridden?" · overridden":""}`
+        :r.action==="reject"?(r.reason??""):`${r.score??""} (${r.confidence??""}) ${r.source??""}`}</span>`}]);
+  }catch(e){$("#lPending").innerHTML=`<div class="empty">${e.detail??"Not available."}</div>`;
+    $("#lAudit").innerHTML="";}
+}
+
+$("#lPending").addEventListener("click",async e=>{
+  const b=e.target.closest("button[data-act]"); if(!b)return;
+  const s=$("#lAppState");
+  const by=$("#lApprover").value.trim();
+  if(!by){s.className="state error";s.textContent="enter an approver name first";return;}
+  localStorage.setItem("landryApprover",by);
+  const body={ticker:b.dataset.ticker,indicator:b.dataset.ind,by};
+  let url="/api/landry/approve";
+  if(b.dataset.act==="approve"){
+    const row=b.closest("tr");
+    const os=row.querySelector(".ovScore").value,
+          oc=row.querySelector(".ovConf").value.trim().toUpperCase();
+    if(os)body.score=+os;
+    if(oc)body.confidence=oc;
+  }else{
+    const reason=prompt(`Reason for rejecting ${body.ticker}:${body.indicator}`);
+    if(reason==null)return;
+    body.reason=reason;
+    url="/api/landry/reject";
+  }
+  try{
+    const r=await fetch(url,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(r.status===401){location.replace("/login");return;}
+    if(!r.ok){const err=await r.json();
+      s.className="state error";s.textContent=err.detail??"failed";return;}
+    s.className="state done";
+    s.textContent=`${b.dataset.act==="approve"?"approved":"rejected"} ${body.ticker}:${body.indicator}`;
+    loadLApprovals();
+  }catch(err){s.className="state error";s.textContent=err;}
+});
+
+async function loadLRisk(){
+  try{
+    const d=await j("/api/landry/risk");
+    if(d.note){
+      $("#lPairs").innerHTML=`<div class="empty">${d.note}</div>`;
+      $("#lClusters").innerHTML=$("#lMacro").innerHTML=$("#lBeta").innerHTML="";
+      return;}
+    const corr=d.correlation||{};
+    const pairs=(corr.flagged_pairs||[]).map(([a,b,c])=>({a,b,c}));
+    if(!pairs.length)$("#lPairs").innerHTML='<div class="empty">No pair above 0.70.</div>';
+    else table($("#lPairs"),pairs,[
+      {h:"pair",f:r=>`${r.a} — ${r.b}`},
+      {h:"ρ",f:r=>`<span class="${r.c>0.85?"neg":"mut"}">${fmt(r.c)}</span>`},
+      {h:"",f:r=>bar(r.c,80,r.c>0.85?"n":"w")}]);
+    const exp=Object.fromEntries((corr.cluster_exposure||[]).map(ce=>[ce.cluster.join("/"),ce]));
+    const clusters=(corr.clusters||[]).map(cl=>{
+      const ce=exp[cl.join("/")]||{};
+      return {cl:cl.join(" / "),over:!!ce.over_cap,note:ce.note??""};});
+    if(!clusters.length)$("#lClusters").innerHTML='<div class="empty">No correlated clusters.</div>';
+    else table($("#lClusters"),clusters,[
+      {h:"cluster",f:r=>r.cl},
+      {h:"exposure",f:r=>r.over?'<span class="flag">OVER CAP</span>':'<span class="pos">within cap</span>'},
+      {h:"note",f:r=>`<span class="mut" style="white-space:normal">${r.note}</span>`}]);
+    const m=d.macro||{};
+    let mh="";
+    if((m.active_effects||[]).length)
+      mh+=(m.active_effects||[]).map(e=>`<p class="note"><span class="flag rev">ACTIVE</span>
+        ${e.condition}${(e.effects||[]).length?" — "+e.effects.join("; "):""}</p>`).join("");
+    else mh+='<p class="note"><span class="pos">no active macro conditions</span></p>';
+    if((m.unknown||[]).length)
+      mh+=`<p class="note">unknown (no data source): ${m.unknown.join(", ")}</p>`;
+    $("#lMacro").innerHTML=mh||'<div class="empty">No macro data in the snapshot.</div>';
+    const bt=Object.entries(d.tickers||{}).map(([t,e])=>({t,...e}));
+    if(!bt.length)$("#lBeta").innerHTML='<div class="empty">No per-ticker data in the snapshot.</div>';
+    else table($("#lBeta"),bt,[
+      {h:"ticker",f:r=>r.t},
+      {h:"beta",f:r=>fmt(r.beta)},
+      {h:"Rule 20 size cut",f:r=>r.size_reduction_pct?`<span class="neg">-${r.size_reduction_pct}%</span>`:'<span class="mut">none</span>'},
+      {h:"200w MA",f:r=>r.above_200w_ma==null?'<span class="mut">—</span>':r.above_200w_ma?'<span class="pos">above</span>':'<span class="neg">below</span>'},
+      {h:"MACD",f:r=>r.macd_positive_or_turning?'<span class="pos">ok</span>':'<span class="mut">no</span>'},
+      {h:"supertrend",f:r=>r.supertrend_bullish?'<span class="pos">bull</span>':'<span class="mut">bear</span>'},
+      {h:"RS vs SPY",f:r=>r.rs_diff_blended==null?'<span class="mut">—</span>':`<span class="${sgn(r.rs_diff_blended)}">${pct(r.rs_diff_blended)}</span>`},
+      {h:"staging (Rule 8)",f:r=>r.staging_ok?'<span class="pos">full size</span>':'<span class="neg">50% + 90d review</span>'}]);
+  }catch(e){$("#lPairs").innerHTML=`<div class="empty">${e.detail??"Not available."}</div>`;
+    $("#lClusters").innerHTML=$("#lMacro").innerHTML=$("#lBeta").innerHTML="";}
+}
+
 /* ---------- status + jobs ---------- */
 async function loadStatus(){
   const st=await j("/api/status");
@@ -526,10 +813,13 @@ $("#btnSignalsFresh").onclick=()=>start("/api/run/signals?refresh=true");
 
 function load(tab){
   ({signals:loadSignals,holdout:loadHoldout,clusters:loadClusters,
-    portfolio:loadPortfolio,pipeline:loadUniverse}[tab]||(()=>{}))();
+    portfolio:loadPortfolio,pipeline:loadUniverse,
+    ldash:loadLDash,lactions:loadLActions,lapprovals:loadLApprovals,
+    lrisk:loadLRisk}[tab]||(()=>{}))();
 }
 
 (async()=>{
+  $("#lApprover").value=localStorage.getItem("landryApprover")??"";
   const st=await loadStatus();
   setJob(st.job);
   if(st.job.state==="running")poll();
