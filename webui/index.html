@@ -69,6 +69,10 @@
   .navlab{font:600 10.5px var(--mono);color:var(--faint);
           text-transform:uppercase;letter-spacing:.1em;align-self:center;
           padding-right:8px}
+  nav a#lguide{color:var(--dim);font:13px var(--sans);padding:11px 14px;
+               text-decoration:none;border-bottom:2px solid transparent}
+  nav a#lguide:hover{color:var(--text)}
+  nav a#lguide::after{content:" \2197";font-size:11px}
   .lchips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
   .chip{background:var(--panel);border:1px solid var(--edge);border-radius:6px;
         padding:7px 12px;font:12px var(--mono);min-width:78px}
@@ -181,6 +185,7 @@
   <button data-t="lactions">L&middot;Actions</button>
   <button data-t="lapprovals">L&middot;Approvals</button>
   <button data-t="lrisk">L&middot;Risk</button>
+  <a href="/guide" target="_blank" rel="noopener" id="lguide">L&middot;Guide</a>
 </nav>
 
 <main>

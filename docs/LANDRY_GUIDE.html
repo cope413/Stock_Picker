@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Landry System — User Guide</title>
+<style>
+  :root{
+    --ink:#1a2332; --muted:#5a6a80; --line:#dde4ee; --bg:#f7f9fc;
+    --card:#ffffff; --accent:#1a5fb4; --green:#1a7f37; --lgreen:#e6f4ea;
+    --amber:#b45309; --lamber:#fdf3e0; --red:#b3261e; --lred:#fbeae9;
+    --code-bg:#0f1720; --code-ink:#d7e3f4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.65 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:960px;margin:0 auto;padding:32px 24px 80px}
+  header{border-bottom:3px solid var(--accent);padding-bottom:18px;margin-bottom:28px}
+  h1{font-size:1.9rem;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:1.02rem}
+  h2{font-size:1.35rem;margin:44px 0 12px;padding-top:18px;border-top:1px solid var(--line)}
+  h3{font-size:1.08rem;margin:26px 0 8px}
+  p{margin:10px 0}
+  code{background:#e8edf5;border-radius:4px;padding:1px 6px;font-size:.9em}
+  pre{background:var(--code-bg);color:var(--code-ink);border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:.86rem;line-height:1.55}
+  pre code{background:none;padding:0;color:inherit}
+  table{border-collapse:collapse;width:100%;margin:14px 0;background:var(--card);font-size:.92rem}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#eef2f8}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:14px 0}
+  .note{border-left:4px solid var(--accent);background:#eef4fb;padding:10px 14px;border-radius:0 8px 8px 0;margin:14px 0}
+  .warn{border-left:4px solid var(--amber);background:var(--lamber);padding:10px 14px;border-radius:0 8px 8px 0;margin:14px 0}
+  .stop{border-left:4px solid var(--red);background:var(--lred);padding:10px 14px;border-radius:0 8px 8px 0;margin:14px 0}
+  .pill{display:inline-block;border-radius:999px;padding:1px 10px;font-size:.8rem;font-weight:600}
+  .sb{background:var(--lgreen);color:var(--green)} .buy{background:#f0f7ee;color:#3a6b35}
+  .wl{background:var(--lamber);color:var(--amber)} .av{background:var(--lred);color:var(--red)}
+  ol.steps>li{margin:14px 0;padding-left:4px}
+  ol.steps>li::marker{font-weight:700;color:var(--accent)}
+  .toc{columns:2;gap:32px;font-size:.95rem}
+  .toc a{color:var(--accent);text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  .k{font-weight:600}
+  @media print{body{background:#fff}.wrap{max-width:none}pre{white-space:pre-wrap}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>The Landry System — User Guide</h1>
+  <div class="sub">Step-by-step usage of the <code>landry</code> tool and web dashboard, with a summary of the methodology.
+  Companion to <em>LANDRY_SYSTEM_v1-01_final.docx</em> (the authoritative rulebook) and <em>LANDRY_SYSTEM_WORKBOOK_11.xlsx</em>.</div>
+</header>
+
+<nav class="toc">
+<b>Contents</b><br>
+1. <a href="#method">The methodology in brief</a><br>
+2. <a href="#boundary">What is automated vs. what is yours</a><br>
+3. <a href="#setup">Setup</a><br>
+4. <a href="#import">One-time: seed the score store</a><br>
+5. <a href="#daily">The daily routine</a><br>
+6. <a href="#newstock">Scoring a new candidate</a><br>
+7. <a href="#entry">Deciding an entry</a><br>
+8. <a href="#monitor">Monitoring holdings &amp; selling</a><br>
+9. <a href="#webui">Web dashboard reference</a><br>
+10. <a href="#cli">CLI reference</a><br>
+11. <a href="#tables">Rule quick-reference tables</a><br>
+12. <a href="#excel">Excel round-trip</a><br>
+13. <a href="#caveats">Caveats &amp; dry run</a>
+</nav>
+
+<h2 id="method">1. The methodology in brief</h2>
+<p>The Landry Family Equity Investment Operating System targets <b>long-term appreciation over a 3–10 year horizon</b> with capital preservation (a &lt;30% drawdown objective). It is a bottom-up, quality-at-reasonable-price process: <i>fundamentals determine direction; technicals refine timing — never the reverse.</i></p>
+
+<h3>Scoring: three tiers, one composite</h3>
+<p>Every candidate is scored 1–5 on twelve indicators, each with a weight and a confidence tag (High / Medium / Low):</p>
+<table>
+<tr><th>Tier</th><th>Indicators (weight)</th><th>Share of decision</th></tr>
+<tr><td><b>Tier 1</b> — core economics</td><td>FCF Yield &amp; Trend (20%), Revenue Growth Consistency (15%), Competitive Moat (15%), Revenue Visibility (10%), FCF Margin Trend (10%)</td><td>70%</td></tr>
+<tr><td><b>Tier 2</b> — quality confirmation</td><td>Management &amp; Capital Allocation (8%), Valuation Multiples (8%), ROIC vs WACC (6%), Relative Strength vs SPY (3%)</td><td>25%</td></tr>
+<tr><td><b>Tier 3</b> — timing refinement</td><td>Technical Trend (2%), Analyst Consensus (2%), Volume/Accumulation (1%)</td><td>5%</td></tr>
+</table>
+<p><b>Composite Score = (Σ score × weight) × 20</b>, giving 0–100. Decision bands:
+<span class="pill sb">80–100 STRONG BUY</span> <span class="pill buy">65–79 BUY</span> <span class="pill wl">50–64 WATCH LIST</span> <span class="pill av">35–49 AVOID</span> <span class="pill av">&lt;35 PASS</span></p>
+<p>Four hard rules gate the score itself: a Tier 1 weighted average below 3.0 can never be a Buy (<b>Rule 1</b> — score Tier 1 first; if it fails, stop); any Tier 1 indicator at 1 forces a qualitative review (<b>Rule 2</b>); two or more Tier 1 indicators at ≤2 auto-classifies Avoid (<b>Rule 3</b>); two or more Low-Confidence Tier 1 scores cap Strong Buy at Buy (<b>Rule 4</b>).</p>
+
+<h3>Entry, sizing, exit</h3>
+<p>A qualifying score does not authorize a purchase. The <b>Entry Checklist (Rules 5–13)</b> also requires: technical staging (above or recently reclaimed the 200-week MA → full initial size, otherwise 50% + a 90-day review; a negative monthly MACD holds you at 50% but never vetoes a qualifying fundamental case), no unhandled binary-event risk, an implied 5-year return &gt;10% in the Base Case and ≥0% in a documented Bear Case, Bull/Base/Bear scenarios with exactly one tagged <i>Likely</i>, and a valuation ceiling (no new position above 50× P/FCF without documented &gt;30% FCF growth <i>and</i> a passing bear case).</p>
+<p><b>Position sizing (Rules 14–20)</b> converts conviction to exposure: Strong Buy 5% initial / 8% max; Buy 3% / 5%; modifiers of ±1% for insider buying, Debt/FCF &gt; 4×, customer concentration, macro headwinds; a beta overlay (−1% at β 1.40–1.59, −2% at ≥1.60); hard caps of 8% per position, 25% per sector, 12-position minimum, and 5–15% cash. Never lower the score threshold to get invested — hold cash instead.</p>
+<p><b>Sell discipline (Rules 21–35)</b> separates deterioration from volatility. Fundamental triggers (FCF collapse, moat loss, ROIC&lt;WACC two years, destructive management, sustained revenue decline) act within 30 days. Valuation triggers (Debt/FCF&gt;6×, P/FCF&gt;50× with slowing growth, implied return &lt;7%, oversized positions) force trims. Score downgrades follow a state machine: 50–64 = Probationary Hold (no additions, 90-day re-score); 35–49 = Exit Review (sell in 30 days unless a documented remediation plan exists); &lt;35 = mandatory sell. <b>Hold Through</b> protects intact businesses from being sold on noise — a 20–30% price drop, one bad quarter, downgrades, or a market selloff are never, alone, reasons to sell.</p>
+
+<h3>Portfolio-level risk</h3>
+<p>A <b>macro overlay</b> (rate cycle, inverted yield curve, HY spreads &gt; 600bp, SPY below its 200-week MA) adjusts sizing and urgency without touching business scores. The <b>correlation cap (Rule 36)</b> flags any cluster of 3+ holdings pairwise-correlated above 0.70: new additions to a flagged cluster start at 50% size, and cluster exposure above 20% needs written approval. The <b>drawdown response (Rule 37)</b> raises the cash floor and restricts new buying as portfolio drawdown deepens (see the tables below), entered after 5 consecutive days beyond a threshold and exited after 10 days back inside. Tax rules (38–42) govern <i>how</i> — never <i>whether</i> — a justified trade executes.</p>
+
+<h2 id="boundary">2. What is automated vs. what is yours</h2>
+<div class="card">
+<p><b>The Part 12 boundary is the design center of this tool.</b> Automation applies only to raw market data and arithmetic. The judgment calls are never automated.</p>
+<table>
+<tr><th>The app computes</th><th>You (or AI-drafts you approve) decide</th></tr>
+<tr><td>Prices, market data, weekly returns, correlations and cluster flags, drawdown regime, beta, 200-week MA / MACD / Supertrend / A-D line, relative strength, FCF &amp; Debt/FCF &amp; revenue CAGR from statements, all composite math, every rule check, deadlines</td><td>Competitive Moat, Management Quality, Revenue Visibility, structural-deterioration calls, scenario assumptions (Year-5 FCF, terminal multiples), binary-event judgment, remediation plans</td></tr>
+</table>
+<p>AI (<code>landry draft</code>) may <i>propose</i> judgment scores with cited evidence, but a score counts for nothing until you approve it — every approval is recorded with name and timestamp in an audit trail. Quantitative drafts carry confidence ceilings (Medium for yfinance-grade data, Low for thin history) so data quality is visible in the score itself.</p>
+</div>
+
+<h2 id="setup">3. Setup</h2>
+<pre><code># one-time
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pip install anthropic          # optional — only for AI drafting
+
+# start the dashboard
+python webapp.py               # open http://127.0.0.1:8713</code></pre>
+<p>The web UI has two nav rows: the original backtester tabs, and the <b>Landry</b> row — <b>L·Dashboard</b>, <b>L·Actions</b>, <b>L·Approvals</b>, <b>L·Risk</b>. Everything the UI shows is also available from the CLI; both read and write the same files, so they stay interchangeable.</p>
+<p>For AI drafting, set <code>ANTHROPIC_API_KEY</code> in your environment.</p>
+
+<h2 id="import">4. One-time: seed the score store from the workbook</h2>
+<ol class="steps">
+<li>Your existing analyst scores live in the workbook's Scoring tab. Import them once:
+<pre><code>python -m landry import --by "Taylor"</code></pre>
+This copies every recorded indicator score into <code>landry_scores.json</code> as approved-by-you (the workbook was the original approval), with a full audit entry per score.</li>
+<li>Verify the engine reproduces the workbook exactly:
+<pre><code>python -m landry score --all        # engine vs workbook, flags any MISMATCH
+python -m landry score NVDA --store # composite from the imported store</code></pre>
+Every one of the 16 scored names should match to the decimal (NVDA 93.2 STRONG BUY, etc.). The L·Dashboard tab shows the same cross-check continuously.</li>
+</ol>
+
+<h2 id="daily">5. The daily routine (~2 minutes)</h2>
+<ol class="steps">
+<li><b>Refresh data and get your action list</b> (run after market close, or schedule it — cron: <code>30 13 * * 1-5</code> PT):
+<pre><code>python -m landry daily --refresh</code></pre>
+or open <b>L·Actions</b> in the web UI. Items arrive in three groups, each with its rule citation and deadline:
+<table>
+<tr><th>Group</th><th>Examples</th></tr>
+<tr><td><b>ACT NOW</b></td><td>Mandatory Sell / Exit Review deadlines (Rules 31/33), a held name that failed the Tier 1 gate, a &gt;20% loss needing a post-mortem (Rule 46), a correlation cluster over the 20% cap (Rule 36)</td></tr>
+<tr><td><b>DUE SOON</b></td><td>Probationary Hold 90-day re-scores (Rule 32), annual re-scores overdue (Rule 44), watch-list quarterly reviews (Rule 43), active macro-overlay conditions</td></tr>
+<tr><td><b>HOUSEKEEPING</b></td><td>Stale data snapshot, drafts awaiting your approval</td></tr>
+</table></li>
+<li><b>Glance at L·Dashboard</b>: the verdict strip shows holdings by decision band, equity vs cash %, data freshness, and open action counts. The score table color-codes bands and flags any engine-vs-workbook mismatch.</li>
+<li><b>Check L·Risk</b> when anything changed: flagged correlation pairs and clusters (over-cap highlighted), macro conditions (unknowns are labeled unknown — the system never guesses), and each holding's beta, Rule 20 size cut, and Rule 8 staging status.</li>
+</ol>
+
+<h2 id="newstock">6. Scoring a new candidate (the full workflow)</h2>
+<ol class="steps">
+<li><b>Pull the objective inputs:</b>
+<pre><code>python -m landry refresh --tickers ACME</code></pre>
+This computes technicals, relative strength, beta, and — where statement data allows — <i>drafts</i> the quantitative indicators (FCF Yield &amp; Trend, Revenue Growth Consistency, FCF Margin Trend) directly from the Part 2 rubrics, each with a stated rationale and a confidence ceiling.</li>
+<li><b>Assemble evidence for the judgment indicators.</b> Create a JSON file where each entry is tagged with its source tier (1 = audited filings … 5 = commentary — the Part 10 hierarchy):
+<pre><code>[
+ {"text": "10-K: 92% of FY25 revenue under multi-year contracts; net revenue retention 118%.",
+  "source_tier": 1, "source": "FY25 10-K p.34", "date": "2026-02-15"},
+ {"text": "Earnings call: price increase of 7% announced with no disclosed churn impact.",
+  "source_tier": 2, "source": "Q2 call transcript", "date": "2026-07-30"},
+ {"text": "Analyst note: share gains vs top competitor for 3rd consecutive year.",
+  "source_tier": 4, "source": "Bernstein initiation", "date": "2026-06-01"}
+]</code></pre></li>
+<li><b>Request AI drafts</b> (requires <code>ANTHROPIC_API_KEY</code>):
+<pre><code>python -m landry draft ACME --evidence acme_evidence.json</code></pre>
+The model proposes 1–5 scores for Moat, Management, and Revenue Visibility <i>only where the evidence supports them</i>, citing which entries back each score. Moat drafts state which of the four cross-check tests (pricing power, relative margins, retention, share trend) are evidenced — a 4–5 needs at least two. Evidence from weak sources caps the confidence tag in code, whatever the model says.</li>
+<li><b>Review and approve</b> — on <b>L·Approvals</b> (per-row approve/reject with optional overrides) or the CLI:
+<pre><code>python -m landry pending ACME
+python -m landry approve ACME competitive_moat --by "Taylor"          # accept
+python -m landry approve ACME management_quality --by "Taylor" --score 3   # override
+python -m landry reject ACME revenue_visibility --by "Taylor" --reason "evidence too thin"</code></pre>
+Overrides record both the original draft and your final call. Nothing you have not approved can ever reach a composite.</li>
+<li><b>Compute the verdict:</b>
+<pre><code>python -m landry score ACME --store</code></pre>
+Rules 1–4 apply automatically. If Tier 1 fails, the process stops there by design — do not score Tier 2/3.</li>
+</ol>
+
+<h2 id="entry">7. Deciding an entry</h2>
+<ol class="steps">
+<li>Confirm the composite is ≥65 with Tier 1 intact (Rules 5–7 — automatic from the scorecard).</li>
+<li>Check staging on <b>L·Risk</b> / the snapshot: above or recently-reclaimed 200-week MA → full initial size; otherwise (or with negative monthly MACD) 50% + a 90-day technical review (Rules 8–9).</li>
+<li>Document Bull / Base / Bear scenarios — Year-5 FCF per share, a terminal multiple no higher than min(current, 5-year median), cumulative distributions. The engine checks: Base &gt; 10%, Bear ≥ 0%, exactly one scenario tagged <i>Likely</i> and it must be the Base (Rules 11–12). <b>A negative bear case kills the entry regardless of score.</b></li>
+<li>Confirm no unhandled binary event (Rule 10) and the valuation ceiling (Rule 13; for financials, the Rule 49 sector ceilings).</li>
+<li>Size it: the sizing engine applies band limits, modifiers, the beta overlay, macro multipliers, cluster staging, and drawdown-regime gates, and reports every adjustment with its rule. In an Elevated regime only Strong Buys may initiate; in Severe/Critical, nothing does.</li>
+</ol>
+<div class="note">Record the thesis, key risks, and review triggers at entry (Part 9's investment file), and add the entry to the workbook's Performance Tracking tab — cohort benchmarking (12% objective for Strong Buys, 10% for Buys) needs the original decision date.</div>
+
+<h2 id="monitor">8. Monitoring holdings &amp; selling</h2>
+<ol class="steps">
+<li>Re-score quarterly on material news and annually in full (Rules 43–44 — the action list tracks both clocks).</li>
+<li>After each re-score the engine reports: fired fundamental triggers (act within 30 days), valuation triggers, and band transitions with computed deadlines. A Strong Buy→Buy downgrade only trims to the Buy maximum; it is not a sale.</li>
+<li><b>Respect Hold Through.</b> If the only "problems" are price action, a single missed quarter, downgrades, or a market selloff — and no trigger fired — the system will refuse to recommend selling. A fired trigger always outranks Hold Through.</li>
+<li>Replacing a laggard with a better idea must pass the five-condition gate (Rule 34): a ≥15-point score gap across two consecutive quarterly re-scores, full vetting of the new name, no Hold Through protection, a genuine capital constraint, documentation before execution — and at most once per holding per 12 months (Rule 35).</li>
+<li>Execute tax-aware (Part 8): mandated sells go on schedule regardless of tax; discretionary trims may wait up to 30 days to reach long-term treatment; the lot selector picks the lowest after-tax combination (losses first, then long-term gains) — confirm specific lots with the broker.</li>
+</ol>
+
+<h2 id="webui">9. Web dashboard reference</h2>
+<table>
+<tr><th>Tab</th><th>Shows</th><th>Actions</th></tr>
+<tr><td><b>L·Dashboard</b></td><td>Verdict strip (bands held, equity/cash %, snapshot age, action counts) + sortable score table with rule-flag badges and an engine-vs-workbook MISMATCH check per row</td><td>Sort; investigate mismatches</td></tr>
+<tr><td><b>L·Actions</b></td><td>ACT NOW / DUE SOON / HOUSEKEEPING items with rule citations and deadlines</td><td>Work the list top-down</td></tr>
+<tr><td><b>L·Approvals</b></td><td>Pending drafts (score, confidence, source, rationale) + the audit trail</td><td>Approve (with optional score/confidence override) or reject with reason; approver name is remembered</td></tr>
+<tr><td><b>L·Risk</b></td><td>Rule 36 flagged pairs and clusters (over-cap highlighted), macro overlay active/unknown conditions, per-holding beta / size cut / staging</td><td>Document shared risk drivers for flagged clusters</td></tr>
+</table>
+<p>All Landry endpoints sit behind the same login as the rest of the dashboard and degrade gracefully when an artifact is missing.</p>
+
+<h2 id="cli">10. CLI reference</h2>
+<table>
+<tr><th>Command</th><th>Purpose</th></tr>
+<tr><td><code>python -m landry score TICKER</code> / <code>--all</code></td><td>Recompute composite + Rules 1–4 from the workbook; flags mismatches</td></tr>
+<tr><td><code>python -m landry score TICKER --store</code></td><td>Composite from approved scores only</td></tr>
+<tr><td><code>python -m landry refresh [--tickers ...]</code></td><td>All automatable inputs → <code>landry_snapshot.json</code> (defaults to your equity holdings)</td></tr>
+<tr><td><code>python -m landry draft TICKER --evidence F.json</code></td><td>Quant drafts + AI judgment drafts into the pending queue</td></tr>
+<tr><td><code>python -m landry pending / approve / reject</code></td><td>The human gate (audit-logged; overrides recorded)</td></tr>
+<tr><td><code>python -m landry daily [--refresh]</code></td><td>Action items with rule citations → <code>landry_actions.json</code></td></tr>
+<tr><td><code>python -m landry import --by NAME</code></td><td>One-time workbook → score store migration</td></tr>
+<tr><td><code>python -m landry export [--scores] [--no-prices]</code></td><td>Fill a copy of the Excel workbook (formulas preserved)</td></tr>
+</table>
+
+<h2 id="tables">11. Rule quick-reference tables</h2>
+<h3>Decision bands &amp; sizing</h3>
+<table>
+<tr><th>Composite</th><th>Decision</th><th>Max initial</th><th>Max full</th><th>Existing holding</th></tr>
+<tr><td>80–100</td><td><span class="pill sb">STRONG BUY</span></td><td>5%</td><td>8%</td><td>Core hold / add</td></tr>
+<tr><td>65–79</td><td><span class="pill buy">BUY</span></td><td>3%</td><td>5%</td><td>Hold; trim above Buy max</td></tr>
+<tr><td>50–64</td><td><span class="pill wl">WATCH LIST</span></td><td>0%</td><td>—</td><td>Probationary Hold; 90-day re-score</td></tr>
+<tr><td>35–49</td><td><span class="pill av">AVOID</span></td><td>0%</td><td>—</td><td>Exit Review; sell in 30d unless remediation plan</td></tr>
+<tr><td>&lt;35</td><td><span class="pill av">PASS</span></td><td>0%</td><td>—</td><td>Mandatory sell in 30d</td></tr>
+</table>
+<h3>Drawdown response (Rule 37)</h3>
+<table>
+<tr><th>Drawdown</th><th>Status</th><th>Cash floor</th><th>New positions</th></tr>
+<tr><td>0–10%</td><td>Normal</td><td>5–15% band</td><td>Standard</td></tr>
+<tr><td>10–20%</td><td>Elevated</td><td>≥15%</td><td>Strong Buy (≥80) only</td></tr>
+<tr><td>20–30%</td><td>Severe</td><td>≥20%</td><td>None</td></tr>
+<tr><td>30%+</td><td>Critical</td><td>≥25%</td><td>None; re-score portfolio in 2 weeks</td></tr>
+</table>
+<p>Regimes enter after 5 consecutive trading days beyond a threshold and exit after 10 consecutive days inside the less restrictive band; a new portfolio high resets to Normal. Cash is raised via the waterfall (suspend buys → retain income → trim cap-breachers → trim lowest scorers not on Hold Through → trim highest beta/correlation/leverage) — never by dumping intact core holdings.</p>
+<h3>Hard caps that nothing overrides</h3>
+<table>
+<tr><th>Cap</th><th>Rule</th></tr>
+<tr><td>8% max position at cost; 25% max sector; ≥12 qualifying positions; 5–15% cash</td><td>14–17</td></tr>
+<tr><td>Debt/FCF &gt; 5× caps the composite at 65 (financial-sector substitutes: CET1 &lt; 9%, RBC &lt; 350%, leverage &gt; 3×)</td><td>19 / 48</td></tr>
+<tr><td>Correlation cluster additions at 50% size; &gt;20% cluster exposure needs written approval</td><td>36</td></tr>
+<tr><td>Bear-case implied return &lt; 0% blocks entry regardless of score</td><td>11</td></tr>
+</table>
+
+<h2 id="excel">12. Excel round-trip</h2>
+<p>The workbook remains fully usable. <code>landry export</code> writes a dated copy — weekly closes into Price History (the workbook's Returns and Correlation tabs recalculate on open), market data, the drawdown log, and (with <code>--scores</code>) approved scores into the Scoring tab. Computed columns stay as formulas, so Excel remains its own check on the engine. <code>landry import</code> goes the other way. If you restructure workbook tabs, update the column maps in <code>landry/xlsx_io.py</code> (the workbook's Schema Reference tab is the contract).</p>
+
+<h2 id="caveats">13. Caveats &amp; the dry run</h2>
+<div class="warn"><b>Data quality.</b> Fundamentals come from yfinance and are not filings-grade; the Part 10 FCF definition (SBC deducted, normalized) deserves filings-based inputs for names you are actually buying. Drafts from thin data are confidence-capped for exactly this reason. The financial-sector thresholds (Rules 48–49) are the doc's own "reasoned defaults, not backtested" — review before relying on them.</div>
+<div class="stop"><b>Before retiring manual scoring, run the one-month dry run:</b> score in both the app and the workbook side by side, run <code>landry daily</code> each weekday, and investigate every MISMATCH flag on L·Dashboard. The engine is pinned to Workbook 11 by 305 tests, but the dry run is what validates the <i>workflow</i>, not just the math.</div>
+<p class="sub" style="margin-top:28px">If this guide and the rulebook ever disagree, the rulebook governs. Interpretation choices made in code (PPO-form MACD, immediate regime reset at a new high-water mark, conservative 50% staging on unknown technicals, and others) are documented in the module docstrings.</p>
+
+</div>
+</body>
+</html>

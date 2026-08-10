@@ -253,6 +253,17 @@ def index():
     return FileResponse(INDEX_HTML)
 
 
+LANDRY_GUIDE_HTML = os.path.join(_HERE, "docs", "LANDRY_GUIDE.html")
+
+
+@app.get("/guide")
+def landry_guide():
+    """The Landry System user guide (docs/LANDRY_GUIDE.html)."""
+    if not os.path.exists(LANDRY_GUIDE_HTML):
+        raise HTTPException(404, "docs/LANDRY_GUIDE.html not found")
+    return FileResponse(LANDRY_GUIDE_HTML)
+
+
 @app.get("/api/status")
 def status(request: Request):
     spec = None
