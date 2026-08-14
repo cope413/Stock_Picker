@@ -206,7 +206,9 @@ Rules 1–4 apply automatically. If Tier 1 fails, the process stops there by des
 <tr><td><code>python -m landry daily [--refresh]</code></td><td>Action items with rule citations → <code>landry_actions.json</code></td></tr>
 <tr><td><code>python -m landry import --by NAME</code></td><td>One-time workbook → score store migration</td></tr>
 <tr><td><code>python -m landry export [--scores] [--no-prices]</code></td><td>Fill a copy of the Excel workbook (formulas preserved)</td></tr>
+<tr><td><code>python -m landry doctor</code></td><td>Check this machine is ready to edit the workbook safely (Python version, LibreOffice, required packages) — run this before any programmatic xlsx edit, on every machine, since it's checked per-environment, not once</td></tr>
 </table>
+<p>This project runs across multiple machines by design. A workbook edit that passes every check available without a real spreadsheet engine — well-formed XML, a clean <code>openpyxl</code> round-trip — can still fail once Excel actually opens it. <code>doctor</code> confirms LibreOffice (<code>soffice</code>) is on PATH; if missing, install it (<code>brew install --cask libreoffice</code> on macOS, <code>winget install TheDocumentFoundation.LibreOffice</code> on Windows) before editing the workbook on that machine. Once installed, <code>python -m landry.xlsx_recalc &lt;path.xlsx&gt;</code> recalculates every formula and reports Excel errors — run it after any programmatic edit, before calling it done.</p>
 
 <h2 id="tables">11. Rule quick-reference tables</h2>
 <h3>Decision bands &amp; sizing</h3>

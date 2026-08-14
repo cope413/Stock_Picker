@@ -12,6 +12,7 @@
     python -m landry daily               # today's action items (Rules 30-44)
     python -m landry export              # fill a copy of the Excel workbook
     python -m landry import --by "Taylor"  # seed score store from workbook
+    python -m landry doctor              # check this machine is ready to edit the workbook
 
 `score` reads analyst scores from the companion workbook (default: the
 highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx beside the repo, currently
@@ -224,6 +225,13 @@ def _cmd_import(args) -> int:
     return 0
 
 
+def _cmd_doctor(args) -> int:
+    from landry.doctor import report, run_all
+    checks = run_all()
+    print(report(checks))
+    return 1 if any(not c.ok for c in checks) else 0
+
+
 def _cmd_refresh(args) -> int:
     from landry.refresh import build_snapshot, print_report, write_snapshot
     from landry.xlsx_io import equity_weights, read_positions
@@ -309,8 +317,14 @@ def main(argv=None) -> int:
     im.add_argument("--workbook", default=None)
     im.add_argument("--by", required=True, help="approver of record")
     im.add_argument("--tickers", nargs="+", default=None)
+
+    sub.add_parser("doctor", help="check this machine is ready to edit "
+                   "the workbook safely (Python version, LibreOffice, "
+                   "required packages)")
     args = p.parse_args(argv)
 
+    if args.cmd == "doctor":
+        return _cmd_doctor(args)
     if args.cmd == "refresh":
         return _cmd_refresh(args)
     if args.cmd == "daily":

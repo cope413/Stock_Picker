@@ -37,3 +37,9 @@ landry_snapshot.json
 landry_scores.json
 landry_actions.json
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
+LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
+
+# Excel/Office lock files (created while a workbook is open, any OS)
+~$*.xlsx
+~$*.xls
+~$*.docx

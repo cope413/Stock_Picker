@@ -1,3 +1,7 @@
+# Python 3.9+ required (this repo's own floor). Editing
+# LANDRY_SYSTEM_WORKBOOK_*.xlsx additionally needs LibreOffice (soffice) on
+# PATH -- run `python -m landry doctor` to check both on any machine.
+
 # Core (yfinance breaks between versions more than most — keep it current)
 numpy>=1.26
 pandas>=2.1

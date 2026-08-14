@@ -395,7 +395,26 @@ python -m landry score NVDA --store    # composite from approved scores
 python -m landry daily                 # action items with rule citations + deadlines
 python -m landry import --by "Name"    # seed the score store from the workbook
 python -m landry export --scores       # fill a copy of the Excel workbook
+python -m landry doctor                # check this machine is ready to edit the workbook
 ```
+
+**Before editing `LANDRY_SYSTEM_WORKBOOK_*.xlsx` programmatically, run
+`python -m landry doctor`.** This codebase runs on multiple machines (this
+is a multi-environment setup by design), and an xlsx edit that looks clean
+by every check available without a real spreadsheet engine — well-formed
+XML, valid zip, a clean openpyxl round-trip — can still fail once opened in
+real Excel, which is the one validator that actually matters and the one
+none of those checks substitute for. `doctor` confirms LibreOffice
+(`soffice`) is on PATH; if it's missing, install it (`brew install --cask
+libreoffice` on macOS, `winget install TheDocumentFoundation.LibreOffice`
+on Windows) before making any workbook edit on that machine. Once
+installed, `python -m landry.xlsx_recalc <path.xlsx>` recalculates every
+formula and reports Excel errors (`#REF!`, `#VALUE!`, etc.) — run it after
+any programmatic edit and before calling the edit done. This is a hard
+requirement on Linux/Android/Termux environments where LibreOffice may not
+be reliably installable at all; `doctor` says so explicitly when that's the
+case, and the safe fallback there is to make workbook edits from a
+Mac/Windows environment instead, or by hand in Excel.
 
 The web UI (below) gains a **Landry** section: Dashboard (verdict strip +
 score table with engine-vs-workbook cross-check), Actions, Approvals
