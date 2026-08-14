@@ -407,9 +407,8 @@ def signals():
 # --------------------------------------------------------------------------- #
 
 def _landry_workbook() -> Optional[str]:
-    """Highest-numbered LANDRY_SYSTEM_WORKBOOK_*.xlsx, or None."""
-    hits = sorted(glob.glob(LANDRY_WORKBOOK_GLOB))
-    return hits[-1] if hits else None
+    """Highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx, or None."""
+    return LX.pick_latest(glob.glob(LANDRY_WORKBOOK_GLOB))
 
 
 def _landry_store() -> ScoreStore:

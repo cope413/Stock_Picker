@@ -12,10 +12,36 @@ Phase 5 adds writing (export); Phase 1 only reads.
 
 from __future__ import annotations
 
+import glob
+import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from landry.scoring import IndicatorScore
+
+WORKBOOK_PREFIX = "LANDRY_SYSTEM_WORKBOOK_"
+WORKBOOK_GLOB = f"{WORKBOOK_PREFIX}*.xlsx"
+
+
+def pick_latest(paths: List[str]) -> Optional[str]:
+    """Highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx among ``paths``, or None.
+
+    Ignores non-numeric matches (e.g. ..._TEMPLATE_FINAL.xlsx) -- a plain
+    lexical sort would rank 'T' above any digit and pick the blank template
+    over the live workbook.
+    """
+    numbered = []
+    for path in paths:
+        stem = os.path.basename(path)[len(WORKBOOK_PREFIX):-len(".xlsx")]
+        if stem.isdigit():
+            numbered.append((int(stem), path))
+    return max(numbered)[1] if numbered else None
+
+
+def latest_workbook(repo_dir: str) -> Optional[str]:
+    """Highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx in repo_dir, or None."""
+    return pick_latest(glob.glob(os.path.join(repo_dir, WORKBOOK_GLOB)))
+
 
 # (indicator, score column index 1-based); confidence is score col + 1
 _SCORE_COLS = [

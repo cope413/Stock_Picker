@@ -29,6 +29,31 @@ from typing import Dict, List, Optional, Protocol, Sequence, Tuple
 # --------------------------------------------------------------------------- #
 
 @dataclass
+class AnalystRecPeriod:
+    """One month's sell-side recommendation tally (e.g. yfinance
+    Ticker.recommendations: period "0m" = current, "-1m" = one month
+    back, ...)."""
+    period: str
+    strong_buy: int
+    buy: int
+    hold: int
+    sell: int
+    strong_sell: int
+
+    @property
+    def total(self) -> int:
+        return self.strong_buy + self.buy + self.hold + self.sell + self.strong_sell
+
+    @property
+    def buy_pct(self) -> Optional[float]:
+        return None if self.total == 0 else 100.0 * (self.strong_buy + self.buy) / self.total
+
+    @property
+    def negative_pct(self) -> Optional[float]:
+        return None if self.total == 0 else 100.0 * (self.sell + self.strong_sell) / self.total
+
+
+@dataclass
 class FundamentalInputs:
     """Raw inputs for one company, most recent first where lists are used."""
     ticker: str
@@ -40,6 +65,8 @@ class FundamentalInputs:
     sbc: List[float] = field(default_factory=list)
     total_debt: Optional[float] = None
     cash: Optional[float] = None
+    # analyst recommendation history, most recent period FIRST (0m, -1m, ...)
+    analyst_recs: List[AnalystRecPeriod] = field(default_factory=list)
     source: str = "manual"
     warnings: List[str] = field(default_factory=list)
 
@@ -242,6 +269,51 @@ def draft_roic_vs_wacc(roic_pct: Optional[float], wacc_pct: Optional[float],
                  f"(spread {spread:+.1f}pp)")
 
 
+def analyst_consensus_band(buy_pct: float, negative_pct: float) -> int:
+    """Analyst Consensus rubric (Tier 3, 2%; consensus-rating half only —
+    estimate-revision direction is not scored here): 5 = >=80% buy-
+    equivalent (StrongBuy+Buy) AND 0% negative (Sell+StrongSell); 4 = >=60%
+    buy-equivalent AND <=10% negative; 3 = >=40% buy-equivalent, or
+    negative share exceeds 10%; 2 = >=20% buy-equivalent, or negative
+    share meets/exceeds positive; 1 = below 20% buy-equivalent."""
+    if negative_pct >= buy_pct and negative_pct > 0:
+        return 2 if buy_pct >= 20 else 1
+    if buy_pct >= 80 and negative_pct == 0:
+        return 5
+    if buy_pct >= 60 and negative_pct <= 10:
+        return 4
+    if buy_pct >= 40:
+        return 3
+    if buy_pct >= 20:
+        return 2
+    return 1
+
+
+def draft_analyst_consensus(recs: List[AnalystRecPeriod]) -> Optional[Draft]:
+    """Analyst Consensus & Estimate Revisions (Tier 3, 2%). Scores the
+    consensus-rating half from recommendation counts (most recent period
+    first); estimate-revision direction is a separate, not-yet-implemented
+    half of this indicator (tracked, not scored). Fewer than 5 analysts
+    caps confidence at L -- too thin a sample to trust."""
+    if not recs or recs[0].total == 0:
+        return None
+    latest = recs[0]
+    sc = analyst_consensus_band(latest.buy_pct, latest.negative_pct)
+    confidence = "L" if latest.total < 5 else "M"
+    trend = ""
+    older = next((r for r in reversed(recs) if r.total > 0 and r is not latest), None)
+    if older is not None:
+        delta = latest.buy_pct - older.buy_pct
+        if abs(delta) >= 5:
+            trend = (f", buy% {'up' if delta > 0 else 'down'} "
+                     f"{abs(delta):.0f}pp vs {older.period}")
+    return Draft(
+        "analyst_consensus", sc, confidence,
+        f"{latest.strong_buy + latest.buy}/{latest.total} buy-equivalent "
+        f"({latest.buy_pct:.0f}%), {latest.negative_pct:.0f}% negative{trend} "
+        "-- consensus-rating half only, estimate revisions not scored")
+
+
 def draft_valuation_multiples(p_fcf: Optional[float],
                               p_fcf_5y_avg: Optional[float],
                               peg: Optional[float],
@@ -286,6 +358,7 @@ class FundamentalMetrics:
     debt_to_fcf: Optional[float] = None
     p_fcf: Optional[float] = None
     years_of_data: int = 0
+    analyst_recs: List[AnalystRecPeriod] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
 
 
@@ -309,6 +382,7 @@ def compute_metrics(inp: FundamentalInputs) -> FundamentalMetrics:
     m.revenue_cagr = cagr(inp.revenue)
     m.revenue_cv = growth_cv(inp.revenue)
     m.debt_to_fcf = debt_to_fcf(inp)
+    m.analyst_recs = list(inp.analyst_recs)
     if m.years_of_data < 5:
         m.warnings.append(f"only {m.years_of_data} fiscal years of FCF data "
                           "(doc asks for five where available)")
@@ -327,10 +401,14 @@ def draft_quant_scores(m: FundamentalMetrics) -> Dict[str, Draft]:
     d = draft_fcf_margin_trend(m.fcf_margin_pct, m.margin_trend)
     if d:
         out["fcf_margin_trend"] = d
-    # thin history degrades confidence one notch
+    # thin history degrades confidence one notch (Tier 1/2 fundamentals only --
+    # analyst consensus has its own, independent confidence basis below)
     if m.years_of_data < 4:
         for d in out.values():
             d.confidence = "L"
+    d = draft_analyst_consensus(m.analyst_recs)
+    if d:
+        out["analyst_consensus"] = d
     return out
 
 
@@ -380,6 +458,19 @@ class YFinanceFundamentals:
             inp.market_cap = t.fast_info.get("marketCap")
         except Exception:
             pass
+        try:
+            rec = t.recommendations
+            if rec is not None and not rec.empty:
+                inp.analyst_recs = [
+                    AnalystRecPeriod(
+                        period=str(row["period"]),
+                        strong_buy=int(row["strongBuy"]), buy=int(row["buy"]),
+                        hold=int(row["hold"]), sell=int(row["sell"]),
+                        strong_sell=int(row["strongSell"]))
+                    for _, row in rec.iterrows()
+                ]
+        except Exception as e:
+            inp.warnings.append(f"yfinance recommendations unavailable: {e}")
         if not inp.sbc:
             inp.warnings.append("SBC not reported — FCF may be overstated "
                                 "vs the Part 10 definition")

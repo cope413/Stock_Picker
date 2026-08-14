@@ -1,8 +1,9 @@
 """Landry System v1.0 — Part 2 indicators, Part 3 composite score & Hard Rules 1-4.
 
-Every number here is pinned to LANDRY_SYSTEM_WORKBOOK_11.xlsx by
-tests/test_landry_scoring.py, the way test_v7_scoring.py pins the v7 math
-to the PART8 record.
+Every number here is pinned to LANDRY_SYSTEM_WORKBOOK_25.xlsx (which
+supersedes LANDRY_SYSTEM_WORKBOOK_11.xlsx; same worked values for every
+originally-pinned ticker) by tests/test_landry_scoring.py, the way
+test_v7_scoring.py pins the v7 math to the PART8 record.
 
 Design rules (from the document):
 * Composite Score = (sum of score x weight) x 20 -- never tier-averaged.

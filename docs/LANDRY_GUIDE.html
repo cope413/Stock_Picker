@@ -48,7 +48,7 @@
 <header>
   <h1>The Landry System — User Guide</h1>
   <div class="sub">Step-by-step usage of the <code>landry</code> tool and web dashboard, with a summary of the methodology.
-  Companion to <em>LANDRY_SYSTEM_v1-01_final.docx</em> (the authoritative rulebook) and <em>LANDRY_SYSTEM_WORKBOOK_11.xlsx</em>.</div>
+  Companion to <em>LANDRY_SYSTEM_v1-01_final.docx</em> (the authoritative rulebook) and <em>LANDRY_SYSTEM_WORKBOOK_25.xlsx</em> (supersedes <em>LANDRY_SYSTEM_WORKBOOK_11.xlsx</em>).</div>
 </header>
 
 <nav class="toc">
@@ -241,7 +241,7 @@ Rules 1–4 apply automatically. If Tier 1 fails, the process stops there by des
 
 <h2 id="caveats">13. Caveats &amp; the dry run</h2>
 <div class="warn"><b>Data quality.</b> Fundamentals come from yfinance and are not filings-grade; the Part 10 FCF definition (SBC deducted, normalized) deserves filings-based inputs for names you are actually buying. Drafts from thin data are confidence-capped for exactly this reason. The financial-sector thresholds (Rules 48–49) are the doc's own "reasoned defaults, not backtested" — review before relying on them.</div>
-<div class="stop"><b>Before retiring manual scoring, run the one-month dry run:</b> score in both the app and the workbook side by side, run <code>landry daily</code> each weekday, and investigate every MISMATCH flag on L·Dashboard. The engine is pinned to Workbook 11 by 305 tests, but the dry run is what validates the <i>workflow</i>, not just the math.</div>
+<div class="stop"><b>Before retiring manual scoring, run the one-month dry run:</b> score in both the app and the workbook side by side, run <code>landry daily</code> each weekday, and investigate every MISMATCH flag on L·Dashboard. The engine is pinned to Workbook 25 (supersedes Workbook 11) by 305 tests, but the dry run is what validates the <i>workflow</i>, not just the math.</div>
 <p class="sub" style="margin-top:28px">If this guide and the rulebook ever disagree, the rulebook governs. Interpretation choices made in code (PPO-form MACD, immediate regime reset at a new high-water mark, conservative 50% staging on unknown technicals, and others) are documented in the module docstrings.</p>
 
 </div>

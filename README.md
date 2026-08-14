@@ -379,6 +379,7 @@ sum to 0.16, making the composite 84.6 rather than 84. The decision
 
 The **Landry Family Equity Investment Operating System v1.0**
 (`LANDRY_SYSTEM_v1-01_final.docx` + companion workbook
+`LANDRY_SYSTEM_WORKBOOK_25.xlsx`, which supersedes the earlier
 `LANDRY_SYSTEM_WORKBOOK_11.xlsx`) is the successor to the v7 framework,
 implemented as a rule engine with a strict human-in-the-loop boundary:
 market data, correlations, technicals, and rule math are automated;
@@ -403,7 +404,7 @@ overlay, beta/staging). Engine modules: `scoring` (Part 3 + Rules 1-4),
 `data_auto` (Rule 36/20, technicals), `drawdown` (Part 7 state machine),
 `fundamentals` + `macro`, `implied_return`/`entry`/`sizing`/`monitor`
 (Rules 5-42), `ai_analyst`/`approvals` (Part 12 gate), `performance`
-(Part 9 cohorts), `export`/`daily`. Tests pin the math to Workbook 11.
+(Part 9 cohorts), `export`/`daily`. Tests pin the math to Workbook 25.
 
 **Daily schedule:** run `python -m landry daily --refresh` each weekday
 after close — e.g. cron `30 13 * * 1-5` (PT) — and review the ACT NOW

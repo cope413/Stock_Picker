@@ -2,17 +2,18 @@
 cohorts, and the daily action-items assembly."""
 
 import datetime as dt
-import glob
 import os
 from dataclasses import dataclass, field
 from typing import Optional
 
 import pytest
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_WBS = sorted(glob.glob(os.path.join(_REPO, "LANDRY_SYSTEM_WORKBOOK_*.xlsx")))
+from landry.xlsx_io import latest_workbook
 
-needs_workbook = pytest.mark.skipif(not _WBS, reason="no workbook file")
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_WB = latest_workbook(_REPO)
+
+needs_workbook = pytest.mark.skipif(not _WB, reason="no workbook file")
 
 
 # --------------------------------------------------------------------------- #
@@ -35,7 +36,7 @@ def test_export_fills_values_and_preserves_formulas(tmp_path):
     scores = {"NVDA": {"competitive_moat": IndicatorScore(5, "H")}}
     market = {"NVDA": {"price": 219.22, "market_cap": 5.4e12, "pe": 55.0}}
 
-    out = export_workbook(_WBS[-1], out_path=str(tmp_path / "filled.xlsx"),
+    out = export_workbook(_WB, out_path=str(tmp_path / "filled.xlsx"),
                           weekly_closes=closes, market=market,
                           drawdown=regime_frame(values),
                           approved_scores=scores,
@@ -78,7 +79,7 @@ def test_import_seeds_store_and_reproduces_composite(tmp_path):
     from landry.scoring import score_stock
 
     store = ScoreStore(str(tmp_path / "scores.json"))
-    counts = import_scores(_WBS[-1], store, approved_by="Taylor",
+    counts = import_scores(_WB, store, approved_by="Taylor",
                            tickers=["NVDA", "TSLA"])
     assert counts["NVDA"] == 12
     assert counts["TSLA"] == 5                # Tier 1 only (gate failed)
@@ -148,7 +149,7 @@ def test_cohort_trigger_requires_10_matured_and_double_underperformance():
 def test_read_performance_tab_empty_is_ok():
     pytest.importorskip("openpyxl")
     from landry.performance import read_performance_tab
-    assert read_performance_tab(_WBS[-1]) == []   # tab exists, no data yet
+    assert read_performance_tab(_WB) == []   # tab exists, no data yet
 
 
 # --------------------------------------------------------------------------- #

@@ -13,8 +13,9 @@
     python -m landry export              # fill a copy of the Excel workbook
     python -m landry import --by "Taylor"  # seed score store from workbook
 
-`score` reads analyst scores from the companion workbook (default:
-LANDRY_SYSTEM_WORKBOOK_11.xlsx beside the repo), recomputes the
+`score` reads analyst scores from the companion workbook (default: the
+highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx beside the repo, currently
+LANDRY_SYSTEM_WORKBOOK_25.xlsx), recomputes the
 composite and Hard Rules 1-4, and flags any disagreement with the
 workbook's own calculated cells.
 
@@ -33,22 +34,21 @@ drafts for the judgment indicators); nothing reaches a composite until
 from __future__ import annotations
 
 import argparse
-import glob
 import os
 import sys
 
 from landry.scoring import score_stock
-from landry.xlsx_io import read_scoring_tab
+from landry.xlsx_io import latest_workbook, read_scoring_tab
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_HERE)
 
 
 def _default_workbook() -> str:
-    hits = sorted(glob.glob(os.path.join(_REPO, "LANDRY_SYSTEM_WORKBOOK_*.xlsx")))
-    if not hits:
-        sys.exit("no LANDRY_SYSTEM_WORKBOOK_*.xlsx found; pass --workbook")
-    return hits[-1]  # highest workbook number
+    wb = latest_workbook(_REPO)
+    if wb is None:
+        sys.exit("no LANDRY_SYSTEM_WORKBOOK_<N>.xlsx found; pass --workbook")
+    return wb
 
 
 def _print_card(row, card) -> None:

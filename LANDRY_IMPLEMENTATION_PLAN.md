@@ -1,7 +1,7 @@
 # Landry System → Automated Stock Picker: Implementation Plan
 
 **Driving documents:** `LANDRY_SYSTEM_v1-01_final.docx` (v1.0, 49 Hard Rules) and
-`LANDRY_SYSTEM_WORKBOOK_11.xlsx` (live workbook: 16 scored names, ~$700k across
+`LANDRY_SYSTEM_WORKBOOK_25.xlsx` (live workbook: 40 scored names, ~$700k across
 JT ULTRA/Fidelity and Self-Directed/Chase).
 
 **Decisions made:** app-owned SQLite DB with Excel import/export · AI drafts
@@ -10,7 +10,12 @@ existing `webapp.py`.
 
 **Supersedes:** the v7 framework (`v7_scoring.py`, `part11_tracker.py`, `docs/`).
 Landry v1.0 is its successor; both modules become the starting point for the new
-engine, not parallel systems.
+engine, not parallel systems. Within the workbook line, `LANDRY_SYSTEM_WORKBOOK_25.xlsx`
+supersedes `LANDRY_SYSTEM_WORKBOOK_11.xlsx` — same structure, positions, and
+worked values for every previously-pinned ticker, plus the later screening
+pass's six additional scored candidates (Nike, V.F. Corp, Canada Goose, Advance
+Auto Parts, Alibaba, Etsy) added to the Scoring tab. All references below now
+point to Workbook 25; Workbook 11 is retained only as a superseded snapshot.
 
 ---
 
@@ -77,9 +82,10 @@ Port and extend `v7_scoring.py` to Landry v1.0:
 - Sector-adaptation flags (Part 10): financials, REITs, utilities, early-stage,
   commodity — each substitution recorded beside the score; unadapted sectors
   forced to Low Confidence, Strong Buy blocked.
-- **Test suite pins every worked number in Workbook 11** (e.g. NVDA 93.2 Strong
-  Buy, MU 71.8 Buy, TSLA Tier 1 = 1.93 → FAIL/REVIEW/AVOID), the way
-  `test_v7_scoring.py` pins the PART8 record.
+- **Test suite pins every worked number in Workbook 25** (e.g. NVDA 93.2 Strong
+  Buy, MU 71.8 Buy, TSLA Tier 1 = 1.93 → FAIL/REVIEW/AVOID — unchanged from
+  Workbook 11, which it supersedes), the way `test_v7_scoring.py` pins the
+  PART8 record.
 
 Deliverable: `landry score NVDA` reproduces the workbook exactly.
 
@@ -156,14 +162,14 @@ its rule citation and deadline.
   scheduler (Rules 43–47) with post-mortem prompts after >20% losses.
 - **Performance benchmarking (Part 9):** cohort tracking by decision band vs the
   12%/10% objectives and SPY, from original decision date, exits included.
-- **Excel round-trip:** `landry export` fills a copy of Workbook 11 (Schema
+- **Excel round-trip:** `landry export` fills a copy of Workbook 25 (Schema
   Reference tab is the contract); `landry import` seeds the DB from it —
   one-time migration plus ongoing escape hatch.
 
 ### Phase 6 — Verification & hardening
 
 - Full rule-register test matrix: one test per Hard Rule minimum, plus the
-  Workbook-11 pinning suite and conflict-resolution ordering tests.
+  Workbook-25 pinning suite and conflict-resolution ordering tests.
 - Property tests: no path lets a lower-ranked rule override a higher-ranked one;
   no judgment score reaches the Composite unapproved.
 - Dry-run month: app output vs manual workbook side by side before retiring
@@ -175,7 +181,7 @@ its rule citation and deadline.
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Rule engine + scoring, pinned tests | ✅ done — `landry/scoring.py`, `xlsx_io.py`, CLI `score`; pinned to Workbook 11 |
+| 1 | Rule engine + scoring, pinned tests | ✅ done — `landry/scoring.py`, `xlsx_io.py`, CLI `score`; pinned to Workbook 25 |
 | 2 | Data automation | ✅ done — `data_auto.py`, `drawdown.py`, `fundamentals.py`, `macro.py`, CLI `refresh` |
 | 3 | AI drafts | ✅ done — `ai_analyst.py`, `approvals.py`, CLI `draft`/`pending`/`approve`/`reject` |
 | 4 | Entry/sizing/exit workflows | ✅ done — `implied_return.py`, `entry.py`, `sizing.py`, `monitor.py` |

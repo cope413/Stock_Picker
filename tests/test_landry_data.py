@@ -27,11 +27,14 @@ from landry.data_auto import (
 )
 from landry.drawdown import band_level, track_regime
 from landry.fundamentals import (
+    AnalystRecPeriod,
     FundamentalInputs,
+    analyst_consensus_band,
     cagr,
     combined_band,
     compute_metrics,
     debt_to_fcf,
+    draft_analyst_consensus,
     draft_fcf_margin_trend,
     draft_fcf_yield_trend,
     draft_quant_scores,
@@ -355,6 +358,41 @@ def test_draft_roic_vs_wacc():
     assert draft_roic_vs_wacc(6.0, 9.0).confidence == "L"
 
 
+def test_analyst_consensus_band():
+    assert analyst_consensus_band(85.0, 0.0) == 5
+    assert analyst_consensus_band(85.0, 3.7) == 4   # ETN-style: one dissenter blocks 5
+    assert analyst_consensus_band(60.0, 10.0) == 4
+    assert analyst_consensus_band(50.0, 15.0) == 3
+    assert analyst_consensus_band(30.0, 5.0) == 2
+    assert analyst_consensus_band(30.0, 40.0) == 2  # negative exceeds positive
+    assert analyst_consensus_band(10.0, 60.0) == 1
+
+
+def test_draft_analyst_consensus_pinned_to_etn_2026_08():
+    # yfinance Ticker("ETN").recommendations, as pulled 2026-08-13
+    recs = [
+        AnalystRecPeriod("0m", 6, 17, 3, 0, 1),
+        AnalystRecPeriod("-1m", 6, 16, 4, 0, 1),
+        AnalystRecPeriod("-2m", 6, 16, 4, 0, 1),
+        AnalystRecPeriod("-3m", 6, 16, 6, 0, 1),
+    ]
+    d = draft_analyst_consensus(recs)
+    assert d.score == 4                # 85% buy-equiv, 3.7% negative
+    assert d.confidence == "M"         # 27 analysts, well above the n<5 floor
+    assert "23/27" in d.rationale
+    assert "up" in d.rationale         # buy% rose vs 3 months back (75.9% -> 85.2%)
+
+
+def test_draft_analyst_consensus_thin_sample_is_low_confidence():
+    d = draft_analyst_consensus([AnalystRecPeriod("0m", 1, 2, 0, 0, 0)])
+    assert d.confidence == "L"
+
+
+def test_draft_analyst_consensus_empty_is_none():
+    assert draft_analyst_consensus([]) is None
+    assert draft_analyst_consensus([AnalystRecPeriod("0m", 0, 0, 0, 0, 0)]) is None
+
+
 def test_compute_metrics_and_drafts_end_to_end():
     inp = FundamentalInputs(
         "ACME", market_cap=2000.0,
@@ -362,7 +400,8 @@ def test_compute_metrics_and_drafts_end_to_end():
         cfo=[100, 115, 132, 152, 175],
         capex=[20, 22, 25, 28, 30],
         sbc=[10, 11, 12, 13, 15],
-        total_debt=150, cash=100)
+        total_debt=150, cash=100,
+        analyst_recs=[AnalystRecPeriod("0m", 6, 17, 3, 0, 1)])
     m = compute_metrics(inp)
     assert m.fcf == pytest.approx(130.0)          # 175-30-15
     assert m.fcf_yield_pct == pytest.approx(6.5)  # 130/2000
@@ -372,15 +411,22 @@ def test_compute_metrics_and_drafts_end_to_end():
     drafts = draft_quant_scores(m)
     assert drafts["fcf_yield_trend"].score == 5
     assert drafts["revenue_growth_consistency"].score == 5
+    assert drafts["analyst_consensus"].score == 4
     assert "moat" not in "".join(drafts)          # judgment never drafted
     assert all(d.confidence in ("M", "L") for d in drafts.values())
 
 
 def test_thin_history_degrades_confidence():
     inp = FundamentalInputs("X", market_cap=1000.0, revenue=[100, 120],
-                            cfo=[50, 60], capex=[10, 10])
-    drafts = draft_quant_scores(compute_metrics(inp))
-    assert all(d.confidence == "L" for d in drafts.values())
+                            cfo=[50, 60], capex=[10, 10],
+                            analyst_recs=[AnalystRecPeriod("0m", 6, 17, 3, 0, 1)])
+    m = compute_metrics(inp)
+    drafts = draft_quant_scores(m)
+    fcf_drafts = {k: d for k, d in drafts.items() if k != "analyst_consensus"}
+    assert all(d.confidence == "L" for d in fcf_drafts.values())
+    # analyst consensus confidence is driven by analyst sample size, not
+    # fiscal-year history -- 27-equivalent sample here stays M
+    assert drafts["analyst_consensus"].confidence == "M"
 
 
 # --------------------------------------------------------------------------- #
@@ -420,17 +466,15 @@ def test_macro_evaluators():
 # --------------------------------------------------------------------------- #
 
 def test_read_positions_from_workbook():
-    import glob
     import os
-    wbs = sorted(glob.glob(os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "LANDRY_SYSTEM_WORKBOOK_*.xlsx")))
-    if not wbs:
+    from landry.xlsx_io import latest_workbook
+    wb = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if not wb:
         pytest.skip("no workbook file")
     pytest.importorskip("openpyxl")
     from landry.xlsx_io import equity_weights, read_positions
 
-    pos = read_positions(wbs[-1])
+    pos = read_positions(wb)
     tickers = {p.ticker for p in pos}
     assert "NVDA" in tickers and "FZDXX" in tickers
     assert all(p.quantity > 0 for p in pos)       # sold rows excluded

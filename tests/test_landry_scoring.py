@@ -1,14 +1,16 @@
-"""Pin the landry v1.0 engine to LANDRY_SYSTEM_WORKBOOK_11.xlsx.
+"""Pin the landry v1.0 engine to LANDRY_SYSTEM_WORKBOOK_25.xlsx.
 
 Two layers:
 1. Hard-coded fixtures transcribed from the workbook Scoring tab
    (2026-08-06/07 scoring session, 16 names) -- run everywhere, no
-   dependencies beyond the engine.
+   dependencies beyond the engine. Originally transcribed from
+   LANDRY_SYSTEM_WORKBOOK_25.xlsx; WORKBOOK_25.xlsx supersedes it with
+   identical worked values for all 16 of these tickers (verified) plus
+   later-screened candidates not covered by these fixtures.
 2. A live round-trip against the workbook file itself (skipped if
    openpyxl or the file is absent) -- catches transcription drift.
 """
 
-import glob
 import os
 
 import pytest
@@ -43,8 +45,8 @@ def mk(pairs):
 
 # ticker -> (pairs, expected_tier1_avg, expected_composite, expected_decision,
 #            expected flags (r1, r2, r3, r4))
-# Transcribed from the Scoring tab, LANDRY_SYSTEM_WORKBOOK_11.xlsx.
-WORKBOOK_11 = {
+# Transcribed from the Scoring tab, LANDRY_SYSTEM_WORKBOOK_25.xlsx.
+WORKBOOK_25 = {
     "MU":   ([(3,"M"),(3,"M"),(4,"H"),(5,"H"),(4,"M"),
               (4,"M"),(5,"M"),(5,"H"),(1,"H"),
               (5,"H"),(3,"M"),(3,"L")],
@@ -100,7 +102,7 @@ WORKBOOK_11 = {
 }
 
 # Tier-1-gate failures: scoring stopped at Tier 1 (Tier 2/3 blank in workbook).
-WORKBOOK_11_REJECTED = {
+WORKBOOK_25_REJECTED = {
     "SFM":  ([(2,"M"),(2,"M"),(2,"M"),(2,"M"),(1,"H")],
              1.8571428571428574, ("FAIL","REVIEW","AVOID","OK")),
     "ONON": ([(2,"M"),(4,"H"),(3,"M"),(2,"M"),(2,"H")],
@@ -128,12 +130,12 @@ def test_v1_weights_differ_from_v7():
 
 
 # --------------------------------------------------------------------------- #
-# Pinned to Workbook 11
+# Pinned to Workbook 25
 # --------------------------------------------------------------------------- #
 
-@pytest.mark.parametrize("ticker", sorted(WORKBOOK_11))
+@pytest.mark.parametrize("ticker", sorted(WORKBOOK_25))
 def test_workbook_scored_names(ticker):
-    pairs, t1avg, comp, dec, flags = WORKBOOK_11[ticker]
+    pairs, t1avg, comp, dec, flags = WORKBOOK_25[ticker]
     card = score_stock(ticker, mk(pairs))
     assert card.tier1_weighted_average == pytest.approx(t1avg)
     assert card.composite == pytest.approx(comp)
@@ -142,9 +144,9 @@ def test_workbook_scored_names(ticker):
             card.flags.rule3, card.flags.rule4) == flags
 
 
-@pytest.mark.parametrize("ticker", sorted(WORKBOOK_11_REJECTED))
+@pytest.mark.parametrize("ticker", sorted(WORKBOOK_25_REJECTED))
 def test_workbook_rejected_names(ticker):
-    pairs, t1avg, flags = WORKBOOK_11_REJECTED[ticker]
+    pairs, t1avg, flags = WORKBOOK_25_REJECTED[ticker]
     scores = {k: S(sc, cf) for k, (sc, cf) in zip(_ORDER[:5], pairs)}
     card = score_stock(ticker, scores)
     assert card.tier1_weighted_average == pytest.approx(t1avg)
@@ -253,9 +255,9 @@ def test_score_and_confidence_validation():
 # Live round-trip against the workbook file
 # --------------------------------------------------------------------------- #
 
-_WB = sorted(glob.glob(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "LANDRY_SYSTEM_WORKBOOK_*.xlsx")))
+from landry.xlsx_io import latest_workbook  # noqa: E402
+
+_WB = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 @pytest.mark.skipif(not _WB, reason="no workbook file present")
@@ -263,10 +265,17 @@ def test_roundtrip_against_workbook_file():
     openpyxl = pytest.importorskip("openpyxl")  # noqa: F841
     from landry.xlsx_io import read_scoring_tab
 
-    rows = read_scoring_tab(_WB[-1])
+    rows = read_scoring_tab(_WB)  # highest-numbered workbook (excludes TEMPLATE_FINAL etc.)
     assert len(rows) >= 16
     checked = 0
     for row in rows:
+        # Skip candidates still mid-scoring: Tier 1 gate passed but Tier 2/3
+        # not yet entered in the workbook (score_stock requires all 12 once
+        # the gate passes; a gate-fail/auto-avoid row needs only Tier 1 and
+        # is still fully checkable).
+        if (rule_flags(row.scores).tier1_passes
+                and not set(ALL_WEIGHTS) <= set(row.scores)):
+            continue
         card = score_stock(row.ticker, row.scores)
         if row.tier1_weighted_average is not None:
             assert card.tier1_weighted_average == pytest.approx(

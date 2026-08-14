@@ -17,6 +17,7 @@ bootstrap_results.csv
 bootstrap_samples.csv
 cost_sensitivity.csv
 data_cache/
+landry/filings_cache/
 layer4_xsec_momentum.csv
 layer4_xsec_returns.csv
 layer5_holdout.csv
