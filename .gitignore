@@ -33,14 +33,31 @@ venv/
 # Web UI auth (secrets — never commit)
 webapp_users.json
 webapp_secret.key
+
+# Regenerated on every run (landry refresh / landry daily) -- safe to lose
 landry_snapshot.json
-landry_scores.json
 landry_actions.json
+<<<<<<< HEAD
 landry.db
 landry.db-wal
 landry.db-shm
+=======
+
+# landry_scores.json is NOT in either category above: no credentials in
+# it, and nothing regenerates a lost approval history -- it's the actual
+# Part 12 audit trail (who approved what score, when, and why). It was
+# gitignored by mistake alongside the two secrets above and got silently
+# wiped once as a result (2026-08, GE/PH/ETN's approval history lost with
+# no backup). Track it.
+
+>>>>>>> 86b65593315f53e4cf5662e58114d8d3fab17947
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
 LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
+
+# Alan's local viewing copy (Finder "duplicate" naming) -- lets him watch
+# the live file while an edit is in progress without touching the same
+# file handle; not a second source of truth, never commit it
+LANDRY_SYSTEM_WORKBOOK_* copy*.xlsx
 
 # Excel/Office lock files (created while a workbook is open, any OS)
 ~$*.xlsx
