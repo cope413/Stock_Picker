@@ -36,6 +36,9 @@ webapp_secret.key
 landry_snapshot.json
 landry_scores.json
 landry_actions.json
+landry.db
+landry.db-wal
+landry.db-shm
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
 LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 
