@@ -48,6 +48,11 @@ landry_actions.json
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
 LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 
+# Alan's local viewing copy (Finder "duplicate" naming) -- lets him watch
+# the live file while an edit is in progress without touching the same
+# file handle; not a second source of truth, never commit it
+LANDRY_SYSTEM_WORKBOOK_* copy*.xlsx
+
 # Excel/Office lock files (created while a workbook is open, any OS)
 ~$*.xlsx
 ~$*.xls
