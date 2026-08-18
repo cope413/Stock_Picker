@@ -14,6 +14,7 @@ from landry.data_auto import (
     beta_size_reduction,
     cluster_exposure,
     correlation_report,
+    correlation_vs_holdings,
     draft_relative_strength,
     draft_technical_trend,
     draft_volume_accumulation,
@@ -121,6 +122,40 @@ def test_expands_flagged_cluster_staging():
     rep = correlation_report(_correlated_universe())
     assert expands_flagged_cluster("NEW", rep, {"A": 0.8, "B": 0.75, "D": 0.1})
     assert not expands_flagged_cluster("NEW", rep, {"A": 0.8, "D": 0.9})
+
+
+def _closes_from_returns(rets):
+    return 100.0 * (1.0 + rets).cumprod()
+
+
+def test_correlation_vs_holdings_flags_a_correlated_candidate():
+    rets = _correlated_universe()  # A/B/C tight cluster (w=0.95), D/E near-independent
+    closes = _closes_from_returns(rets)
+    # a candidate built like A/B/C (w=0.95) should flag against them
+    cand = rets.copy()
+    cand["NEW"] = 0.95 * rets["A"].values + 0.05 * RNG.normal(0, 0.02, len(rets))
+    cc = correlation_vs_holdings("NEW", _closes_from_returns(cand))
+    assert cc is not None
+    assert cc.flagged
+    assert cc.max_correlation_holding in ("A", "B", "C")
+    assert set(cc.correlations) == {"A", "B", "C", "D", "E"}
+
+
+def test_correlation_vs_holdings_independent_candidate_not_flagged():
+    rets = _correlated_universe()
+    cand = rets.copy()
+    cand["NEW"] = RNG.normal(0, 0.02, len(rets))   # independent of everything
+    cc = correlation_vs_holdings("NEW", _closes_from_returns(cand))
+    assert cc is not None
+    assert not cc.flagged
+    assert abs(cc.max_correlation) < 0.70
+
+
+def test_correlation_vs_holdings_none_cases():
+    closes = _closes_from_returns(_correlated_universe())
+    assert correlation_vs_holdings("NOTPRESENT", closes) is None       # ticker not in closes
+    only_self = closes[["A"]]
+    assert correlation_vs_holdings("A", only_self) is None             # no holdings to compare
 
 
 # --------------------------------------------------------------------------- #

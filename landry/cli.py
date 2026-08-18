@@ -160,6 +160,26 @@ def _cmd_draft(args) -> int:
     except Exception as e:
         print(f"! technical/relative-strength/roic-wacc drafts unavailable: {e}")
 
+    try:
+        from landry.data_auto import (correlation_vs_holdings, fetch_daily,
+                                      weekly_closes)
+        from landry.xlsx_io import equity_weights, read_positions
+        holdings = sorted(equity_weights(read_positions(_default_workbook())))
+        if not holdings:
+            print("(no current holdings to check correlation against)")
+        else:
+            daily = fetch_daily([ticker] + holdings)
+            closes = weekly_closes(daily)
+            cc = correlation_vs_holdings(ticker, closes)
+            if cc is None or not cc.correlations:
+                print("! correlation-vs-holdings: insufficient overlapping price history")
+            else:
+                flag = " -- FLAGGED (Rule 36, >0.70)" if cc.flagged else ""
+                print(f"correlation vs holdings ({cc.window_weeks}wk window): "
+                     f"max {cc.max_correlation:+.2f} vs {cc.max_correlation_holding}{flag}")
+    except Exception as e:
+        print(f"! correlation-vs-holdings check unavailable: {e}")
+
     if args.evidence:
         from landry.ai_analyst import ClaudeAnalyst, EvidencePack
         pack = EvidencePack(ticker, fundamentals=metrics)

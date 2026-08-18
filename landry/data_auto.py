@@ -152,6 +152,56 @@ def expands_flagged_cluster(ticker: str, report: CorrelationReport,
     return False
 
 
+@dataclass
+class HoldingsCorrelationCheck:
+    """Rule 36 test for a SCREENING CANDIDATE (not yet held) against every
+    currently-held equity -- the system's actual quantitative
+    diversification test. A GICS/sector label (or a Tier A/B/C planning
+    heuristic built from one) is a sequencing convenience, not a
+    substitute for this; it should run for every candidate as standard
+    practice, not only when a name happens to look suspicious."""
+    ticker: str
+    window_weeks: int
+    sufficient: bool                       # >= 12-month minimum
+    correlations: Dict[str, float]         # holding -> pairwise correlation
+    max_correlation: Optional[float]
+    max_correlation_holding: Optional[str]
+    flagged: bool                          # max_correlation > threshold
+
+
+def correlation_vs_holdings(ticker: str, closes: pd.DataFrame,
+                            threshold: float = CORRELATION_THRESHOLD
+                            ) -> Optional[HoldingsCorrelationCheck]:
+    """Rule 36 test for a screening candidate against every OTHER column
+    in ``closes`` (its currently-held equities), using the same windowing
+    as correlation_report. Pure -- ``closes`` is already-fetched weekly
+    prices (weekly_closes output); callers fetch live data via
+    fetch_daily/weekly_closes and pass the result in. None if ``ticker``
+    isn't in ``closes`` or there's no holding to compare against."""
+    ticker = ticker.upper()
+    if ticker not in closes.columns:
+        return None
+    holdings = [c for c in closes.columns if c.upper() != ticker]
+    if not holdings:
+        return None
+    universe = [ticker] + holdings
+    report = correlation_report(weekly_returns(closes[universe]), threshold=threshold)
+    if ticker not in report.matrix.index:
+        return None
+    row = report.matrix.loc[ticker].drop(ticker, errors="ignore").dropna()
+    if row.empty:
+        return HoldingsCorrelationCheck(ticker, report.window_weeks,
+                                        report.sufficient, {}, None, None, False)
+    correlations = {k: float(v) for k, v in row.items()}
+    max_holding = max(correlations, key=correlations.get)
+    max_corr = correlations[max_holding]
+    return HoldingsCorrelationCheck(
+        ticker=ticker, window_weeks=report.window_weeks,
+        sufficient=report.sufficient, correlations=correlations,
+        max_correlation=max_corr, max_correlation_holding=max_holding,
+        flagged=max_corr > threshold)
+
+
 # --------------------------------------------------------------------------- #
 # Relative Strength vs SPY (Tier 2 rubric, 3%)
 # --------------------------------------------------------------------------- #

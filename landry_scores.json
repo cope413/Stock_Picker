@@ -104,6 +104,270 @@
    },
    "approved": {},
    "rejected": {}
+  },
+  "NRG": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 2.5% -> 3, trend expanding -> 5, combined 3.80 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:18+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "negative CAGR -0.9%",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:18+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FCF margin 2.1%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:18+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "PEG 0.59 < 1 and P/FCF 54% of 5y avg",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:18+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "13/16 buy-equivalent (81%), 6% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:18+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:19+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:19+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -39.8% (6mo -43.9%, 12mo -35.7%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:19+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 3,
+     "confidence": "L",
+     "rationale": "ROIC 10.5% vs WACC 7.0% (spread +3.5pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:47:19+00:00"
+    },
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "No clear moat: merchant power generation + retail energy, largely a price-taker in competitive wholesale markets. Fleet is gas/coal-heavy (less scarcity value than a nuclear-heavy peer). Q2 2026 earnings showed a large data-center PPA (295 MW) but management's own framing paired it with added leverage concerns and softer near-term Texas power pricing -- not evidence of pricing power. Cross-checks (a) pricing power, (b) margin vs industry, (d) share trend: none positively evidenced from what was reviewed.",
+     "source": "ai_draft",
+     "citations": [
+      "E1: Investing.com, NRG Q2 2026 earnings/data-center deal coverage, tier 3-4"
+     ],
+     "model": "claude-fable-5 (manual draft, no API key -- analyst-in-the-loop reasoning)",
+     "prompt_hash": "28fbfa797d570dfe",
+     "proposed_at": "2026-08-18T17:37:19+00:00"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 2,
+     "confidence": "L",
+     "rationale": "Real but small contracted capacity relative to scale: 295 MW long-term data-center agreement against a much larger (~20+ GW) generation/retail base. No clean RPO/backlog disclosure found via SEC EDGAR extraction (merchant generators don't use the same backlog convention as industrials) -- this is inference from deal-size-vs-fleet-size, not an extracted percentage, hence L confidence.",
+     "source": "ai_draft",
+     "citations": [
+      "E1: Investing.com, NRG Q2 2026 earnings/data-center deal coverage, tier 3-4"
+     ],
+     "model": "claude-fable-5 (manual draft, no API key -- analyst-in-the-loop reasoning)",
+     "prompt_hash": "7f0ee0fe972da920",
+     "proposed_at": "2026-08-18T17:37:19+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
+  },
+  "VST": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 2.5% -> 3, trend expanding -> 5, combined 3.80 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:21+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "CAGR 8.9% / CV 0.62",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:21+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "FCF margin 6.8%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:21+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "P/FCF 133% of 5y avg (premium)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:21+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "18/19 buy-equivalent (95%), 5% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:21+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:22+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:22+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -35.6% (6mo -27.2%, 12mo -43.9%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:22+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 2,
+     "confidence": "L",
+     "rationale": "ROIC 7.3% vs WACC 7.9% (spread -0.7pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-18T17:34:22+00:00"
+    },
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 3,
+     "confidence": "L",
+     "rationale": "Mixed: (c) retention/switching-cost -- genuine, via a 20-year PPA with Meta (2,609 MW nuclear capacity/energy, PJM plants) signed Jan 2026, real long-dated customer lock-in. Nuclear capacity itself has real scarcity value (long lead times and regulatory barriers make it hard to replicate) -- a legitimate, if narrow, structural advantage. But (a) pricing power and (b) margin-vs-industry not evidenced -- most of the ~40GW+ fleet still sells into competitive wholesale markets, and the stock trades as part of a correlated \"AI power\" basket (with NRG/CEG/TLN) driven by sentiment on AI capex payback, not a demonstrated pricing moat. Only 1 of 4 cross-checks clearly evidenced -- held at 3, not pushed to 4-5.",
+     "source": "ai_draft",
+     "citations": [
+      "E2: SEC EDGAR, Vistra 10-Q period 2026-06-30 (tier 1, no clean RPO disclosure)",
+      "E3: World Nuclear News / power-eng.com, Vistra-Meta PPA announcement Jan 2026, tier 2-3"
+     ],
+     "model": "claude-fable-5 (manual draft, no API key -- analyst-in-the-loop reasoning)",
+     "prompt_hash": "0b7ee1032993d949",
+     "proposed_at": "2026-08-18T17:37:19+00:00"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 2,
+     "confidence": "L",
+     "rationale": "Real, substantial long-term contracted capacity exists (2,609 MW to Meta, 20-year term) but delivery ramps in over 2026-2034 (partial by late 2026, full by 2027 for the base capacity; uprates not until 2031-2034) -- most of it is NOT near-12-month revenue. Attempted SEC EDGAR backlog/RPO extraction found no clean disclosure (merchant generators typically disclose hedged-generation percentages, not a backlog figure comparable to industrials) -- this is a qualitative estimate from deal terms, not an extracted percentage. Scored conservatively given the bulk of near-term revenue is market/hedge-based, not contracted.",
+     "source": "ai_draft",
+     "citations": [
+      "E2: SEC EDGAR, Vistra 10-Q period 2026-06-30 (tier 1, no clean RPO disclosure)",
+      "E3: World Nuclear News / power-eng.com, Vistra-Meta PPA announcement Jan 2026, tier 2-3"
+     ],
+     "model": "claude-fable-5 (manual draft, no API key -- analyst-in-the-loop reasoning)",
+     "prompt_hash": "7b9b9d06966d9753",
+     "proposed_at": "2026-08-18T17:37:19+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
   }
  },
  "audit": [
@@ -248,6 +512,285 @@
    "ticker": "NVDA",
    "indicator": "roic_vs_wacc",
    "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:17+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:17+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "revenue_growth_consistency",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:17+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:17+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:17+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "roic_vs_wacc",
+   "score": 3,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:21+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:21+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "revenue_growth_consistency",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:21+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:21+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "valuation_multiples",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:21+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:22+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:22+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:22+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:34:22+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "roic_vs_wacc",
+   "score": 2,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:37:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "competitive_moat",
+   "score": 2,
+   "confidence": "M",
+   "source": "ai_draft"
+  },
+  {
+   "at": "2026-08-18T17:37:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "revenue_visibility",
+   "score": 2,
+   "confidence": "L",
+   "source": "ai_draft"
+  },
+  {
+   "at": "2026-08-18T17:37:19+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "competitive_moat",
+   "score": 3,
+   "confidence": "L",
+   "source": "ai_draft"
+  },
+  {
+   "at": "2026-08-18T17:37:19+00:00",
+   "action": "propose",
+   "ticker": "VST",
+   "indicator": "revenue_visibility",
+   "score": 2,
+   "confidence": "L",
+   "source": "ai_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "revenue_growth_consistency",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:18+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-18T17:47:19+00:00",
+   "action": "propose",
+   "ticker": "NRG",
+   "indicator": "roic_vs_wacc",
+   "score": 3,
    "confidence": "L",
    "source": "quant_draft"
   }
