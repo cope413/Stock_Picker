@@ -11,6 +11,7 @@
     python -m landry reject NVDA competitive_moat --by "Taylor" --reason "..."
     python -m landry daily               # today's action items (Rules 30-44)
     python -m landry export              # fill a copy of the Excel workbook
+    python -m landry export --drawdown   # ...and append today's portfolio value to the Drawdown Log
     python -m landry import --by "Taylor"  # seed score store from workbook
     python -m landry doctor              # check this machine is ready to edit the workbook
 
@@ -99,14 +100,65 @@ def _cmd_draft(args) -> int:
     store = _store()
 
     metrics = None
+    fund_inputs = None
     try:
-        metrics = compute_metrics(YFinanceFundamentals().get(ticker))
+        fund_inputs = YFinanceFundamentals().get(ticker)
+        metrics = compute_metrics(fund_inputs)
         for name, d in draft_quant_scores(metrics).items():
             store.propose(ticker, d, source="quant_draft")
             print(f"proposed quant draft {name}: {d.score} ({d.confidence}) — "
                   f"{d.rationale}")
     except Exception as e:
         print(f"! quantitative drafts unavailable: {e}")
+
+    try:
+        from landry.data_auto import (draft_relative_strength,
+                                      draft_technical_trend,
+                                      draft_volume_accumulation, fetch_daily,
+                                      relative_strength, technical_state,
+                                      weekly_beta, weekly_closes)
+        daily = fetch_daily([ticker, "SPY"])
+        df = daily.get(ticker)
+        if df is None:
+            raise RuntimeError(f"no price data for {ticker}")
+        tech = technical_state(df)
+        for d in (draft_technical_trend(tech), draft_volume_accumulation(tech)):
+            if d is not None:
+                store.propose(ticker, d, source="quant_draft")
+                print(f"proposed quant draft {d.indicator}: {d.score} "
+                      f"({d.confidence}) — {d.rationale}")
+        spy_df = daily.get("SPY")
+        beta = None
+        if spy_df is not None:
+            closes = weekly_closes(daily)
+            rs = relative_strength(closes[ticker], closes["SPY"])
+            d = draft_relative_strength(rs)
+            if d is not None:
+                store.propose(ticker, d, source="quant_draft")
+                print(f"proposed quant draft {d.indicator}: {d.score} "
+                      f"({d.confidence}) — {d.rationale}")
+            beta = weekly_beta(closes[ticker], closes["SPY"]).beta
+
+        if fund_inputs is not None and metrics is not None and beta is not None:
+            from landry.fundamentals import (compute_wacc, draft_roic_vs_wacc,
+                                             live_risk_free_rate)
+            rf = live_risk_free_rate()
+            wacc = compute_wacc(fund_inputs, beta, risk_free_pct=rf)
+            series = metrics.roic_pct_series
+            persistently_below = (
+                len(series) >= 2 and wacc.wacc_pct is not None
+                and all(r < wacc.wacc_pct for r in series[-2:]))
+            d = draft_roic_vs_wacc(metrics.roic_pct, wacc.wacc_pct,
+                                   persistently_below=persistently_below)
+            if d is not None:
+                d.rationale += (f" [WACC assumptions: Rf={wacc.risk_free_pct:.1f}% "
+                                f"({wacc.risk_free_source}), "
+                                f"ERP={wacc.equity_risk_premium_pct:.1f}%]")
+                store.propose(ticker, d, source="quant_draft")
+                print(f"proposed quant draft {d.indicator}: {d.score} "
+                      f"({d.confidence}) — {d.rationale}")
+    except Exception as e:
+        print(f"! technical/relative-strength/roic-wacc drafts unavailable: {e}")
 
     if args.evidence:
         from landry.ai_analyst import ClaudeAnalyst, EvidencePack
@@ -209,6 +261,27 @@ def _cmd_export(args) -> int:
             import datetime as dt
             kwargs["approved_scores"] = approved
             kwargs["scored_date"] = dt.date.today()
+    if args.drawdown:
+        try:
+            import datetime as dt
+
+            import pandas as pd
+
+            from landry.drawdown import regime_frame
+            from landry.xlsx_io import (read_drawdown_log, read_positions,
+                                        total_portfolio_value)
+            today = pd.Timestamp(dt.date.today())
+            existing = read_drawdown_log(wb)
+            today_value = total_portfolio_value(read_positions(wb))
+            existing = existing[existing.index.normalize() != today]
+            series = pd.concat([existing, pd.Series(
+                [today_value], index=[today], name="value")]).sort_index()
+            kwargs["drawdown"] = regime_frame(series)
+            print(f"drawdown: {len(existing)} prior day(s) + today "
+                 f"(${today_value:,.2f}) -> "
+                 f"{kwargs['drawdown'].iloc[-1]['status']}")
+        except Exception as e:
+            print(f"! drawdown fill skipped: {e}")
     out = export_workbook(wb, out_path=args.out, **kwargs)
     print(f"filled workbook written: {out}")
     return 0
@@ -312,6 +385,10 @@ def main(argv=None) -> int:
                     help="skip the Price History fill (no download)")
     ex.add_argument("--scores", action="store_true",
                     help="also write approved scores to the Scoring tab")
+    ex.add_argument("--drawdown", action="store_true",
+                    help="append today's portfolio value (Current Positions "
+                    "total) to the existing Drawdown Log history and refill "
+                    "the regime columns")
 
     im = sub.add_parser("import", help="seed the score store from the workbook")
     im.add_argument("--workbook", default=None)

@@ -14,6 +14,9 @@ from landry.data_auto import (
     beta_size_reduction,
     cluster_exposure,
     correlation_report,
+    draft_relative_strength,
+    draft_technical_trend,
+    draft_volume_accumulation,
     expands_flagged_cluster,
     ma_200w_state,
     monthly_macd,
@@ -33,6 +36,7 @@ from landry.fundamentals import (
     cagr,
     combined_band,
     compute_metrics,
+    compute_wacc,
     debt_to_fcf,
     draft_analyst_consensus,
     draft_fcf_margin_trend,
@@ -40,9 +44,13 @@ from landry.fundamentals import (
     draft_quant_scores,
     draft_revenue_growth,
     draft_roic_vs_wacc,
+    draft_valuation_multiples,
+    effective_tax_rate,
     fcf_yield_level_score,
     growth_cv,
     normalized_fcf,
+    roic_pct,
+    roic_pct_series,
     trend_direction,
 )
 from landry.macro import (
@@ -136,6 +144,23 @@ def test_relative_strength_outperformer():
     assert rs.score == 5
 
 
+def test_draft_relative_strength_wraps_the_score():
+    idx = pd.date_range("2023-01-06", periods=60, freq="W-FRI")
+    spy = pd.Series(100 * 1.001 ** np.arange(60), index=idx)
+    hot = pd.Series(100 * 1.006 ** np.arange(60), index=idx)
+    d = draft_relative_strength(relative_strength(hot, spy))
+    assert d.indicator == "relative_strength"
+    assert d.score == 5
+    assert d.confidence == "M"
+    assert "SPY" in d.rationale
+
+
+def test_draft_relative_strength_none_when_no_score():
+    from landry.data_auto import RelativeStrength
+    assert draft_relative_strength(
+        RelativeStrength(None, None, None, None)) is None
+
+
 def test_weekly_beta_recovers_true_beta():
     n = 300
     idx = pd.date_range("2019-01-04", periods=n, freq="W-FRI")
@@ -205,6 +230,26 @@ def test_technical_state_bundle():
     assert st.staging_ok is True
     assert st.technical_trend_score in (4, 5)
     assert st.ad_line_score in (1, 2, 3, 4, 5)
+
+
+def test_draft_technical_trend_and_volume_accumulation():
+    st = technical_state(_daily_frame(drift=0.0015, vol=0.008))
+    d = draft_technical_trend(st)
+    assert d.indicator == "technical_trend"
+    assert d.score == st.technical_trend_score
+    assert d.confidence == "M"
+    assert "MACD" in d.rationale and "Supertrend" in d.rationale
+
+    dv = draft_volume_accumulation(st)
+    assert dv.indicator == "volume_accumulation"
+    assert dv.score == st.ad_line_score
+    assert dv.confidence == "M"
+
+
+def test_draft_technical_trend_none_on_short_history():
+    st = technical_state(_daily_frame(n=100))
+    assert draft_technical_trend(st) is None
+    assert draft_volume_accumulation(st) is None
 
 
 def test_short_history_returns_none():
@@ -358,6 +403,95 @@ def test_draft_roic_vs_wacc():
     assert draft_roic_vs_wacc(6.0, 9.0).confidence == "L"
 
 
+def _roic_inputs(**overrides):
+    kw = dict(
+        ticker="X", market_cap=1000.0, total_debt=200.0, cash=50.0,
+        ebit=[80.0, 100.0], pretax_income=[70.0, 90.0],
+        tax_provision=[14.7, 18.9], tax_rate_for_calcs=[0.21, 0.21],
+        stockholders_equity=[400.0, 450.0], interest_expense=[10.0, 12.0],
+    )
+    kw.update(overrides)
+    return FundamentalInputs(**kw)
+
+
+def test_effective_tax_rate_prefers_yfinance_normalized_rate():
+    inp = _roic_inputs()
+    assert effective_tax_rate(inp) == pytest.approx(0.21)
+
+
+def test_effective_tax_rate_falls_back_to_provision_over_pretax():
+    inp = _roic_inputs(tax_rate_for_calcs=[])
+    assert effective_tax_rate(inp) == pytest.approx(18.9 / 90.0)
+
+
+def test_effective_tax_rate_none_when_nothing_available():
+    inp = _roic_inputs(tax_rate_for_calcs=[], tax_provision=[], pretax_income=[])
+    assert effective_tax_rate(inp) is None
+
+
+def test_roic_pct_series_and_latest():
+    inp = _roic_inputs()
+    # invested capital = 200 (debt) + 450 (latest equity) - 50 (cash) = 600
+    # NOPAT_latest = 100 * (1-0.21) = 79 -> ROIC = 79/600*100 = 13.1667%
+    series = roic_pct_series(inp)
+    assert len(series) == 2
+    assert series[-1] == pytest.approx(100.0 * 100 * 0.79 / 600, rel=1e-6)
+    assert roic_pct(inp) == pytest.approx(series[-1])
+
+
+def test_roic_pct_none_without_required_inputs():
+    assert roic_pct(_roic_inputs(tax_rate_for_calcs=[], tax_provision=[])) is None
+    assert roic_pct(_roic_inputs(stockholders_equity=[])) is None
+    assert roic_pct(_roic_inputs(total_debt=None)) is None
+
+
+def test_compute_wacc_uses_capm_and_documents_assumptions():
+    inp = _roic_inputs()
+    w = compute_wacc(inp, beta=1.2, risk_free_pct=4.0)
+    assert w.risk_free_source == "live 10y Treasury (^TNX)"
+    assert w.risk_free_pct == pytest.approx(4.0)
+    # cost of equity = 4.0 + 1.2*4.5 = 9.4; E=1000, D=200 -> weight_e=1000/1200
+    # cost of debt = 12/200*100 = 6.0; tax 0.21 -> after-tax 4.74
+    coe = 4.0 + 1.2 * 4.5
+    cod = (12.0 / 200.0) * 100.0
+    expected = (1000 / 1200) * coe + (200 / 1200) * cod * (1 - 0.21)
+    assert w.wacc_pct == pytest.approx(expected, rel=1e-6)
+
+
+def test_compute_wacc_falls_back_to_assumption_when_no_live_rate():
+    w = compute_wacc(_roic_inputs(), beta=1.0, risk_free_pct=None)
+    assert w.risk_free_source == "fallback assumption"
+    assert w.risk_free_pct == pytest.approx(4.5)
+
+
+def test_compute_wacc_none_without_beta_or_market_cap():
+    assert compute_wacc(_roic_inputs(), beta=None).wacc_pct is None
+    assert compute_wacc(_roic_inputs(market_cap=None), beta=1.0).wacc_pct is None
+
+
+def test_draft_valuation_multiples_full_rubric_unchanged():
+    assert draft_valuation_multiples(8.0, 10.0, 0.8).score == 5
+    assert draft_valuation_multiples(8.0, 10.0, None).score == 4
+    assert draft_valuation_multiples(10.0, 10.0, None).score == 3
+
+
+def test_draft_valuation_multiples_peg_only_fallback_when_no_history():
+    d = draft_valuation_multiples(15.0, None, 0.8)
+    assert d.score == 4
+    assert d.confidence == "L"
+    assert "no P/FCF history" in d.rationale
+
+    d2 = draft_valuation_multiples(15.0, None, 1.5)
+    assert d2.score == 3
+    d3 = draft_valuation_multiples(15.0, None, 3.0)
+    assert d3.score == 2
+
+
+def test_draft_valuation_multiples_none_when_nothing_available():
+    assert draft_valuation_multiples(15.0, None, None) is None
+    assert draft_valuation_multiples(None, None, 0.5) is None
+
+
 def test_analyst_consensus_band():
     assert analyst_consensus_band(85.0, 0.0) == 5
     assert analyst_consensus_band(85.0, 3.7) == 4   # ETN-style: one dissenter blocks 5
@@ -483,3 +617,28 @@ def test_read_positions_from_workbook():
     assert "NVDA" in w and w["NVDA"] > 0.06        # summed across accounts
     assert "FZDXX" not in w                        # cash is not an equity
     assert 0.25 < sum(w.values()) < 0.60           # equities are a minority here
+
+
+def test_total_portfolio_value_sums_every_position():
+    from landry.xlsx_io import Position, total_portfolio_value
+    positions = [
+        Position("Acct A", "NVDA", "NVIDIA", "Equity", 10, 1000.0, 0.1),
+        Position("Acct A", "FZDXX", "Cash sweep", "Cash", 5000, 5000.0, 0.5),
+        Position("Acct B", "NVDA", "NVIDIA", "Equity", 5, 500.0, 0.05),
+    ]
+    assert total_portfolio_value(positions) == pytest.approx(6500.0)
+
+
+def test_read_drawdown_log_from_workbook():
+    import os
+    from landry.xlsx_io import latest_workbook
+    wb = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if not wb:
+        pytest.skip("no workbook file")
+    pytest.importorskip("openpyxl")
+    from landry.xlsx_io import read_drawdown_log
+
+    series = read_drawdown_log(wb)
+    assert len(series) >= 1
+    assert series.index.is_monotonic_increasing
+    assert (series > 0).all()

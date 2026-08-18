@@ -129,6 +129,34 @@ def equity_weights(positions: List[Position]) -> dict:
     return out
 
 
+def total_portfolio_value(positions: List[Position]) -> float:
+    """Sum of market_value across every position and account (Part 7's
+    drawdown series is portfolio-wide, cash included)."""
+    return sum(p.market_value for p in positions)
+
+
+def read_drawdown_log(path: str,
+                      sheet: str = "Portfolio Drawdown Log") -> "pd.Series":
+    """Date -> Portfolio Value from the tab's own manually-entered history
+    (cols A, B; data from row 3). Empty Series if nothing's been logged
+    yet. Only the raw value column is read -- Running Peak/Drawdown/Status
+    are workbook formulas derived from it, not a second source of truth."""
+    import openpyxl
+    import pandas as pd
+
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    ws = wb[sheet]
+    dates, values = [], []
+    for r in ws.iter_rows(min_row=3, values_only=True):
+        if not r or r[0] is None or r[1] is None:
+            continue
+        dates.append(r[0])
+        values.append(float(r[1]))
+    wb.close()
+    return pd.Series(values, index=pd.DatetimeIndex(dates),
+                     name="value").sort_index()
+
+
 def read_scoring_tab(path: str, sheet: str = "Scoring") -> List[WorkbookRow]:
     import openpyxl  # local import: optional dependency for non-Excel use
 

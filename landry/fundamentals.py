@@ -65,6 +65,14 @@ class FundamentalInputs:
     sbc: List[float] = field(default_factory=list)
     total_debt: Optional[float] = None
     cash: Optional[float] = None
+    # ROIC/WACC inputs (most recent LAST, same convention as revenue/cfo)
+    ebit: List[float] = field(default_factory=list)
+    pretax_income: List[float] = field(default_factory=list)
+    tax_provision: List[float] = field(default_factory=list)
+    tax_rate_for_calcs: List[float] = field(default_factory=list)  # yfinance's own effective rate, preferred over deriving one
+    stockholders_equity: List[float] = field(default_factory=list)
+    interest_expense: List[float] = field(default_factory=list)
+    peg: Optional[float] = None
     # analyst recommendation history, most recent period FIRST (0m, -1m, ...)
     analyst_recs: List[AnalystRecPeriod] = field(default_factory=list)
     source: str = "manual"
@@ -99,6 +107,114 @@ def debt_to_fcf(inp: FundamentalInputs) -> Optional[float]:
     if nd <= 0:
         return 0.0
     return nd / fcfs[-1]
+
+
+# --------------------------------------------------------------------------- #
+# ROIC vs WACC (Tier 2, 6%)
+# --------------------------------------------------------------------------- #
+
+# Equity risk premium: a documented assumption, not a computed figure --
+# there is no single market-observable "true" ERP. 4.5 sits within the
+# range Damodaran's implied-ERP series has occupied for most of the
+# 2020s; review this periodically rather than treat it as derived.
+EQUITY_RISK_PREMIUM_PCT = 4.5
+
+# Fallback risk-free rate (10-year Treasury) used only when a live quote
+# isn't available -- stale by construction, which is why callers that
+# hit this path should treat the result as no better than L confidence.
+RISK_FREE_RATE_FALLBACK_PCT = 4.5
+
+
+def effective_tax_rate(inp: FundamentalInputs) -> Optional[float]:
+    """Prefer yfinance's own normalized effective rate (Tax Rate For
+    Calcs, already adjusted for one-time items); fall back to
+    Tax Provision / Pretax Income for the most recent period."""
+    if inp.tax_rate_for_calcs:
+        r = inp.tax_rate_for_calcs[-1]
+        if r is not None and 0 <= r <= 1:
+            return r
+    if inp.tax_provision and inp.pretax_income:
+        pretax = inp.pretax_income[-1]
+        if pretax and pretax > 0:
+            rate = inp.tax_provision[-1] / pretax
+            if 0 <= rate <= 1:
+                return rate
+    return None
+
+
+def roic_pct_series(inp: FundamentalInputs) -> List[float]:
+    """ROIC for every fiscal year with the needed line items (chronological,
+    most recent last). ROIC = NOPAT / Invested Capital; NOPAT = EBIT x
+    (1 - effective tax rate); Invested Capital = Total Debt + Stockholders
+    Equity - Cash (a common simplified definition, excludes minority-
+    interest adjustments). Total Debt/Cash are only available as
+    most-recent-period snapshots, so every year in the series is priced
+    against today's balance sheet, not each year's own -- a real
+    simplification, not a full time series."""
+    tax = effective_tax_rate(inp)
+    if tax is None or inp.total_debt is None or not inp.stockholders_equity:
+        return []
+    invested_capital = inp.total_debt + inp.stockholders_equity[-1] - (inp.cash or 0.0)
+    if invested_capital <= 0:
+        return []
+    n = min(len(inp.ebit), len(inp.stockholders_equity))
+    return [100.0 * inp.ebit[i] * (1 - tax) / invested_capital
+           for i in range(len(inp.ebit) - n, len(inp.ebit))]
+
+
+def roic_pct(inp: FundamentalInputs) -> Optional[float]:
+    series = roic_pct_series(inp)
+    return series[-1] if series else None
+
+
+@dataclass
+class WaccResult:
+    wacc_pct: Optional[float]
+    risk_free_pct: float
+    risk_free_source: str      # "live 10y Treasury (^TNX)" | "fallback assumption"
+    equity_risk_premium_pct: float = EQUITY_RISK_PREMIUM_PCT
+
+
+def compute_wacc(inp: FundamentalInputs, beta: Optional[float],
+                 risk_free_pct: Optional[float] = None,
+                 risk_free_source: str = "live 10y Treasury (^TNX)"
+                 ) -> WaccResult:
+    """A quick, fully-documented WACC -- not a precision instrument.
+    Cost of equity via CAPM (Rf + beta x ERP); pretax cost of debt as
+    Interest Expense / Total Debt; weighted by market cap (equity) vs
+    total debt, tax-affecting the debt leg. Every assumption (as opposed
+    to a fetched company fact) is named on the result so a caller can see
+    exactly what's fixed."""
+    if risk_free_pct is None:
+        risk_free_pct = RISK_FREE_RATE_FALLBACK_PCT
+        risk_free_source = "fallback assumption"
+    if beta is None or inp.market_cap is None:
+        return WaccResult(None, risk_free_pct, risk_free_source)
+    cost_of_equity = risk_free_pct + beta * EQUITY_RISK_PREMIUM_PCT
+    debt = inp.total_debt or 0.0
+    equity = inp.market_cap
+    total = debt + equity
+    if total <= 0:
+        return WaccResult(None, risk_free_pct, risk_free_source)
+    tax = effective_tax_rate(inp) or 0.0
+    cost_of_debt = 0.0
+    if debt > 0 and inp.interest_expense:
+        cost_of_debt = 100.0 * abs(inp.interest_expense[-1]) / debt
+    wacc = ((equity / total) * cost_of_equity
+           + (debt / total) * cost_of_debt * (1 - tax))
+    return WaccResult(wacc, risk_free_pct, risk_free_source)
+
+
+def live_risk_free_rate() -> Optional[float]:
+    """10-year Treasury yield (^TNX), already quoted in percentage-point
+    form (e.g. 4.7 means 4.7%). None on any fetch failure -- callers fall
+    back to RISK_FREE_RATE_FALLBACK_PCT and must say so in the rationale."""
+    try:
+        import yfinance as yf
+        v = yf.Ticker("^TNX").fast_info.get("lastPrice")
+        return float(v) if v else None
+    except Exception:
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -322,18 +438,34 @@ def draft_valuation_multiples(p_fcf: Optional[float],
     """Valuation Multiples (Tier 2, 8%), P/FCF primary per the doc:
     5 = PEG < 1.0 AND P/FCF below 5-yr avg; 4 = modest discount;
     3 = in line; 2 = premium with declining fundamentals; 1 = extreme.
-    Peer comparison is analyst judgment, so drafts cap at M confidence."""
+    Peer comparison is analyst judgment, so drafts cap at M confidence.
+
+    Without a P/FCF history to compare against (p_fcf_5y_avg missing),
+    this falls back to a PEG-only read at L confidence rather than
+    guessing "in line with history" -- that specific claim needs the
+    trend data to back it up, and shouldn't be the default when there
+    isn't any."""
     if p_fcf is None or p_fcf <= 0:
         return None
     rel = None if not p_fcf_5y_avg else p_fcf / p_fcf_5y_avg
-    if peg is not None and 0 < peg < 1.0 and rel is not None and rel < 1.0:
+    if rel is None:
+        if peg is None:
+            return None
+        if peg < 1.0:
+            sc, why = 4, f"PEG {peg:.2f} < 1 (no P/FCF history available to corroborate)"
+        elif peg <= 2.0:
+            sc, why = 3, f"PEG {peg:.2f} in the 1-2x range (no P/FCF history available)"
+        else:
+            sc, why = 2, f"PEG {peg:.2f} > 2 (no P/FCF history available)"
+        return Draft("valuation_multiples", sc, "L", why)
+    if peg is not None and 0 < peg < 1.0 and rel < 1.0:
         sc, why = 5, f"PEG {peg:.2f} < 1 and P/FCF {rel:.0%} of 5y avg"
-    elif rel is not None and rel < 0.90:
+    elif rel < 0.90:
         sc, why = 4, f"P/FCF {rel:.0%} of 5y avg (modest discount)"
-    elif rel is not None and rel > 1.5 and (fundamentals_declining or p_fcf > 50):
+    elif rel > 1.5 and (fundamentals_declining or p_fcf > 50):
         sc, why = (1 if fundamentals_declining else 2,
                    f"P/FCF {p_fcf:.0f}x, {rel:.0%} of 5y avg")
-    elif rel is not None and rel > 1.10:
+    elif rel > 1.10:
         sc = 2 if fundamentals_declining else 3
         why = f"P/FCF {rel:.0%} of 5y avg (premium)"
     else:
@@ -357,6 +489,10 @@ class FundamentalMetrics:
     revenue_cv: Optional[float] = None
     debt_to_fcf: Optional[float] = None
     p_fcf: Optional[float] = None
+    p_fcf_5y_avg: Optional[float] = None  # see compute_metrics -- a documented proxy, not a true rolling average
+    peg: Optional[float] = None
+    roic_pct: Optional[float] = None
+    roic_pct_series: List[float] = field(default_factory=list)
     years_of_data: int = 0
     analyst_recs: List[AnalystRecPeriod] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
@@ -372,6 +508,14 @@ def compute_metrics(inp: FundamentalInputs) -> FundamentalMetrics:
         if inp.market_cap:
             m.fcf_yield_pct = 100.0 * fcfs[-1] / inp.market_cap
             m.p_fcf = (inp.market_cap / fcfs[-1]) if fcfs[-1] > 0 else None
+            # Proxy for a 5-year average P/FCF: today's market cap over the
+            # multi-year AVERAGE FCF, not a true time-weighted average of
+            # each year's own P/FCF (that needs historical prices, which
+            # aren't fetched here). Needs 2+ years and a positive average.
+            if len(fcfs) >= 2:
+                avg_fcf = sum(fcfs) / len(fcfs)
+                if avg_fcf > 0:
+                    m.p_fcf_5y_avg = inp.market_cap / avg_fcf
         n = min(len(fcfs), len(inp.revenue))
         if n:
             margins = [100.0 * f / r for f, r in
@@ -383,6 +527,9 @@ def compute_metrics(inp: FundamentalInputs) -> FundamentalMetrics:
     m.revenue_cv = growth_cv(inp.revenue)
     m.debt_to_fcf = debt_to_fcf(inp)
     m.analyst_recs = list(inp.analyst_recs)
+    m.roic_pct_series = roic_pct_series(inp)
+    m.roic_pct = m.roic_pct_series[-1] if m.roic_pct_series else None
+    m.peg = inp.peg
     if m.years_of_data < 5:
         m.warnings.append(f"only {m.years_of_data} fiscal years of FCF data "
                           "(doc asks for five where available)")
@@ -391,7 +538,9 @@ def compute_metrics(inp: FundamentalInputs) -> FundamentalMetrics:
 
 def draft_quant_scores(m: FundamentalMetrics) -> Dict[str, Draft]:
     """Every rubric draft the fundamentals support. Judgment indicators
-    are deliberately absent (Part 12)."""
+    are deliberately absent (Part 12). roic_vs_wacc is NOT drafted here --
+    it needs beta, which lives in landry.data_auto, not in fundamentals'
+    inputs; see landry.cli._cmd_draft for that wiring."""
     out: Dict[str, Draft] = {}
     if m.fcf_yield_pct is not None:
         out["fcf_yield_trend"] = draft_fcf_yield_trend(m.fcf_yield_pct, m.fcf_trend)
@@ -401,6 +550,9 @@ def draft_quant_scores(m: FundamentalMetrics) -> Dict[str, Draft]:
     d = draft_fcf_margin_trend(m.fcf_margin_pct, m.margin_trend)
     if d:
         out["fcf_margin_trend"] = d
+    d = draft_valuation_multiples(m.p_fcf, m.p_fcf_5y_avg, m.peg)
+    if d:
+        out["valuation_multiples"] = d
     # thin history degrades confidence one notch (Tier 1/2 fundamentals only --
     # analyst consensus has its own, independent confidence basis below)
     if m.years_of_data < 4:
@@ -454,8 +606,20 @@ class YFinanceFundamentals:
                     "Cash Cash Equivalents And Short Term Investments")
         inp.total_debt = debt[-1] if debt else None
         inp.cash = cash[-1] if cash else None
+        inp.ebit = _row(is_, "EBIT")
+        inp.pretax_income = _row(is_, "Pretax Income")
+        inp.tax_provision = _row(is_, "Tax Provision")
+        inp.tax_rate_for_calcs = _row(is_, "Tax Rate For Calcs")
+        inp.stockholders_equity = _row(bs, "Stockholders Equity")
+        inp.interest_expense = _row(is_, "Interest Expense",
+                                    "Interest Expense Non Operating")
         try:
             inp.market_cap = t.fast_info.get("marketCap")
+        except Exception:
+            pass
+        try:
+            info = t.info or {}
+            inp.peg = info.get("trailingPegRatio") or info.get("pegRatio")
         except Exception:
             pass
         try:

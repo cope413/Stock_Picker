@@ -389,6 +389,54 @@ def technical_state(daily: pd.DataFrame) -> TechnicalState:
 
 
 # --------------------------------------------------------------------------- #
+# Tier 3 draft wrappers -- these three scores were already computed above
+# (rs_score, technical_trend_score, ad_line_score) but never turned into a
+# Draft and proposed to the score store; landry.fundamentals.Draft is the
+# same dataclass draft_quant_scores uses, so these slot into the same
+# pending -> approve -> score_stock pipeline as the fundamentals drafts.
+# --------------------------------------------------------------------------- #
+
+def draft_relative_strength(rs: RelativeStrength) -> Optional["Draft"]:
+    """Relative Strength vs SPY (Tier 3, 3%)."""
+    from landry.fundamentals import Draft
+    if rs.score is None:
+        return None
+    parts = []
+    if rs.diff_6m is not None:
+        parts.append(f"6mo {rs.diff_6m:+.1%}")
+    if rs.diff_12m is not None:
+        parts.append(f"12mo {rs.diff_12m:+.1%}")
+    detail = ", ".join(parts) if parts else "insufficient window detail"
+    return Draft("relative_strength", rs.score, "M",
+                f"blended vs SPY {rs.diff_blended:+.1%} ({detail})")
+
+
+def draft_technical_trend(tech: TechnicalState) -> Optional["Draft"]:
+    """Technical Trend (Tier 3, 2%): 200-week MA + monthly MACD + Supertrend."""
+    from landry.fundamentals import Draft
+    if tech.technical_trend_score is None:
+        return None
+    ma = "above" if tech.above_200w_ma else "below"
+    if tech.above_200w_ma is False and tech.reclaimed_within_6m:
+        ma += " (reclaimed <6mo)"
+    return Draft("technical_trend", tech.technical_trend_score, "M",
+                f"200w MA {ma}, MACD "
+                f"{'ok' if tech.macd_positive_or_turning else 'not ok'}, "
+                f"Supertrend "
+                f"{'bullish' if tech.supertrend_bullish else 'bearish'}")
+
+
+def draft_volume_accumulation(tech: TechnicalState) -> Optional["Draft"]:
+    """Volume & Accumulation (Tier 3, 1%): A/D line trend over 3/6 months."""
+    from landry.fundamentals import Draft
+    if tech.ad_line_score is None:
+        return None
+    return Draft("volume_accumulation", tech.ad_line_score, "M",
+                f"A/D line trend score {tech.ad_line_score}/5 "
+                "(3mo/6mo accumulation-distribution vs typical volume)")
+
+
+# --------------------------------------------------------------------------- #
 # live data plumbing (network only here)
 # --------------------------------------------------------------------------- #
 
