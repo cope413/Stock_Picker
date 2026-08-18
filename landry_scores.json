@@ -1,0 +1,255 @@
+{
+ "tickers": {
+  "NVDA": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "yield 1.7% -> 2, trend expanding -> 5, combined 3.20 -> 3",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "CAGR 100.0% >= 15%, CV 0.26 <= 0.35",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "FCF margin 41.8%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "58/61 buy-equivalent (95%), 2% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "blended vs SPY +5.7% (6mo +8.7%, 12mo +2.8%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "PEG 0.60 < 1 and P/FCF 47% of 5y avg",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:39+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "L",
+     "rationale": "ROIC 76.3% vs WACC 14.0% (spread +62.3pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-14T21:11:40+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
+  }
+ },
+ "audit": [
+  {
+   "at": "2026-08-14T21:03:23+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:23+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "revenue_growth_consistency",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:23+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_margin_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:23+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:24+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:24+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:03:24+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "relative_strength",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "revenue_growth_consistency",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_margin_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:39+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "relative_strength",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-14T21:11:40+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  }
+ ]
+}
