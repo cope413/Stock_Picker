@@ -152,6 +152,56 @@ def expands_flagged_cluster(ticker: str, report: CorrelationReport,
     return False
 
 
+@dataclass
+class HoldingsCorrelationCheck:
+    """Rule 36 test for a SCREENING CANDIDATE (not yet held) against every
+    currently-held equity -- the system's actual quantitative
+    diversification test. A GICS/sector label (or a Tier A/B/C planning
+    heuristic built from one) is a sequencing convenience, not a
+    substitute for this; it should run for every candidate as standard
+    practice, not only when a name happens to look suspicious."""
+    ticker: str
+    window_weeks: int
+    sufficient: bool                       # >= 12-month minimum
+    correlations: Dict[str, float]         # holding -> pairwise correlation
+    max_correlation: Optional[float]
+    max_correlation_holding: Optional[str]
+    flagged: bool                          # max_correlation > threshold
+
+
+def correlation_vs_holdings(ticker: str, closes: pd.DataFrame,
+                            threshold: float = CORRELATION_THRESHOLD
+                            ) -> Optional[HoldingsCorrelationCheck]:
+    """Rule 36 test for a screening candidate against every OTHER column
+    in ``closes`` (its currently-held equities), using the same windowing
+    as correlation_report. Pure -- ``closes`` is already-fetched weekly
+    prices (weekly_closes output); callers fetch live data via
+    fetch_daily/weekly_closes and pass the result in. None if ``ticker``
+    isn't in ``closes`` or there's no holding to compare against."""
+    ticker = ticker.upper()
+    if ticker not in closes.columns:
+        return None
+    holdings = [c for c in closes.columns if c.upper() != ticker]
+    if not holdings:
+        return None
+    universe = [ticker] + holdings
+    report = correlation_report(weekly_returns(closes[universe]), threshold=threshold)
+    if ticker not in report.matrix.index:
+        return None
+    row = report.matrix.loc[ticker].drop(ticker, errors="ignore").dropna()
+    if row.empty:
+        return HoldingsCorrelationCheck(ticker, report.window_weeks,
+                                        report.sufficient, {}, None, None, False)
+    correlations = {k: float(v) for k, v in row.items()}
+    max_holding = max(correlations, key=correlations.get)
+    max_corr = correlations[max_holding]
+    return HoldingsCorrelationCheck(
+        ticker=ticker, window_weeks=report.window_weeks,
+        sufficient=report.sufficient, correlations=correlations,
+        max_correlation=max_corr, max_correlation_holding=max_holding,
+        flagged=max_corr > threshold)
+
+
 # --------------------------------------------------------------------------- #
 # Relative Strength vs SPY (Tier 2 rubric, 3%)
 # --------------------------------------------------------------------------- #
@@ -389,6 +439,54 @@ def technical_state(daily: pd.DataFrame) -> TechnicalState:
 
 
 # --------------------------------------------------------------------------- #
+# Tier 3 draft wrappers -- these three scores were already computed above
+# (rs_score, technical_trend_score, ad_line_score) but never turned into a
+# Draft and proposed to the score store; landry.fundamentals.Draft is the
+# same dataclass draft_quant_scores uses, so these slot into the same
+# pending -> approve -> score_stock pipeline as the fundamentals drafts.
+# --------------------------------------------------------------------------- #
+
+def draft_relative_strength(rs: RelativeStrength) -> Optional["Draft"]:
+    """Relative Strength vs SPY (Tier 3, 3%)."""
+    from landry.fundamentals import Draft
+    if rs.score is None:
+        return None
+    parts = []
+    if rs.diff_6m is not None:
+        parts.append(f"6mo {rs.diff_6m:+.1%}")
+    if rs.diff_12m is not None:
+        parts.append(f"12mo {rs.diff_12m:+.1%}")
+    detail = ", ".join(parts) if parts else "insufficient window detail"
+    return Draft("relative_strength", rs.score, "M",
+                f"blended vs SPY {rs.diff_blended:+.1%} ({detail})")
+
+
+def draft_technical_trend(tech: TechnicalState) -> Optional["Draft"]:
+    """Technical Trend (Tier 3, 2%): 200-week MA + monthly MACD + Supertrend."""
+    from landry.fundamentals import Draft
+    if tech.technical_trend_score is None:
+        return None
+    ma = "above" if tech.above_200w_ma else "below"
+    if tech.above_200w_ma is False and tech.reclaimed_within_6m:
+        ma += " (reclaimed <6mo)"
+    return Draft("technical_trend", tech.technical_trend_score, "M",
+                f"200w MA {ma}, MACD "
+                f"{'ok' if tech.macd_positive_or_turning else 'not ok'}, "
+                f"Supertrend "
+                f"{'bullish' if tech.supertrend_bullish else 'bearish'}")
+
+
+def draft_volume_accumulation(tech: TechnicalState) -> Optional["Draft"]:
+    """Volume & Accumulation (Tier 3, 1%): A/D line trend over 3/6 months."""
+    from landry.fundamentals import Draft
+    if tech.ad_line_score is None:
+        return None
+    return Draft("volume_accumulation", tech.ad_line_score, "M",
+                f"A/D line trend score {tech.ad_line_score}/5 "
+                "(3mo/6mo accumulation-distribution vs typical volume)")
+
+
+# --------------------------------------------------------------------------- #
 # live data plumbing (network only here)
 # --------------------------------------------------------------------------- #
 
@@ -422,4 +520,23 @@ def market_snapshot(ticker: str) -> Dict[str, Optional[float]]:
         wk52_high=info.get("fiftyTwoWeekHigh"),
         dividend_yield=info.get("dividendYield"),
     )
+    return out
+
+
+def classification(ticker: str) -> Dict[str, Optional[str]]:
+    """Sector + Industry from yfinance, best-effort. Industry is the
+    refined sub-class this exists for -- e.g. "Utilities - Independent
+    Power Producers", not just "Utilities" -- which is what actually
+    would have flagged NRG/VST's AI-power-narrative correlation with each
+    other if it had been used for the original Darryl-list Tier A/B/C
+    sequencing instead of the coarser sector label. Not a Hard Rule
+    input; purely a Scoring-tab reference field."""
+    import yfinance as yf
+    out: Dict[str, Optional[str]] = {"sector": None, "industry": None}
+    try:
+        info = yf.Ticker(ticker).info or {}
+    except Exception:
+        return out
+    out["sector"] = info.get("sector")
+    out["industry"] = info.get("industry")
     return out
