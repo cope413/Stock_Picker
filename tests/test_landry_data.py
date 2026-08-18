@@ -12,6 +12,7 @@ import pytest
 from landry.data_auto import (
     CORR_WINDOW_MAX_WEEKS,
     beta_size_reduction,
+    classification,
     cluster_exposure,
     correlation_report,
     correlation_vs_holdings,
@@ -156,6 +157,31 @@ def test_correlation_vs_holdings_none_cases():
     assert correlation_vs_holdings("NOTPRESENT", closes) is None       # ticker not in closes
     only_self = closes[["A"]]
     assert correlation_vs_holdings("A", only_self) is None             # no holdings to compare
+
+
+def test_classification_parses_sector_and_industry(monkeypatch):
+    class FakeTicker:
+        def __init__(self, ticker):
+            self.ticker = ticker
+
+        @property
+        def info(self):
+            return {"sector": "Utilities",
+                    "industry": "Utilities - Independent Power Producers"}
+
+    monkeypatch.setattr("yfinance.Ticker", FakeTicker)
+    out = classification("VST")
+    assert out == {"sector": "Utilities",
+                   "industry": "Utilities - Independent Power Producers"}
+
+
+def test_classification_none_on_fetch_failure(monkeypatch):
+    class FailingTicker:
+        def __init__(self, ticker):
+            raise RuntimeError("network down")
+
+    monkeypatch.setattr("yfinance.Ticker", FailingTicker)
+    assert classification("VST") == {"sector": None, "industry": None}
 
 
 # --------------------------------------------------------------------------- #

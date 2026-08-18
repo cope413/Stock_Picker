@@ -521,3 +521,22 @@ def market_snapshot(ticker: str) -> Dict[str, Optional[float]]:
         dividend_yield=info.get("dividendYield"),
     )
     return out
+
+
+def classification(ticker: str) -> Dict[str, Optional[str]]:
+    """Sector + Industry from yfinance, best-effort. Industry is the
+    refined sub-class this exists for -- e.g. "Utilities - Independent
+    Power Producers", not just "Utilities" -- which is what actually
+    would have flagged NRG/VST's AI-power-narrative correlation with each
+    other if it had been used for the original Darryl-list Tier A/B/C
+    sequencing instead of the coarser sector label. Not a Hard Rule
+    input; purely a Scoring-tab reference field."""
+    import yfinance as yf
+    out: Dict[str, Optional[str]] = {"sector": None, "industry": None}
+    try:
+        info = yf.Ticker(ticker).info or {}
+    except Exception:
+        return out
+    out["sector"] = info.get("sector")
+    out["industry"] = info.get("industry")
+    return out
