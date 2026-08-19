@@ -49,6 +49,11 @@ webapp_secret.key
 # Regenerated on every run (landry refresh / landry daily) -- safe to lose
 landry_snapshot.json
 landry_actions.json
+<<<<<<< HEAD
+landry.db
+landry.db-wal
+landry.db-shm
+=======
 
 # landry_scores.json is NOT in either category above: no credentials in
 # it, and nothing regenerates a lost approval history -- it's the actual
@@ -57,6 +62,7 @@ landry_actions.json
 # wiped once as a result (2026-08, GE/PH/ETN's approval history lost with
 # no backup). Track it.
 
+>>>>>>> 86b65593315f53e4cf5662e58114d8d3fab17947
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
 LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 
