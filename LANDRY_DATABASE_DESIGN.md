@@ -198,6 +198,26 @@ the tables above, reusing existing Python functions):
    no concurrent access, no need for an ORM's migration/relationship
    machinery, and it keeps the dependency footprint at zero for the DB
    layer itself.
+5. **Backend: local `sqlite3` file vs. Turso (2026-08-19, open — revisit
+   at Phase B).** Alan's leaning toward Turso instead of a plain local
+   file. Turso is hosted libSQL (a SQLite fork) with sync/replication;
+   its Python client is largely `sqlite3`-API-compatible and supports an
+   embedded-replica mode (local file that syncs to a remote database),
+   so this doesn't necessarily invalidate decision 4's schema/query code
+   — it mainly changes *where the source of truth lives* and *what
+   `models.py`'s `connect()` does under the hood*. The concrete reason
+   this matters here, not just in the abstract: it would directly answer
+   the Taylor-collaboration problem from 2026-08-19 (see
+   `taylor_landry_collaborator` in Claude's memory) — two people each
+   running their own local `landry.db` is exactly the setup that produced
+   the duplicate-DB-layer collision; a synced Turso database gives Alan
+   and Taylor (and Claude sessions under either account) one shared live
+   state instead of independently-diverging local files. Tradeoffs to
+   weigh at Phase B: a real dependency (`libsql-client` or similar,
+   replacing the zero-dependency stdlib approach in decision 4), and a
+   database URL + auth token to handle as a secret (same treatment as
+   `webapp_secret.key` — gitignored, never committed) rather than
+   `landry.db` staying a plain gitignored local file.
 
 ## Migration phases
 
