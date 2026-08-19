@@ -37,10 +37,10 @@ swing/outputs/
 
 # Landry database (LANDRY_DATABASE_DESIGN.md) -- derived, rebuildable from
 # the workbook via `python -m landry.migrate_to_db`. landry/models.py and
-# landry/migrate_to_db.py ARE tracked. The Part 12 approval trail keeps
-# living in the separately-tracked landry_scores.json as a diffable backup
-# -- see design decision 2 in LANDRY_DATABASE_DESIGN.md.
+# landry/migrate_to_db.py ARE tracked.
 landry.db
+landry.db-wal
+landry.db-shm
 
 # Web UI auth (secrets — never commit)
 webapp_users.json
@@ -49,20 +49,16 @@ webapp_secret.key
 # Regenerated on every run (landry refresh / landry daily) -- safe to lose
 landry_snapshot.json
 landry_actions.json
-<<<<<<< HEAD
-landry.db
-landry.db-wal
-landry.db-shm
-=======
 
 # landry_scores.json is NOT in either category above: no credentials in
 # it, and nothing regenerates a lost approval history -- it's the actual
 # Part 12 audit trail (who approved what score, when, and why). It was
 # gitignored by mistake alongside the two secrets above and got silently
 # wiped once as a result (2026-08, GE/PH/ETN's approval history lost with
-# no backup). Track it.
+# no backup). Track it -- it keeps living as this separately-tracked,
+# diffable backup even after the database lands; see design decision 2 in
+# LANDRY_DATABASE_DESIGN.md.
 
->>>>>>> 86b65593315f53e4cf5662e58114d8d3fab17947
 LANDRY_SYSTEM_WORKBOOK_*_filled_*.xlsx
 LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 
