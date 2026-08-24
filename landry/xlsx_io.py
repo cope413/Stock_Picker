@@ -1,7 +1,7 @@
 """Read the tabs of a LANDRY_SYSTEM_WORKBOOK_*.xlsx.
 
 Column maps come from the workbook's own Schema Reference tab. Scoring:
-rows 3-45 (43 tickers), cols A-AM. A=Ticker, B=Company, C=Date,
+rows 3+ (45 tickers as of 2026-08-24), cols A-AM. A=Ticker, B=Company, C=Date,
 D-M = Tier 1 (5 x score/conf pairs), N=Tier1 WtdAvg, O=Tier1 Contrib,
 P-W = Tier 2 (4 x score/conf), X=Tier2 Contrib, Y-AD = Tier 3
 (3 x score/conf), AE=Tier3 Contrib, AF=Composite, AG=Decision,
@@ -254,7 +254,7 @@ def read_monitor_notes(path: str,
     L=InsiderNote,M=AnalystShift,O=RecheckStatus,P=Notes."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=42, values_only=True):
+    for r in ws.iter_rows(min_row=3, values_only=True):
         if not r or not r[0]:
             continue
         out.append(dict(
@@ -362,7 +362,7 @@ def read_entry_checklist(path: str, sheet: str = "Entry Checklist") -> List[dict
     the exact per-column rule mapping)."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=45, values_only=True):
+    for r in ws.iter_rows(min_row=3, values_only=True):
         if not r or not r[0]:
             continue
         out.append(dict(

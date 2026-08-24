@@ -198,9 +198,8 @@ the tables above, reusing existing Python functions):
    no concurrent access, no need for an ORM's migration/relationship
    machinery, and it keeps the dependency footprint at zero for the DB
    layer itself.
-5. **Backend: local `sqlite3` file vs. Turso (2026-08-19, open — revisit
-   at Phase B).** Alan's leaning toward Turso instead of a plain local
-   file. Turso is hosted libSQL (a SQLite fork) with sync/replication;
+5. **Backend: local `sqlite3` file vs. Turso — decided 2026-08-24: Turso.**
+   Turso is hosted libSQL (a SQLite fork) with sync/replication;
    its Python client is largely `sqlite3`-API-compatible and supports an
    embedded-replica mode (local file that syncs to a remote database),
    so this doesn't necessarily invalidate decision 4's schema/query code
@@ -309,3 +308,47 @@ code are ready for them regardless.
 **Not yet done:** Phase B (cut over CLI/webapp read paths), Phase C
 (generated-report export with static values, retiring the recalc
 dependency), Phase D (parallel-run verification).
+
+## Revisited 2026-08-24
+
+Re-ran `python -m landry.migrate_to_db` against the workbook as it stands
+today (45 tickers, up from 43; DIS/NFLX added, V/COST's Entry
+Checklist/Implied-Return data filled in, Monitor & Recheck Triggers grown
+to 45 rows) — this is exactly the "tab structure can drift" check the
+"How to apply" note called for before resuming. It caught two real, live
+reader bugs: `read_entry_checklist` and `read_monitor_notes` had
+hardcoded `max_row=45` / `max_row=42` bounds dating to Phase A's original
+(smaller) workbook snapshot, silently dropping DIS/NFLX from
+`entry_checklist` (43 rows instead of 45) and the last 5 rows from
+`monitor_notes` (40 instead of 45). Fixed by removing the bound on both —
+unbounded `min_row=` scans, matching `read_scoring_tab`'s existing
+pattern, are safe here since neither tab has trailing footnote text below
+its real data (confirmed by direct inspection, the same failure mode that
+originally required *adding* bounds to `read_market_data` /
+`read_performance_tracking` during Phase A). Re-ran the migration after
+the fix: `entry_checklist` and `monitor_notes` both now correctly show 45
+rows. Change is in `landry/xlsx_io.py`, uncommitted as of this writing.
+
+**Decision 5 (backend) is now settled: Turso**, not plain local sqlite3.
+Direct motivation unchanged from the 2026-08-19 note — one shared live
+database instead of Alan's and Taylor's local `landry.db` files
+independently diverging, the same setup that produced the duplicate-DB-
+layer collision (`taylor_landry_collaborator` in Claude's memory). Not yet
+implemented: `models.py`'s `connect()` still opens a plain local sqlite3
+file. Before Phase B work starts for real, still need: a Turso database +
+auth token provisioned, secret handling decided (gitignored file vs. env
+var, same treatment as `webapp_secret.key`), and the `libsql-client`
+(or equivalent) dependency added.
+
+**Sequencing (Phase B vs. C) — discussed, not settled, not started.**
+Worth registering for next time: Phase B alone (cutting CLI/webapp reads
+over to the DB) does not reduce the openpyxl-edit-recalc pain that
+originally motivated this whole effort — every real bug found across this
+entire multi-session engagement has been on the *write* side, and only
+Phase C's DB-as-write-target flip touches that. There's a real argument
+for doing minimal read-cutover and prioritizing Phase C instead of the
+documented B-then-C order, since once writes move to the DB, most reads
+naturally follow it too — a full standalone Phase B first risks work that
+gets partly redone once C lands. Alan has not chosen between the
+documented order and this alternative; revisit before writing Phase B/C
+code.
