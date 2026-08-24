@@ -340,15 +340,21 @@ auth token provisioned, secret handling decided (gitignored file vs. env
 var, same treatment as `webapp_secret.key`), and the `libsql-client`
 (or equivalent) dependency added.
 
-**Sequencing (Phase B vs. C) — discussed, not settled, not started.**
-Worth registering for next time: Phase B alone (cutting CLI/webapp reads
-over to the DB) does not reduce the openpyxl-edit-recalc pain that
-originally motivated this whole effort — every real bug found across this
-entire multi-session engagement has been on the *write* side, and only
-Phase C's DB-as-write-target flip touches that. There's a real argument
-for doing minimal read-cutover and prioritizing Phase C instead of the
-documented B-then-C order, since once writes move to the DB, most reads
-naturally follow it too — a full standalone Phase B first risks work that
-gets partly redone once C lands. Alan has not chosen between the
-documented order and this alternative; revisit before writing Phase B/C
-code.
+**Sequencing (Phase B vs. C) — discussed, not settled. Timing — settled:
+after the next tranche sequence.** Worth registering for next time: Phase
+B alone (cutting CLI/webapp reads over to the DB) does not reduce the
+openpyxl-edit-recalc pain that originally motivated this whole effort —
+every real bug found across this entire multi-session engagement has been
+on the *write* side, and only Phase C's DB-as-write-target flip touches
+that. There's a real argument for doing minimal read-cutover and
+prioritizing Phase C instead of the documented B-then-C order, since once
+writes move to the DB, most reads naturally follow it too — a full
+standalone Phase B first risks work that gets partly redone once C lands.
+That specific ordering choice is still open.
+
+What Alan did settle (2026-08-24): all DB work — deciding B-vs-C, standing
+up Turso, and even creating the git branch it would live on — waits until
+after DCA-TRANCHE-2 (rescheduled to 9/8/2026) and its fold-in verification
+are done. A branch was proposed and explicitly deferred alongside the DB
+work itself, not created early. Don't propose resuming before then;
+check the Journal tab for a completed Tranche 2 entry as the signal.
