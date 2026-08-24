@@ -368,6 +368,260 @@
    },
    "approved": {},
    "rejected": {}
+  },
+  "DIS": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 4.6% -> 4, trend expanding -> 5, combined 4.40 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:12+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "CAGR 4.5% < 5% or CV 0.46 > 0.75",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:12+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "FCF margin 9.2%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:12+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "P/FCF 57% of 5y avg (modest discount)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:12+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "29/32 buy-equivalent (91%), 3% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:12+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD not ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:24+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:24+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -18.4% (6mo -8.8%, 12mo -28.0%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:24+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 1,
+     "confidence": "L",
+     "rationale": "ROIC 7.3% vs WACC 8.3% (spread -1.0pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:46:30+00:00"
+    },
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "Mixed, segment-dependent picture from FY2025 10-K + market data, not a clean pass on the rubric cross-checks. (a) Pricing power: real but uneven -- Domestic Disney+ ARPU +2.2% (below recent CPI), International ARPU +19% (strong), Parks guest spending +3%. (b) Margin vs. industry median: not evidenced (Entertainment op income +19% on +3% revenue shows leverage but no peer benchmark found). (c) Retention/switching costs: not evidenced beyond strategic intent (Iger calling the Disney+/Hulu bundle \"the strategic moat\"); no churn/retention data gathered. (d) Market share: NEGATIVE for streaming specifically -- Disney+ ~14% US SVOD share, 4th place, explicitly described as trailing Netflix's widening dominance; Parks/IP franchise strength is real but not quantified here. Only 1 of 4 cross-checks (pricing power) has clear positive evidence strong enough to count; rubric requires 2+ for a 4/5. Scored 3 (mild moat, contestable) rather than 4 given the streaming-share evidence actively cuts against, not just fails to support, the case. Sourced from Disney FY2025 10-K (SEC EDGAR, filed 2025-11-13) plus 2026 streaming-market-share industry writeups (evoca.tv, matrixbcg.com) and commentary (Yahoo Finance, Kavout).",
+     "source": "manual",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:49:50+00:00"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FY2025 10-K segment mix (SEC EDGAR, filed 2025-11-13): Linear Networks $9,364M (9.9% of $94,425M total; genuinely contracted -- multi-year MVPD affiliate-fee agreements at contractually specified per-subscriber rates) + Direct-to-Consumer $24,614M (26.1%; recurring subscription revenue, but month-to-month/cancel-anytime, not contracted in the strict sense) = ~36% of company revenue is contracted-or-recurring. Content Sales/Licensing (9.0%) and Experiences (38.3%, mostly transactional ticket/spend) are not visible 12 months out. Sports segment (16.7%, not broken out here) likely has some ESPN affiliate-contract component similar to Linear Networks, which could push the true figure into the 3 band (40-60%) if isolated -- this is a boundary call between bands 2 and 3, scored conservatively at 2 given the Sports-segment split was not available in the evidence gathered. Flag for Alan: worth pulling the Sports segment 10-K detail to firm this up before finalizing.",
+     "source": "manual",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:49:50+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
+  },
+  "NFLX": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 2.7% -> 3, trend expanding -> 5, combined 3.80 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:41+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "CAGR 12.6% in 10-15%, CV 0.34 <= 0.50",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:41+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "FCF margin 20.1%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:41+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "P/FCF 64% of 5y avg (modest discount)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:41+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "35/51 buy-equivalent (69%), 0% negative, buy% down 5pp vs -3m -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:41+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:42+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:42+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -32.2% (6mo -10.5%, 12mo -53.9%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:42+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "L",
+     "rationale": "ROIC 36.4% vs WACC 10.7% (spread +25.7pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:20:43+00:00"
+    },
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "Clears all four rubric cross-checks with real, sourced evidence. (a) Pricing power: March 2026 price hike (Premium to $26.99/mo) with JPMorgan/Citi projecting ~$1.7B annualized revenue lift -- pricing power without volume loss, by analyst consensus. (b) Margin vs. peers: 2026 operating margin guided to 31.5% (up from 29.5% in 2025, itself +3pp YoY) -- the highest operating margin of any major pure-play streaming service, per the company's own Q4 2025 shareholder letter (content amortization growing ~10% vs. revenue growth of 12-14%). (c) Retention/switching costs: the password-sharing crackdown (global by end-2024) added 23M+ net subscribers over the following year against a projected 10-20% household churn; resubscribe rates among affected households now exceed 40% -- real, tested evidence of low switching despite an actively imposed friction. (d) Market share: 325M+ global subscribers, more than double Disney+ (~132M), with average U.S. watch time over 1hr/day vs. 36min for the next-closest competitor (Hulu). Scored 5 (wide moat, multiple reinforcing advantages) at Medium rather than High confidence because the market-share and retention evidence, while consistent across sources, comes from independent research/analytics writeups rather than audited filings -- only the margin data is primary-source (company shareholder letter).",
+     "source": "manual",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:49:50+00:00"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "Revenue is essentially all subscription-based with no meaningful separate licensing/wholesale line (unlike DIS). Not literally \"contracted\" -- subscriptions are month-to-month, cancel-anytime -- so not scored a 5. But practical visibility is high: the ability of JPMorgan/Citi to project a precise ~$1.7B revenue lift from a specific March 2026 price change implies a highly stable, low-churn, predictable subscriber base in aggregate. Scored 4 (60-80% band) as the better fit than a literal-contracts reading would suggest, given the rubric explicitly allows \"recurring\" alongside \"contracted\" revenue. This is a judgment call on how strictly to read \"contracted\" for a subscription (vs. contract-locked) business -- worth Alan's explicit view before finalizing. Sourced from Netflix Q4 2025 shareholder letter (company IR) and 2026 price-increase analyst coverage (CNBC, JPMorgan/Citi via FinancialContent).",
+     "source": "manual",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-08-24T16:49:50+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
   }
  },
  "audit": [
@@ -793,6 +1047,285 @@
    "score": 3,
    "confidence": "L",
    "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:04+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:04+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "revenue_growth_consistency",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:04+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:04+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:04+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:05+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "technical_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:05+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:05+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:05+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "roic_vs_wacc",
+   "score": 1,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:41+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:41+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "revenue_growth_consistency",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:41+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "fcf_margin_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:41+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:41+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:42+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:42+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:42+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:20:43+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:12+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:12+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "revenue_growth_consistency",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:12+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:12+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:12+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:24+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "technical_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:24+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:24+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:46:30+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "roic_vs_wacc",
+   "score": 1,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-08-24T16:49:50+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "competitive_moat",
+   "score": 3,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-08-24T16:49:50+00:00",
+   "action": "propose",
+   "ticker": "DIS",
+   "indicator": "revenue_visibility",
+   "score": 2,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-08-24T16:49:50+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "competitive_moat",
+   "score": 5,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-08-24T16:49:50+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "revenue_visibility",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
   }
  ]
 }
