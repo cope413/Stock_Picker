@@ -540,3 +540,23 @@ def classification(ticker: str) -> Dict[str, Optional[str]]:
     out["sector"] = info.get("sector")
     out["industry"] = info.get("industry")
     return out
+
+
+def next_earnings_date(ticker: str):
+    """Next (or most recent, if none is scheduled yet) earnings date from
+    yfinance, best-effort. Feeds Monitor & Recheck Triggers col J -- Excel
+    has no native formula for this (confirmed 2026-08-26: STOCKHISTORY only
+    covers price/volume history, and the Stocks linked-data-type doesn't
+    expose an earnings-date field without a 3rd-party add-in), so this is a
+    periodic write, same maintenance shape as Price History's weekly closes:
+    re-run and re-paste, not a live formula. Returns a `datetime.date` or
+    None if yfinance has nothing for this ticker."""
+    import yfinance as yf
+    try:
+        cal = yf.Ticker(ticker).calendar or {}
+    except Exception:
+        return None
+    dates = cal.get("Earnings Date")
+    if not dates:
+        return None
+    return dates[0]
