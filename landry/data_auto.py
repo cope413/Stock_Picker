@@ -560,3 +560,169 @@ def next_earnings_date(ticker: str):
     if not dates:
         return None
     return dates[0]
+
+
+# --------------------------------------------------------------------------- #
+# Insider activity (Monitor & Recheck Triggers col K/L) -- SEC EDGAR Form 4
+# --------------------------------------------------------------------------- #
+
+_EDGAR_UA = "Landry System personal portfolio tool alan.landry@gmail.com"
+_CIK_MAP_CACHE: Optional[Dict[str, str]] = None
+
+
+def _edgar_get(url: str):
+    import json
+    import urllib.request
+
+    req = urllib.request.Request(url, headers={"User-Agent": _EDGAR_UA})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read()
+    return raw, json
+
+
+def _cik_for_ticker(ticker: str) -> Optional[str]:
+    """Ticker -> 10-digit zero-padded CIK, via SEC's own bulk mapping file.
+    Cached in-process since the mapping (~10k companies) rarely changes and
+    we look up the same 45 tickers repeatedly."""
+    global _CIK_MAP_CACHE
+    if _CIK_MAP_CACHE is None:
+        try:
+            raw, json_mod = _edgar_get("https://www.sec.gov/files/company_tickers.json")
+            data = json_mod.loads(raw)
+            _CIK_MAP_CACHE = {v["ticker"]: str(v["cik_str"]).zfill(10) for v in data.values()}
+        except Exception:
+            _CIK_MAP_CACHE = {}
+    return _CIK_MAP_CACHE.get(ticker.upper())
+
+
+def _recent_form4_accessions(cik: str, lookback_days: int) -> List[Tuple[str, str]]:
+    """[(accessionNumber, filingDate), ...] for Form 4s filed in the window."""
+    import datetime
+    import json as json_mod
+
+    try:
+        raw, _ = _edgar_get(f"https://data.sec.gov/submissions/CIK{cik}.json")
+        data = json_mod.loads(raw)
+    except Exception:
+        return []
+    recent = data.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    dates = recent.get("filingDate", [])
+    accns = recent.get("accessionNumber", [])
+    cutoff = (datetime.date.today() - datetime.timedelta(days=lookback_days)).isoformat()
+    out = []
+    for form, date, accn in zip(forms, dates, accns):
+        if form == "4" and date >= cutoff:
+            out.append((accn, date))
+    return out
+
+
+def _form4_transactions(cik: str, accession: str) -> List[dict]:
+    """Non-derivative P/S transactions from one Form 4 filing's raw XML.
+    Returns [] for filings with no transactions (e.g. a pure Section-16-exit
+    notice) or any fetch/parse failure -- best-effort, matching this module's
+    other yfinance-based fetchers."""
+    import time
+    import xml.etree.ElementTree as ET
+
+    accession_nodash = accession.replace("-", "")
+    try:
+        raw, _ = _edgar_get(
+            f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_nodash}/index.json"
+        )
+        import json as json_mod
+        index = json_mod.loads(raw)
+        xml_name = next(
+            (it["name"] for it in index["directory"]["item"]
+             if it["name"].endswith(".xml") and "xsl" not in it["name"].lower()),
+            None,
+        )
+        if not xml_name:
+            return []
+        time.sleep(0.15)  # be polite -- two requests per filing
+        xml_raw, _ = _edgar_get(
+            f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession_nodash}/{xml_name}"
+        )
+        root = ET.fromstring(xml_raw)
+    except Exception:
+        return []
+
+    owner = root.find(".//reportingOwner/reportingOwnerId/rptOwnerName")
+    rel = root.find(".//reportingOwnerRelationship")
+    title = "Officer" if rel is not None and rel.findtext("isOfficer") == "1" else (
+        "Director" if rel is not None and rel.findtext("isDirector") == "1" else (
+        "10%-owner" if rel is not None and rel.findtext("isTenPercentOwner") == "1" else "Other"))
+    officer_title = (rel.findtext("officerTitle") or "").strip() if rel is not None else ""
+
+    out = []
+    for txn in root.findall(".//nonDerivativeTable/nonDerivativeTransaction"):
+        code = txn.findtext(".//transactionCoding/transactionCode")
+        if code not in ("P", "S"):
+            continue
+        try:
+            shares = float(txn.findtext(".//transactionAmounts/transactionShares/value") or 0)
+            price = float(txn.findtext(".//transactionAmounts/transactionPricePerShare/value") or 0)
+            following = float(txn.findtext(".//postTransactionAmounts/sharesOwnedFollowingTransaction/value") or 0)
+        except (TypeError, ValueError):
+            continue
+        acq_disp = txn.findtext(".//transactionAmounts/transactionAcquiredDisposedCode/value")
+        prior = following - shares if acq_disp == "A" else following + shares
+        pct_change = (shares / prior * 100) if prior > 0 else None
+        out.append({
+            "code": code,
+            "owner": (owner.text if owner is not None else "Unknown"),
+            "title": officer_title or title,
+            "shares": shares,
+            "price": price,
+            "dollar_value": shares * price,
+            "pct_change": pct_change,
+        })
+    return out
+
+
+def insider_activity_flag(ticker: str, lookback_days: int = 30,
+                           min_dollar: float = 100_000, min_pct: float = 10.0
+                           ) -> Tuple[Optional[str], Optional[str]]:
+    """Monitor & Recheck Triggers col K/L, from real SEC Form 4 filings
+    (not a secondary aggregator). Flags "Y" for any Purchase or Sale
+    transaction in the lookback window whose dollar value clears
+    ``min_dollar`` OR whose magnitude of ownership change clears ``min_pct``
+    -- OR, not AND, deliberately: this tab exists to catch anything that
+    might warrant a fresh look across 45 already-known tickers, not to
+    screen the whole market down to only the rarest, highest-conviction
+    stories the way a discovery tool like OpenInsider's default AND-combined
+    filters would (agreed with Alan 2026-08-26).
+
+    Grant/gift/tax/option-exercise/inherited transactions (codes other than
+    P/S) are excluded -- those don't reflect the insider's own buy/sell
+    judgment. Returns (None, None) on any lookup failure or when there's
+    simply nothing to report, so a blank K/L reads the same as "checked,
+    nothing found" and "couldn't check" -- callers that care about the
+    difference should treat any exception here as the latter."""
+    cik = _cik_for_ticker(ticker)
+    if not cik:
+        return None, None
+
+    hits = []
+    for accession, filing_date in _recent_form4_accessions(cik, lookback_days):
+        for txn in _form4_transactions(cik, accession):
+            qualifies = (
+                txn["dollar_value"] >= min_dollar
+                or (txn["pct_change"] is not None and abs(txn["pct_change"]) >= min_pct)
+                or (txn["pct_change"] is None and txn["code"] == "P")  # brand-new position
+            )
+            if qualifies:
+                hits.append((filing_date, txn))
+
+    if not hits:
+        return "N", None
+
+    hits.sort(key=lambda h: h[0], reverse=True)
+    filing_date, txn = hits[0]
+    action = "bought" if txn["code"] == "P" else "sold"
+    pct_txt = f", {abs(txn['pct_change']):.0f}% of holding" if txn["pct_change"] is not None else ""
+    note = (f"{filing_date}: {txn['owner']} ({txn['title']}) {action} "
+            f"${txn['dollar_value']:,.0f}{pct_txt}")
+    if len(hits) > 1:
+        note += f" (+{len(hits)-1} more in last {lookback_days}d)"
+    return "Y", note
