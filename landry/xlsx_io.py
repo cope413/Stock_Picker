@@ -251,7 +251,8 @@ def read_monitor_notes(path: str,
     """Only the genuinely-manual fields; LastComposite/CurrentPrice/
     DaysSinceScore etc. are derived from composite_history + market_data at
     read time, not stored twice. A=Ticker,B=Category,K=InsiderY/N,
-    L=InsiderNote,M=AnalystShift,O=RecheckStatus,P=Notes."""
+    L=InsiderNote,M=AnalystShift,N=AnalystShiftNote (added 2026-08-26,
+    mirrors K/L),P=RecheckStatus,Q=Notes."""
     wb, ws = _open(path, sheet)
     out = []
     for r in ws.iter_rows(min_row=3, values_only=True):
@@ -260,7 +261,7 @@ def read_monitor_notes(path: str,
         out.append(dict(
             ticker=str(r[0]).strip(), category=str(r[1] or "").strip(),
             insider_flag=r[10], insider_note=r[11], analyst_shift_flag=r[12],
-            recheck_status=r[14], notes=r[15]))
+            analyst_shift_note=r[13], recheck_status=r[15], notes=r[16]))
     wb.close()
     return out
 
