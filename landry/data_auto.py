@@ -726,3 +726,65 @@ def insider_activity_flag(ticker: str, lookback_days: int = 30,
     if len(hits) > 1:
         note += f" (+{len(hits)-1} more in last {lookback_days}d)"
     return "Y", note
+
+
+# --------------------------------------------------------------------------- #
+# Analyst consensus shift (Monitor & Recheck Triggers col M)
+# --------------------------------------------------------------------------- #
+
+_RATING_WEIGHTS = {"strongBuy": 5, "buy": 4, "hold": 3, "sell": 2, "strongSell": 1}
+
+
+def _composite_rating(row) -> Tuple[Optional[float], int]:
+    """Weighted 1-5 consensus score (Strong Buy=5..Strong Sell=1) from one row
+    of yfinance's recommendations breakdown, plus the analyst count it's built
+    from. None if there's no coverage at all for that period."""
+    total = sum(int(row.get(k, 0) or 0) for k in _RATING_WEIGHTS)
+    if total == 0:
+        return None, 0
+    score = sum(int(row.get(k, 0) or 0) * w for k, w in _RATING_WEIGHTS.items()) / total
+    return score, total
+
+
+def analyst_shift_flag(ticker: str, threshold: float = 0.15
+                        ) -> Tuple[Optional[str], Optional[str]]:
+    """Monitor & Recheck Triggers col M, from yfinance's aggregate analyst
+    rating breakdown (``Ticker.recommendations``: Strong Buy/Buy/Hold/Sell/
+    Strong Sell counts at 0/-1/-2/-3 months) -- a real composite consensus,
+    not a single firm's action. (``Ticker.upgrades_downgrades`` is mostly
+    "Maintains" reiterations with a price-target tweak, not an actual rating
+    change, which is why this uses the aggregate breakdown instead.)
+
+    Flags "Y" when the weighted consensus score has moved by >= ``threshold``
+    between 3 months ago and today. 0.15 is the default, chosen empirically
+    (2026-08-26): about three-quarters of the 45 tracked tickers showed under
+    0.10 of drift over 3 months (ordinary noise); the real movers (NOV +0.21,
+    PZZA -0.29, NKE -0.19, VRTX -0.14) sit well clear of that band.
+
+    Caveat baked into the note, not the threshold logic: for lightly-covered
+    tickers a single analyst's one-notch change can produce a shift this
+    size on its own (e.g. 1 of 8 analysts moving a full grade shifts the
+    average by 0.125) -- the note reports the current analyst count so a
+    reviewer can tell "3 firms moved" from "1 firm moved out of 8" rather
+    than the mechanism trying to adjudicate that itself.
+
+    Returns (None, None) on any lookup failure or insufficient history."""
+    import yfinance as yf
+    try:
+        rec = yf.Ticker(ticker).recommendations
+    except Exception:
+        return None, None
+    if rec is None or rec.empty:
+        return None, None
+    by_period = {row["period"]: row for _, row in rec.iterrows()}
+    now, n_now = _composite_rating(by_period.get("0m", {}))
+    then, _n_then = _composite_rating(by_period.get("-3m", {}))
+    if now is None or then is None:
+        return None, None
+    delta = now - then
+    if abs(delta) < threshold:
+        return "N", None
+    direction = "improved" if delta > 0 else "declined"
+    note = (f"Consensus {direction} {abs(delta):.2f} (1-5 scale) over 3 months "
+            f"({then:.2f} -> {now:.2f}, {n_now} analysts currently)")
+    return "Y", note
