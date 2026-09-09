@@ -209,13 +209,18 @@ def _open(path: str, sheet: str):
 
 def read_market_data(path: str, sheet: str = "Market Data") -> List[dict]:
     """A=Ticker,B=Company,C=Price,D=Volume,E=MarketCap($M),F=P/E,
-    G=52wkLow,H=52wkHigh,I=DivYield. Rows 3-27 (Schema Reference); bounded
-    at row 27 because explanatory footnote text starts right below the
-    table and would otherwise be read as a bogus data row. Manual-entry
-    tab, often empty (data_auto.py fetches this live instead)."""
+    G=52wkLow,H=52wkHigh,I=DivYield. Rows 3-38 (36 tickers as of
+    2026-09-08, see Schema Reference) -- bounded rather than unbounded
+    in case explanatory footnote text is ever added right below the
+    table (it isn't currently), which would otherwise be read as a bogus
+    data row. `landry audit` checks this bound against the live tab on
+    every run, so it won't silently go stale again the way it did once
+    already (was hardcoded at 27 while the tab grew to 36 tickers).
+    Manual-entry tab, often empty (data_auto.py fetches this live
+    instead)."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=27, values_only=True):
+    for r in ws.iter_rows(min_row=3, max_row=38, values_only=True):
         if not r or not r[0]:
             continue
         out.append(dict(
@@ -431,10 +436,16 @@ def read_positions_full(path: str, sheet: str = "Current Positions") -> List[dic
     sizing -- and isn't changed here). A=Account,B=Ticker,C=Description,
     D=AssetClass,E=Quantity,F=Price,G=MarketValue,H=CostBasis,
     I=UnrealizedGL$,J=UnrealizedGL%,K=%ofAccount,L=%ofCombined,
-    M=Classification."""
+    M=Classification. Bounded at row 49, CurrentPositionsTable's own
+    current extent (2026-09-08) -- the two SUBTOTAL rows inside that
+    range have a blank Quantity, so the qty<=0 filter below already
+    excludes them safely; only the freeform notes row past row 49 needs
+    to stay excluded. `landry audit` checks this bound against the live
+    Table ref on every run (was hardcoded at 39 while the table grew to
+    49, silently dropping 5 real positions)."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=39, values_only=True):
+    for r in ws.iter_rows(min_row=3, max_row=49, values_only=True):
         if not r or not r[0] or not r[1]:
             continue
         qty = float(r[4] or 0)

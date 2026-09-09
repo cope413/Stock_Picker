@@ -14,6 +14,7 @@
     python -m landry export --drawdown   # ...and append today's portfolio value to the Drawdown Log
     python -m landry import --by "Taylor"  # seed score store from workbook
     python -m landry doctor              # check this machine is ready to edit the workbook
+    python -m landry audit               # check the workbook itself for structural drift
 
 `score` reads analyst scores from the companion workbook (default: the
 highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx beside the repo, currently
@@ -31,6 +32,15 @@ loop scoring workflow against landry_scores.json: `draft` proposes
 quantitative rubric drafts (and, with an evidence file + API key, AI
 drafts for the judgment indicators); nothing reaches a composite until
 `approve` records who approved it and when.
+
+`audit` checks the workbook itself for structural drift rather than the
+environment `doctor` checks: Table refs that have fallen behind their
+live data, hardcoded row bounds in xlsx_io.py readers that have gone
+stale, cross-tab formula references pointing at now-blank columns or
+truncated ranges, page setup/footer/gridlines that a sheet rebuild
+silently dropped relative to the last commit, and Schema Reference
+entries that no longer match the tabs they document. Run it after any
+structural edit and before any commit that touches the workbook.
 """
 
 from __future__ import annotations
@@ -325,6 +335,14 @@ def _cmd_doctor(args) -> int:
     return 1 if any(not c.ok for c in checks) else 0
 
 
+def _cmd_audit(args) -> int:
+    from landry.audit import report, run_all
+    wb = args.workbook or _default_workbook()
+    checks = run_all(wb, repo_dir=_REPO)
+    print(report(checks, os.path.basename(wb)))
+    return 1 if any(not c.ok for c in checks) else 0
+
+
 def _cmd_refresh(args) -> int:
     from landry.refresh import build_snapshot, print_report, write_snapshot
     from landry.xlsx_io import equity_weights, read_positions
@@ -418,10 +436,18 @@ def main(argv=None) -> int:
     sub.add_parser("doctor", help="check this machine is ready to edit "
                    "the workbook safely (Python version, LibreOffice, "
                    "required packages)")
+
+    au = sub.add_parser("audit", help="check the workbook for structural "
+                        "drift (stale Table refs, reader bounds, cross-tab "
+                        "references, page setup, Schema Reference)")
+    au.add_argument("--workbook", default=None)
+
     args = p.parse_args(argv)
 
     if args.cmd == "doctor":
         return _cmd_doctor(args)
+    if args.cmd == "audit":
+        return _cmd_audit(args)
     if args.cmd == "refresh":
         return _cmd_refresh(args)
     if args.cmd == "daily":
