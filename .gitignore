@@ -65,10 +65,11 @@ LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 # Alan's local viewing copy (Finder "duplicate" naming) -- lets him watch
 # the live file while an edit is in progress without touching the same
 # file handle; not a second source of truth, never commit it.
-# Real naming convention in use is "<name>_copy.<ext>" (underscore, not the
-# space Finder's own Duplicate command would produce) -- match that.
-*_copy.xlsx
-*_copy.docx
+# Broadened 2026-09-08: naming isn't consistent ("_copy.xlsx", "_copy2.xlsx",
+# "_copy..xlsx" have all shown up in practice) -- match "copy" anywhere in
+# the filename rather than one exact suffix.
+*[Cc]opy*.xlsx
+*[Cc]opy*.docx
 
 # Excel/Office lock files (created while a workbook is open, any OS)
 ~$*.xlsx

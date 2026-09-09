@@ -622,6 +622,156 @@
    },
    "approved": {},
    "rejected": {}
+  },
+  "V": {
+   "pending": {},
+   "approved": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "H"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    },
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    },
+    "management_quality": {
+     "indicator": "management_quality",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "L",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-09T00:13:54+00:00",
+     "source": "manual",
+     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "L"
+    }
+   },
+   "rejected": {}
   }
  },
  "audit": [
@@ -1326,6 +1476,258 @@
    "score": 4,
    "confidence": "M",
    "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "H",
+   "final_score": 4,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "revenue_growth_consistency",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "competitive_moat",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "competitive_moat",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "revenue_visibility",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "revenue_visibility",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "fcf_margin_trend",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "management_quality",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "management_quality",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "relative_strength",
+   "score": 3,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "valuation_multiples",
+   "score": 3,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "technical_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "L",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-09T00:13:54+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "L",
+   "final_score": 3,
+   "final_confidence": "L",
+   "overridden": false
   }
  ]
 }
