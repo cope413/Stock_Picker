@@ -161,12 +161,19 @@ def read_drawdown_log(path: str,
 
 
 def read_scoring_tab(path: str, sheet: str = "Scoring") -> List[WorkbookRow]:
+    """Bounded to row 60 -- the tab's own documented formula/formatting
+    headroom (Schema Reference: "formulas/formatting run through row 60").
+    A visible-ticker-count subtotal (SUBTOTAL 103) lives just past that, at
+    row 62 -- an unbounded scan reads its numeric result as a bogus ticker
+    (e.g. "27"). Found 2026-09-11 while re-validating the DB migration
+    against the live workbook, once the tab actually grew a ticker past
+    the point where this stopped being a hypothetical."""
     import openpyxl  # local import: optional dependency for non-Excel use
 
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     ws = wb[sheet]
     rows: List[WorkbookRow] = []
-    for r in ws.iter_rows(min_row=3, values_only=True):
+    for r in ws.iter_rows(min_row=3, max_row=60, values_only=True):
         if not r or not r[0]:
             continue
         scores: Dict[str, IndicatorScore] = {}

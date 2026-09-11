@@ -56,17 +56,22 @@ logic that's already been ported once, not a rebuild of the domain rules.
 ---
 
 ## Current real workbook structure (verified against the live Schema
-## Reference tab + direct inspection, 2026-08-18 — supersedes the plan's
-## 2026-vintage schema sketch)
+## Reference tab + direct inspection, originally 2026-08-18; tab count and
+## the two new rows below refreshed 2026-09-11 — see "Revisited 2026-09-11"
+## for what else changed)
 
-18 tabs. `Instructions` is prose reference (no data). `Action Items`,
-`Dashboard`, `Returns (Calc)`, `Correlation Matrix` are pure formula
-summaries of other tabs — they disappear entirely as *stored* data in the
-new design and become generated report views instead. `Schema Reference`
-documents the schema itself — its role is superseded by this document plus
-introspecting `models.py` directly.
+**21 tabs as of 2026-09-11** (was 18 on 8/18 — `Process Checklist` and
+`Open Items` are new, plus `Scratchpad (disregard)` was never in scope and
+wasn't being counted consistently before either). `Instructions` is prose
+reference (no data). `Action Items`, `Dashboard`, `Returns (Calc)`,
+`Correlation Matrix` are pure formula summaries of other tabs — they
+disappear entirely as *stored* data in the new design and become
+generated report views instead. `Schema Reference` documents the schema
+itself — its role is superseded by this document plus introspecting
+`models.py` directly. `Scratchpad (disregard)` is explicitly out of
+scope, as the name says.
 
-The remaining 13 tabs hold real data:
+The remaining 15 tabs hold real data:
 
 | Tab | Structure today | Notes |
 |---|---|---|
@@ -75,13 +80,15 @@ The remaining 13 tabs hold real data:
 | Current Positions | Table, A2:M40 | Two accounts (JT ULTRA, Chase self-directed); qty/price/value/cost basis/unrealized G-L/% weights/classification. Tax-loss carryforward in two loose cells outside the table. |
 | Monitor & Recheck Triggers | Table, A2:P42 | Mostly *derived* from Scoring + Market Data (LastComposite, CurrentPrice, %Change, DaysSinceScore) plus a few genuinely manual fields (InsiderY/N, InsiderNote, AnalystShiftY/N, RecheckStatus, Notes). |
 | Watch List Tracker | Table, A2:L22 | Status/entry/current score/90-day remediation deadline tracking for names that failed Tier 1 but are being monitored. |
-| Implied-Return Calculator | Fixed range, rows 4–23, 2-row merged header | Per ticker × {Base, Bear, Bull} scenario: FCF-yr5, terminal multiple, distributions, implied return, Likely/Unlikely tag, plus the three Rule 11/12 pass checks. |
-| Holding Monitor | Fixed range, rows 4–23, 2-row merged header | Per ticker: position %, 5 fundamental indicators × {Prior, Current, Flag}, Debt/FCF, P/FCF, FCF growth, implied return, tier drift, Hold-Through Y/N, action status. |
+| Implied-Return Calculator | Fixed range, template through ~row 49 (corrected 2026-09-11 — was documented as rows 4–23, actually templated for the full 45-ticker universe, +1 row offset from Entry Checklist; only 2 rows actually populated, COST/V) | Per ticker × {Base, Bear, Bull} scenario: FCF-yr5, terminal multiple, distributions, implied return, Likely/Unlikely tag, plus the three Rule 11/12 pass checks. |
+| Holding Monitor | Fixed range, rows 4–23, 2-row merged header (template caps at 20 tickers, unlike Implied-Return Calculator above — a real future ceiling, tracked as Open Items) | Per ticker: position %, 5 fundamental indicators × {Prior, Current, Flag}, Debt/FCF, P/FCF, FCF growth, implied return, tier drift, Hold-Through Y/N, action status. |
 | Performance Tracking | Table, A2:Q34 | Entry/exit lifecycle per position: dates, prices, entry score/confidence/band, SPY benchmark at entry and current/exit, total and excess return. |
 | Price History | Fixed range, rows 3–162, up to 20 ticker columns | Weekly closes, week-ending Friday, manually maintained, Rule 36 windowing (12mo min/24mo target/36mo max). |
 | Portfolio Drawdown Log | Fixed range, rows 3–42 | Date, portfolio value, running peak, drawdown %, regime status, required cash floor, new-position rule, notes. |
-| Entry Checklist | Table, A2:R45 | Per ticker: Rules 5–13 pass/fail values and the final ENTRY AUTHORIZED? verdict. |
+| Entry Checklist | Table, A2:S47 (corrected 2026-09-11 — was A2:R45; grew a column, "Base Case >10%?", and 2 more tickers since 8/18) | Per ticker: Rules 5–13 pass/fail values and the final ENTRY AUTHORIZED? verdict. |
 | Journal | Table, A2:C302 | Date/Ticker/Notes, freeform append-only log. |
+| **Process Checklist** *(new 2026-09-08)* | Table, A4:F99 | One row per required step per recurring Journal event (tranches, quarterly reviews, fundamental refreshes). Due date and Done/OVERDUE/Pending status computed from a live lookup into Journal — see schema note below on why that lookup needs a real FK instead. |
+| **Open Items** *(new 2026-09-11)* | Table, A4:F15 | Numbered, priority-ordered ad-hoc backlog. Simplest tab in the workbook; maps onto the schema below with no design questions attached. |
 | *(Part 12 approvals)* | `landry_scores.json`, not a workbook tab | Already outside Excel — the model below absorbs it. |
 
 ---
@@ -148,6 +155,13 @@ drawdown_log(id PK, date, portfolio_value, running_peak, drawdown_pct,
 
 -- Audit
 journal(id PK, date, ticker FK nullable, notes)
+
+-- Process tracking (tabs added 2026-09-08/09-11, see "Revisited 2026-09-11")
+recurring_event(label PK, event_type, due_date)   -- e.g. "DCA-CATCHUP-3", "QTR-REVIEW-1"
+process_checklist_step(id PK, event_label FK, step_text, done_yn,
+                       date_raised, date_done)
+open_item(id PK, priority_rank, item_text, done_yn, date_raised,
+         date_resolved, notes)
 ```
 
 Eliminated as *stored* tables entirely (become read-time queries against
@@ -358,3 +372,140 @@ after DCA-TRANCHE-2 (rescheduled to 9/8/2026) and its fold-in verification
 are done. A branch was proposed and explicitly deferred alongside the DB
 work itself, not created early. Don't propose resuming before then;
 check the Journal tab for a completed Tranche 2 entry as the signal.
+
+## Revisited 2026-09-11 — gate cleared, this is prep, not cutover
+
+**Status of this pass: design/validation work only, done on branch
+`db-migration-prep` (a `git worktree`, separate directory from the live
+repo) at Alan's explicit instruction — not merged, not touching the live
+workbook.** Trigger: Tranche 2 executed 9/8/26 (the gate condition) plus
+a full week (9/8–9/11) of tab-by-tab workbook review that surfaced a
+concentrated, dated set of exactly the bugs this whole redesign exists to
+eliminate. Alan's framing: "spreadsheet approach to maintenance/
+enhancement proving more cumbersome... feeling like we should zero back
+in on db development." He's about to travel with limited connectivity for
+an extended stretch — deliberately not starting the actual cutover now,
+which needs his active involvement in the still-open Phase B/C sequencing
+call; this pass is about having a current, concrete design ready for that
+conversation when he's back, not making the call in his absence.
+
+**Tab count is now 21, not 18.** Two genuinely new tabs since this doc was
+last touched (both built 2026-09-08/09-11, in response to the same class
+of problem this doc addresses at the workbook-storage layer — Journal-
+level and ad-hoc-tracking-level analogs of it):
+
+- **Process Checklist** — one row per required step per recurring Journal
+  event, with a live due-date lookup and an auto-computed Done/OVERDUE/
+  Pending status. Maps directly onto this schema as a normalized table:
+  `process_checklist_step(id PK, event_label, step_text, done_yn,
+  date_raised, date_done)`, with `event_label` FK-joined to a proper
+  `recurring_event(label PK, event_type, due_date)` table instead of
+  Journal's free-text ticker column — which would have made the
+  DCA-CATCHUP-1..8 label collision (below) a `UNIQUE` constraint
+  violation at write time instead of a silent wrong-row match discovered
+  by hand.
+- **Open Items** — numbered ad-hoc backlog, `Done`/date/notes per row.
+  Maps onto `open_item(id PK, priority_rank, item_text, done_yn,
+  date_raised, date_resolved, notes)`. Straightforward; no design
+  question here.
+
+Also: the Piotroski F-Score cross-check columns added to Scoring
+(cols AN-AS, 2026-08-25) were **tested on an 8-ticker batch and dropped
+2026-09-11** as redundant (see Journal, search `PIOTROSKI-VERDICT`).
+Historical data for those 8 tickers stays in the live workbook as a
+record of the experiment. Recommend the new schema **not** carry a
+dedicated `accruals_check`/`leverage_trajectory` column on `scores` or
+`composite_history` — this was a tested-and-retired enhancement, not a
+standing indicator, and modeling it as first-class schema would misstate
+its status. If the historical data needs to survive the migration at all
+(arguable either way — it never fed a live formula, confirmed by
+inspection the same day it was dropped), a generic `notes`/`evidence`
+field on the relevant `scores` rows is sufficient; it doesn't need its
+own columns.
+
+**Re-ran `python -m landry.migrate_to_db` against today's workbook (47
+tickers, up from 45 on 8/24 — DIS/NFLX plus today's KGS addition) and
+found a real, live bug, not just drift:** `read_scoring_tab` — the
+function the 8/24 note explicitly cited as the *already-proven-safe
+pattern* the other readers were fixed to match — turned out to have the
+exact same "unbounded scan reads a footer as a bogus row" flaw itself.
+Scoring's visible-ticker-count subtotal (`SUBTOTAL(103,...)`, a bare
+number) lives at row 62, just past the tab's own documented row-60
+formula/formatting headroom; an unbounded `read_scoring_tab` silently
+returned a 47th "ticker" whose symbol was the string `"27"` (that
+subtotal's current value). This is the **third** time this exact bug
+shape has been found in this codebase (Phase A: `read_market_data`,
+`read_performance_tracking`; 2026-08-24: `read_entry_checklist`,
+`read_monitor_notes`; now `read_scoring_tab`) — each time in a reader
+that looked safe until the workbook grew enough real rows to reach
+whatever footer sits below them. Fixed the same way as the others
+(bounded `max_row=60`, matching Scoring's own documented headroom).
+Checked every other reader against its tab's actual current footer
+position while already in there (Entry Checklist, Watch List Tracker,
+Holding Monitor, Implied-Return Calculator, Process Checklist, Open
+Items, Current Positions, Performance Tracking) — all clean, this was an
+isolated case, not a second wave.
+
+**This bug is itself the strongest concrete argument for Phase C that's
+turned up since the doc's original writing.** A normalized `scores` table
+queried with `SELECT ... WHERE ticker = ?` cannot accidentally include an
+unrelated footer cell — there is no "read past the end of the real data"
+failure mode in a relational table the way there is in an unbounded
+sheet scan. Three independent instances of the identical bug, in three
+different hand-written readers, over three separate sessions, is a
+pattern a schema eliminates by construction, not something that needs
+re-discovering and re-fixing a fourth time in whatever tab grows next.
+
+**A second, independent case for the design, from the same week's work:**
+adding KGS to Scoring with only 3 of its 5 Tier 1 indicators populated
+(Moat and Revenue Visibility genuinely not yet assessed — Part 12,
+correctly left blank) exposed a real formula bug in the live workbook's
+`Tier 1 Wtd Avg` column: it only handled "all 5 populated" or "none"
+correctly, silently treating missing indicators as zero-scored rather
+than excluding them from the average, understating KGS's Tier 1 at 2.57
+instead of its honest 4.0 on known indicators. Fixed in the workbook
+(verified zero regressions across all 45 already-complete tickers) — but
+worth naming explicitly here: this bug class cannot exist in the
+`scores` schema above, because it's already normalized one-row-per-
+indicator. "Average of the indicators that exist for this ticker" is
+just `AVG(score) WHERE ticker = ? AND tier = 1`, weighted by whatever
+indicators actually have rows — there's no fixed-width record to
+zero-pad in the first place. The Excel version needed a human to notice
+the formula's blind spot; the schema doesn't have the blind spot to
+notice.
+
+**`landry audit` (`landry/audit.py`, built 2026-09-08) didn't exist when
+this doc was last substantively written and is worth naming here
+explicitly:** it's a hand-built compensating control for exactly the
+class of problem normalized storage removes structurally — Table ranges
+vs. live data, cross-tab formula references pointing at stale rows/
+columns, page-setup survival through a sheet rebuild. Once Phase C lands
+(the xlsx becomes a generated report, no more hand-edited formulas or
+manually-extended Table ranges), most of what `landry audit` checks for
+becomes structurally impossible rather than something to keep checking
+for. It doesn't become useless — page-setup/footer survival and Schema
+Reference accuracy are about the *generated report's* correctness too —
+but its cross-tab-reference and reader-bound checks specifically exist
+to catch exactly the failure mode Phase C removes at the source.
+
+**Sequencing (Phase B vs. C) — still the live open question, and this
+week's evidence keeps landing on the same side.** The 8/24 note already
+flagged that every bug up to that point was on the write side. Add to
+that tally: the Scoring reader bug above (a read-path bug, actually —
+the first one in a while that *isn't* write-side, worth being honest
+about), the Tier 1 Wtd Avg zero-padding bug (write side — a formula, not
+a reader), the DCA-CATCHUP-1..8 Journal label collision (write side — a
+text-keyed lookup with no uniqueness constraint), and the recurring
+Schema Reference / cross-tab-reference staleness that `landry audit` now
+exists specifically to catch (write side). Four of five are still write-
+side. The case for leaning toward Phase C sooner rather than the
+documented B-then-C order hasn't weakened; if anything the Scoring
+reader bug is a reminder that Phase A's migration code itself still
+needs the same kind of re-validation this pass just did, on some
+recurring cadence, regardless of which phase comes next.
+
+**Not done in this pass, and deliberately out of scope for prep:**
+Turso provisioning, the `libsql-client` dependency, any actual read or
+write cutover, deciding B-vs-C. Those are cutover decisions, not prep,
+and per Alan's own framing this pass exists specifically to avoid making
+them while he's unreachable for weeks.
