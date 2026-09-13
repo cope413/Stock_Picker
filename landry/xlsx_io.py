@@ -169,6 +169,16 @@ def read_scoring_tab(path: str, sheet: str = "Scoring") -> List[WorkbookRow]:
     for r in ws.iter_rows(min_row=3, values_only=True):
         if not r or not r[0]:
             continue
+        # a footer/subtotal row (the "Tickers" visible-count SUBTOTAL below the
+        # real data) puts its numeric result in column A -- a bare truthiness
+        # check lets it through as a fake ticker (found live 2026-09-13: every
+        # call was silently returning a 49th "ticker" literally named after
+        # whatever the current count happened to be). No max_row bound here on
+        # purpose -- a hardcoded row limit is exactly the class of bug that's
+        # bitten this reader three times before as the tab grew past it;
+        # excluding non-string values targets the actual cause instead.
+        if not isinstance(r[0], str):
+            continue
         scores: Dict[str, IndicatorScore] = {}
         for name, col in _SCORE_COLS:
             raw, conf = r[col - 1], r[col]

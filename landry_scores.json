@@ -3288,6 +3288,438 @@
      "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
     }
    }
+  },
+  "CCI": {
+   "pending": {},
+   "approved": {},
+   "rejected": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "yield 8.7% -> 5, trend expanding -> 5, combined 5.00 -> 5",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:28+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "negative CAGR -15.2%",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:28+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "FCF margin 65.7%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:28+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "PEG 0.60 < 1 and P/FCF 86% of 5y avg",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:28+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "12/22 buy-equivalent (55%), 0% negative, buy% up 7pp vs -2m -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:28+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "200w MA below, MACD not ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:29+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:29+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -31.5% (6mo -28.6%, 12mo -34.5%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:29+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 2,
+     "confidence": "L",
+     "rationale": "ROIC 7.3% vs WACC 5.5% (spread +1.8pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:33:29+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T21:02:14+00:00",
+     "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+    }
+   }
+  },
+  "ABT": {
+   "pending": {},
+   "approved": {
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:02+00:00",
+     "source": "manual",
+     "rationale": "FreeStyle Libre alone: ~40% global CGM market share, $5.3B+ annual sales, 6M+ users -- a genuine razor/blade recurring-consumables model with real patient/clinician switching costs. June 2026 Dexcom cross-licensing settlement removed a real patent-litigation overhang for the next decade. Heavy R&D investment (~$3B/yr) and regulatory-approval barriers hard for smaller competitors to replicate. Diversified across 4 segments (devices, diagnostics, nutrition, established pharma), 60% international revenue. Multiple reinforcing moat sources. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:02+00:00",
+     "source": "manual",
+     "rationale": "Recurring consumables model (Libre sensors are repeat-purchase) plus broad end-market diversification (devices/diagnostics/nutrition/established pharma) provides good, not perfect, visibility -- not literally contracted/subscription revenue, but a durable repeat-purchase pattern across a diversified base. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "yield 3.8% -> 3, trend stable -> 3, combined 3.00 -> 3",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 2,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "CAGR 0.5% < 5% or CV 8.78 > 0.75",
+     "adaptation": null,
+     "original_score": 2,
+     "original_confidence": "M"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "FCF margin 15.2%, stable",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "P/FCF 89% of 5y avg (modest discount)",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 5,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "22/27 buy-equivalent (81%), 0% negative, buy% up 6pp vs -3m -- consensus-rating half only, estimate revisions not scored",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "M"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 2,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "200w MA below (reclaimed <6mo), MACD not ok, Supertrend bullish",
+     "adaptation": null,
+     "original_score": 2,
+     "original_confidence": "M"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "adaptation": null,
+     "original_score": 2,
+     "original_confidence": "M"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "blended vs SPY -30.0% (6mo -20.4%, 12mo -39.5%)",
+     "adaptation": null,
+     "original_score": 1,
+     "original_confidence": "M"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 3,
+     "confidence": "L",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:14+00:00",
+     "source": "quant_draft",
+     "rationale": "ROIC 12.0% vs WACC 6.9% (spread +5.2pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "L"
+    },
+    "management_quality": {
+     "indicator": "management_quality",
+     "score": 5,
+     "confidence": "H",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:27:58+00:00",
+     "source": "manual",
+     "rationale": "Dividend King: 54 consecutive years of dividend increases, one of the rarest, longest such streaks in the market -- a member of the S&P 500 Dividend Aristocrats. Disciplined FCF payout ratio (~60%), leaving real room for continued increases; $6.35B FCF vs $3.84B dividends paid (2024). CEO Robert Ford has clearly and consistently articulated capital priorities (dividend growth, buybacks, debt paydown -- $3B of debt targeted for paydown). Exceptional, proven track record. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "H"
+    }
+   },
+   "rejected": {}
+  },
+  "SLB": {
+   "pending": {},
+   "approved": {
+    "competitive_moat": {
+     "indicator": "competitive_moat",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:02+00:00",
+     "source": "manual",
+     "rationale": "Undisputed #1 in oilfield services ($35.9B trailing revenue, ~$14B ahead of Halliburton, materially ahead of Baker Hughes). Real technology moat: Delfi/Lumi digital platforms, ~30% share in drilling equipment manufacturing. Digital segment (highest-margin at 21% pretax) has annual recurring revenue over $1B, growing 15% YoY -- a genuine, emerging differentiator on top of the traditional cyclical services business, not just scale. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "revenue_visibility": {
+     "indicator": "revenue_visibility",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:02+00:00",
+     "source": "manual",
+     "rationale": "Traditional oilfield services revenue is capex-cycle-driven (tied to E&P spending), not highly visible on its own. Partially offset by the growing Digital ARR business (recurring, >$1B) and multi-year offshore project backlogs. Moderate, not high, visibility. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "yield 5.1% -> 4, trend expanding -> 5, combined 4.40 -> 4",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "CAGR 8.3% / CV 0.93",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "FCF margin 11.8%, expanding",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "P/FCF 85% of 5y avg (modest discount)",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "26/30 buy-equivalent (87%), 7% negative -- consensus-rating half only, estimate revisions not scored",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 5,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "200w MA above, MACD ok, Supertrend bullish",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "M"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "adaptation": null,
+     "original_score": 2,
+     "original_confidence": "M"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 5,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "blended vs SPY +27.3% (6mo +10.7%, 12mo +43.9%)",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "M"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 3,
+     "confidence": "L",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:02:13+00:00",
+     "source": "quant_draft",
+     "rationale": "ROIC 11.2% vs WACC 7.7% (spread +3.6pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "L"
+    },
+    "management_quality": {
+     "indicator": "management_quality",
+     "score": 4,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T21:27:58+00:00",
+     "source": "manual",
+     "rationale": "Disciplined, consistent capital return: 3.5% dividend increase for 2026 (quarterly $0.285->$0.295), targeting >$4B total shareholder returns in 2026 via dividends + buybacks (~$2.4-4B buyback range, 60M shares repurchased for $2.41B in 2025). CEO Olivier Le Peuch has been in the role since 2019, stable tenure through an industry downturn and recovery. Solid and shareholder-friendly, though not an extraordinary multi-decade track record. Researched and approved by Alan, 2026-09-13.",
+     "adaptation": null,
+     "original_score": 4,
+     "original_confidence": "M"
+    }
+   },
+   "rejected": {}
   }
  },
  "audit": [
@@ -7358,6 +7790,663 @@
    "indicator": "roic_vs_wacc",
    "approved_by": "Alan",
    "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:33:28+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "fcf_yield_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:28+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "revenue_growth_consistency",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:28+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "fcf_margin_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:28+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:28+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "analyst_consensus",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:29+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "technical_trend",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:29+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:29+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:29+00:00",
+   "action": "propose",
+   "ticker": "CCI",
+   "indicator": "roic_vs_wacc",
+   "score": 2,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:38+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:38+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "revenue_growth_consistency",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:38+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "fcf_margin_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:38+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:38+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "analyst_consensus",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:39+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "technical_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:39+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:39+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:39+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "roic_vs_wacc",
+   "score": 3,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "revenue_growth_consistency",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "relative_strength",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:33:48+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "roic_vs_wacc",
+   "score": 3,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "competitive_moat",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "competitive_moat",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "revenue_visibility",
+   "score": 3,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "revenue_visibility",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "competitive_moat",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "competitive_moat",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "revenue_visibility",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:02:02+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "revenue_visibility",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "M",
+   "final_score": 5,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "original_score": 2,
+   "original_confidence": "M",
+   "final_score": 2,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "M",
+   "final_score": 5,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "L",
+   "final_score": 3,
+   "final_confidence": "L",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "original_score": 2,
+   "original_confidence": "M",
+   "final_score": 2,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:13+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "M",
+   "final_score": 5,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "original_score": 2,
+   "original_confidence": "M",
+   "final_score": 2,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "original_score": 2,
+   "original_confidence": "M",
+   "final_score": 2,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "original_score": 1,
+   "original_confidence": "M",
+   "final_score": 1,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "L",
+   "final_score": 3,
+   "final_confidence": "L",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:02:14+00:00",
+   "action": "reject",
+   "ticker": "CCI",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "reason": "Revenue Growth Consistency's -15.2% CAGR is only partly a clean divestiture story (fiber/small-cell sale to Zayo/Arium, closed May 2026). The core tower business also has active, unresolved litigation: DISH allegedly defaulted on tower lease payments, Crown Castle terminated and is suing for over $3.5B in unpaid fees; DISH counters with a force majeure claim (already through an appeals court). Separately, legacy Sprint lease cancellations from the T-Mobile merger are still working through. A tower REIT's whole thesis depends on durable, visible lease revenue -- this is genuine, unresolved uncertainty on exactly that, not an artifact more research would resolve. Rejected rather than scored further."
+  },
+  {
+   "at": "2026-09-13T21:27:58+00:00",
+   "action": "propose",
+   "ticker": "SLB",
+   "indicator": "management_quality",
+   "score": 4,
+   "confidence": "M",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:27:58+00:00",
+   "action": "approve",
+   "ticker": "SLB",
+   "indicator": "management_quality",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T21:27:58+00:00",
+   "action": "propose",
+   "ticker": "ABT",
+   "indicator": "management_quality",
+   "score": 5,
+   "confidence": "H",
+   "source": "manual"
+  },
+  {
+   "at": "2026-09-13T21:27:58+00:00",
+   "action": "approve",
+   "ticker": "ABT",
+   "indicator": "management_quality",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "H",
+   "final_score": 5,
+   "final_confidence": "H",
+   "overridden": false
   }
  ]
 }
