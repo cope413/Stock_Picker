@@ -66,17 +66,20 @@ def export_workbook(template_path: str,
 
     if market:
         ws = wb["Market Data"]
-        # existing ticker rows: A3..A27
+        # scan the sheet's actual extent, not a hardcoded row count --
+        # this cap used to be A3..A27 and silently stopped matching
+        # tickers once the tab grew past row 27 (found 2026-09-13)
         row_of = {}
-        for r in range(3, 28):
+        for r in range(3, ws.max_row + 1):
             t = ws.cell(row=r, column=1).value
             if t:
                 row_of[str(t).strip().upper()] = r
-        next_free = max(row_of.values(), default=2) + 1
+        last_row = max(row_of.values(), default=2)
+        next_free = last_row + 1
         for t, m in market.items():
             t = t.upper()
             r = row_of.get(t)
-            if r is None and next_free <= 27:
+            if r is None and next_free <= last_row + 1:
                 r, next_free = next_free, next_free + 1
                 ws.cell(row=r, column=1, value=t)
             if r is None:
@@ -106,16 +109,21 @@ def export_workbook(template_path: str,
 
     if approved_scores:
         ws = wb["Scoring"]
+        # scan the sheet's actual extent, not a hardcoded row count --
+        # this cap used to be A3..A27 and silently stopped matching
+        # tickers once the tab grew past row 27 (found 2026-09-13:
+        # DPZ/PG/GE at rows 32/34/43 were silently skipped)
         row_of = {}
-        for r in range(3, 28):
+        for r in range(3, ws.max_row + 1):
             t = ws.cell(row=r, column=1).value
             if t:
                 row_of[str(t).strip().upper()] = r
-        next_free = max(row_of.values(), default=2) + 1
+        last_row = max(row_of.values(), default=2)
+        next_free = last_row + 1
         for t, scores in approved_scores.items():
             t = t.upper()
             r = row_of.get(t)
-            if r is None and next_free <= 27:
+            if r is None and next_free <= last_row + 1:
                 r, next_free = next_free, next_free + 1
                 ws.cell(row=r, column=1, value=t)
             if r is None:
