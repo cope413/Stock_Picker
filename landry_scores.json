@@ -2892,6 +2892,402 @@
     }
    },
    "rejected": {}
+  },
+  "PYPL": {
+   "pending": {},
+   "approved": {},
+   "rejected": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "yield 9.9% -> 5, trend expanding -> 5, combined 5.00 -> 5",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "CAGR 6.4% / CV 0.25",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "FCF margin 13.8%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "PEG 0.95 < 1 and P/FCF 91% of 5y avg",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "7/43 buy-equivalent (16%), 7% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA below, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "A/D line trend score 4/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -16.0% (6mo +4.3%, 12mo -36.3%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:05+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "L",
+     "rationale": "ROIC 25.2% vs WACC 9.8% (spread +15.4pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:06+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Confirmed active acquisition target (Stripe/Advent $60.50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+    }
+   }
+  },
+  "XRAY": {
+   "pending": {},
+   "approved": {},
+   "rejected": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "yield 3.4% -> 3, trend contracting -> 1, combined 2.20 -> 2",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:15+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "negative CAGR -2.1%",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:15+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:47+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FCF margin 1.9%, contracting",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:15+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "P/FCF 283% of 5y avg (premium)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:15+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "4/18 buy-equivalent (22%), 11% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:15+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA below, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:16+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:16+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -31.7% (6mo -25.4%, 12mo -38.1%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:16+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 1,
+     "confidence": "L",
+     "rationale": "ROIC -9.0% vs WACC 5.6% (spread -14.7pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:16+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+    }
+   }
+  },
+  "GXO": {
+   "pending": {},
+   "approved": {},
+   "rejected": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "yield 1.2% -> 2, trend contracting -> 1, combined 1.60 -> 2",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "CAGR 13.6% in 10-15%, CV 0.33 <= 0.50",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FCF margin 0.5%, contracting",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "P/FCF 83x, 250% of 5y avg",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "16/17 buy-equivalent (94%), 0% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "200w MA below (reclaimed <6mo), MACD not ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -28.2% (6mo -28.7%, 12mo -27.7%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:25+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 1,
+     "confidence": "L",
+     "rationale": "ROIC 2.3% vs WACC 6.3% (spread -4.0pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T20:02:26+00:00",
+     "rejected_by": "Alan",
+     "rejected_at": "2026-09-13T20:10:48+00:00",
+     "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+    }
+   }
   }
  },
  "audit": [
@@ -6503,6 +6899,465 @@
    "final_score": 2,
    "final_confidence": "L",
    "overridden": false
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "fcf_yield_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "revenue_growth_consistency",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "analyst_consensus",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "volume_accumulation",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:05+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:06+00:00",
+   "action": "propose",
+   "ticker": "PYPL",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:15+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "fcf_yield_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:15+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "revenue_growth_consistency",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:15+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:15+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "valuation_multiples",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:15+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "analyst_consensus",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:16+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:16+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:16+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:16+00:00",
+   "action": "propose",
+   "ticker": "XRAY",
+   "indicator": "roic_vs_wacc",
+   "score": 1,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "fcf_yield_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "revenue_growth_consistency",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "valuation_multiples",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "analyst_consensus",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "technical_trend",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:25+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:02:26+00:00",
+   "action": "propose",
+   "ticker": "GXO",
+   "indicator": "roic_vs_wacc",
+   "score": 1,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "PYPL",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "reason": "Confirmed active acquisition target (Stripe/Advent .50/share joint offer, ~$53B, reported July 2026, talks ongoing) -- out of scope for a long-term fundamentals-driven system (Part 1.3 excludes sub-12-month horizons) and current pricing/technicals are deal-distorted. Dropped, not scored. Revisit as a fresh candidate only after the situation resolves."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:47+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "XRAY",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "reason": "Decisive Tier 1 floor failure on initial quant screen (quant-only ~1.67: negative revenue CAGR -2.1%, FCF margin 1.9% and contracting, ROIC negative). Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays -- no further research warranted."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "valuation_multiples",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "analyst_consensus",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "technical_trend",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "volume_accumulation",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "relative_strength",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
+  },
+  {
+   "at": "2026-09-13T20:10:48+00:00",
+   "action": "reject",
+   "ticker": "GXO",
+   "indicator": "roic_vs_wacc",
+   "approved_by": "Alan",
+   "reason": "Tier 1 floor failure on initial quant screen (quant-only ~2.67: FCF margin 0.5% and contracting, weak ROIC 2.3% vs 6.3% WACC). No sector adaptation exists for asset-light 3PL margin structure. Rejected per Part 1.4, same as CRK/LBRT/NOV in the original forays."
   }
  ]
 }
