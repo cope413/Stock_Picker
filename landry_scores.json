@@ -2,39 +2,6 @@
  "tickers": {
   "NVDA": {
    "pending": {
-    "fcf_yield_trend": {
-     "indicator": "fcf_yield_trend",
-     "score": 3,
-     "confidence": "M",
-     "rationale": "yield 1.7% -> 2, trend expanding -> 5, combined 3.20 -> 3",
-     "source": "quant_draft",
-     "citations": [],
-     "model": null,
-     "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
-    },
-    "revenue_growth_consistency": {
-     "indicator": "revenue_growth_consistency",
-     "score": 5,
-     "confidence": "M",
-     "rationale": "CAGR 100.0% >= 15%, CV 0.26 <= 0.35",
-     "source": "quant_draft",
-     "citations": [],
-     "model": null,
-     "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
-    },
-    "fcf_margin_trend": {
-     "indicator": "fcf_margin_trend",
-     "score": 5,
-     "confidence": "M",
-     "rationale": "FCF margin 41.8%, expanding",
-     "source": "quant_draft",
-     "citations": [],
-     "model": null,
-     "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
-    },
     "analyst_consensus": {
      "indicator": "analyst_consensus",
      "score": 4,
@@ -44,7 +11,7 @@
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
+     "proposed_at": "2026-09-13T18:30:28+00:00"
     },
     "technical_trend": {
      "indicator": "technical_trend",
@@ -55,54 +22,91 @@
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
+     "proposed_at": "2026-09-13T18:30:29+00:00"
     },
     "volume_accumulation": {
      "indicator": "volume_accumulation",
-     "score": 3,
+     "score": 2,
      "confidence": "M",
-     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
      "source": "quant_draft",
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
+     "proposed_at": "2026-09-13T18:30:29+00:00"
     },
     "relative_strength": {
      "indicator": "relative_strength",
      "score": 4,
      "confidence": "M",
-     "rationale": "blended vs SPY +5.7% (6mo +8.7%, 12mo +2.8%)",
+     "rationale": "blended vs SPY +5.4% (6mo +5.4%, 12mo +5.5%)",
      "source": "quant_draft",
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
+     "proposed_at": "2026-09-13T18:30:29+00:00"
     },
     "valuation_multiples": {
      "indicator": "valuation_multiples",
      "score": 5,
      "confidence": "M",
-     "rationale": "PEG 0.60 < 1 and P/FCF 47% of 5y avg",
+     "rationale": "PEG 0.46 < 1 and P/FCF 47% of 5y avg",
      "source": "quant_draft",
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:39+00:00"
+     "proposed_at": "2026-09-13T18:30:28+00:00"
     },
     "roic_vs_wacc": {
      "indicator": "roic_vs_wacc",
      "score": 5,
      "confidence": "L",
-     "rationale": "ROIC 76.3% vs WACC 14.0% (spread +62.3pp) [WACC assumptions: Rf=4.7% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "rationale": "ROIC 76.3% vs WACC 14.3% (spread +62.0pp) [WACC assumptions: Rf=5.0% (live 10y Treasury (^TNX)), ERP=4.5%]",
      "source": "quant_draft",
      "citations": [],
      "model": null,
      "prompt_hash": null,
-     "proposed_at": "2026-08-14T21:11:40+00:00"
+     "proposed_at": "2026-09-13T18:30:29+00:00"
     }
    },
-   "approved": {},
+   "approved": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 3,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T18:35:13+00:00",
+     "source": "quant_draft",
+     "rationale": "yield 1.7% -> 2, trend expanding -> 5, combined 3.20 -> 3",
+     "adaptation": null,
+     "original_score": 3,
+     "original_confidence": "M"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 5,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T18:35:13+00:00",
+     "source": "quant_draft",
+     "rationale": "CAGR 100.0% >= 15%, CV 0.26 <= 0.35",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "M"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 5,
+     "confidence": "M",
+     "approved_by": "Alan",
+     "approved_at": "2026-09-13T18:35:13+00:00",
+     "source": "quant_draft",
+     "rationale": "FCF margin 41.8%, expanding",
+     "adaptation": null,
+     "original_score": 5,
+     "original_confidence": "M"
+    }
+   },
    "rejected": {}
   },
   "NRG": {
@@ -646,31 +650,87 @@
    "rejected": {}
   },
   "V": {
-   "pending": {},
+   "pending": {
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "P/FCF 33x, in line with history",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T17:55:26+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "36/40 buy-equivalent (90%), 2% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T17:55:26+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T17:55:27+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T17:55:27+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "blended vs SPY -1.2% (6mo +5.1%, 12mo -7.5%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-13T17:55:27+00:00"
+    }
+   },
    "approved": {
     "fcf_yield_trend": {
      "indicator": "fcf_yield_trend",
-     "score": 4,
-     "confidence": "H",
+     "score": 3,
+     "confidence": "M",
      "approved_by": "Alan",
-     "approved_at": "2026-09-09T00:13:54+00:00",
-     "source": "manual",
-     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "approved_at": "2026-09-13T17:58:56+00:00",
+     "source": "quant_draft",
+     "rationale": "yield 3.0% -> 3, trend stable -> 3, combined 3.00 -> 3",
      "adaptation": null,
-     "original_score": 4,
-     "original_confidence": "H"
+     "original_score": 3,
+     "original_confidence": "M"
     },
     "revenue_growth_consistency": {
      "indicator": "revenue_growth_consistency",
-     "score": 5,
-     "confidence": "H",
+     "score": 4,
+     "confidence": "M",
      "approved_by": "Alan",
-     "approved_at": "2026-09-09T00:13:54+00:00",
-     "source": "manual",
-     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "approved_at": "2026-09-13T17:58:56+00:00",
+     "source": "quant_draft",
+     "rationale": "CAGR 10.9% in 10-15%, CV 0.06 <= 0.50",
      "adaptation": null,
-     "original_score": 5,
-     "original_confidence": "H"
+     "original_score": 4,
+     "original_confidence": "M"
     },
     "competitive_moat": {
      "indicator": "competitive_moat",
@@ -698,15 +758,15 @@
     },
     "fcf_margin_trend": {
      "indicator": "fcf_margin_trend",
-     "score": 5,
-     "confidence": "H",
+     "score": 2,
+     "confidence": "M",
      "approved_by": "Alan",
-     "approved_at": "2026-09-09T00:13:54+00:00",
-     "source": "manual",
-     "rationale": "BACKFILLED 2026-09-08 by Claude at Alan request, after discovering V was scored and used to authorize DCA-TRANCHE-2 (2026-09-08, 50sh @ $368.38+$369.565) without ever being logged to this audit trail. Score/confidence match the live Scoring tab (row 20) as of the backfill date. Original per-indicator analytical rationale was not captured contemporaneously and is not reconstructed here -- this entry documents the approved value and backfill date, not the original reasoning.",
+     "approved_at": "2026-09-13T17:58:56+00:00",
+     "source": "quant_draft",
+     "rationale": "FCF margin 51.7%, contracting",
      "adaptation": null,
-     "original_score": 5,
-     "original_confidence": "H"
+     "original_score": 2,
+     "original_confidence": "M"
     },
     "management_quality": {
      "indicator": "management_quality",
@@ -3590,6 +3650,231 @@
    "original_score": 4,
    "original_confidence": "M",
    "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T17:55:26+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:26+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "revenue_growth_consistency",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:26+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:26+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "valuation_multiples",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:26+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:27+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:27+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:55:27+00:00",
+   "action": "propose",
+   "ticker": "V",
+   "indicator": "relative_strength",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T17:58:56+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T17:58:56+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "original_score": 4,
+   "original_confidence": "M",
+   "final_score": 4,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T17:58:56+00:00",
+   "action": "approve",
+   "ticker": "V",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "original_score": 2,
+   "original_confidence": "M",
+   "final_score": 2,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T18:30:28+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:28+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "revenue_growth_consistency",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:28+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "fcf_margin_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:28+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "valuation_multiples",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:28+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:29+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:29+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:29+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "relative_strength",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:30:29+00:00",
+   "action": "propose",
+   "ticker": "NVDA",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-13T18:35:13+00:00",
+   "action": "approve",
+   "ticker": "NVDA",
+   "indicator": "fcf_yield_trend",
+   "approved_by": "Alan",
+   "original_score": 3,
+   "original_confidence": "M",
+   "final_score": 3,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T18:35:13+00:00",
+   "action": "approve",
+   "ticker": "NVDA",
+   "indicator": "revenue_growth_consistency",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "M",
+   "final_score": 5,
+   "final_confidence": "M",
+   "overridden": false
+  },
+  {
+   "at": "2026-09-13T18:35:13+00:00",
+   "action": "approve",
+   "ticker": "NVDA",
+   "indicator": "fcf_margin_trend",
+   "approved_by": "Alan",
+   "original_score": 5,
+   "original_confidence": "M",
+   "final_score": 5,
    "final_confidence": "M",
    "overridden": false
   }
