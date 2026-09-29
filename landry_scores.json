@@ -523,6 +523,105 @@
      "model": null,
      "prompt_hash": null,
      "proposed_at": "2026-08-24T16:49:50+00:00"
+    },
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 3.1% -> 3, trend expanding -> 5, combined 3.80 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "CAGR 12.6% in 10-15%, CV 0.34 <= 0.50",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "FCF margin 20.1%, expanding",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "P/FCF 64% of 5y avg (modest discount)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "35/51 buy-equivalent (69%), 2% negative, buy% down 5pp vs -3m -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "200w MA below (reclaimed <6mo), MACD not ok, Supertrend bearish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "A/D line trend score 4/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -51.4% (6mo -47.2%, 12mo -55.6%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "L",
+     "rationale": "ROIC 36.4% vs WACC 11.2% (spread +25.1pp) [WACC assumptions: Rf=5.3% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:32+00:00"
     }
    },
    "approved": {
@@ -1386,7 +1485,107 @@
    "rejected": {}
   },
   "GE": {
-   "pending": {},
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 2.2% -> 3, trend expanding -> 5, combined 3.80 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "CAGR 16.3% >= 15%, CV 0.31 <= 0.35",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FCF margin 15.8%, contracting",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "P/FCF 71% of 5y avg (modest discount)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "18/22 buy-equivalent (82%), 5% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "200w MA above, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "blended vs SPY -6.0% (6mo -4.0%, 12mo -8.1%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:29+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 5,
+     "confidence": "L",
+     "rationale": "ROIC 34.8% vs WACC 10.1% (spread +24.7pp) [WACC assumptions: Rf=5.3% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-29T20:44:30+00:00"
+    }
+   },
    "approved": {
     "fcf_yield_trend": {
      "indicator": "fcf_yield_trend",
@@ -8447,6 +8646,168 @@
    "final_score": 5,
    "final_confidence": "H",
    "overridden": false
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "revenue_growth_consistency",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "technical_trend",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:29+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "relative_strength",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:30+00:00",
+   "action": "propose",
+   "ticker": "GE",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "revenue_growth_consistency",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "fcf_margin_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "analyst_consensus",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "technical_trend",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "volume_accumulation",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-29T20:44:32+00:00",
+   "action": "propose",
+   "ticker": "NFLX",
+   "indicator": "roic_vs_wacc",
+   "score": 5,
+   "confidence": "L",
+   "source": "quant_draft"
   }
  ]
 }
