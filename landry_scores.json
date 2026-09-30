@@ -3919,6 +3919,205 @@
     }
    },
    "rejected": {}
+  },
+  "UNH": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "yield 4.6% -> 4, trend contracting -> 1, combined 2.80 -> 3",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:12+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "CAGR 11.4% in 10-15%, CV 0.25 <= 0.50",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:12+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "FCF margin 3.4%, contracting",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:12+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "P/FCF 136% of 5y avg (premium)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:12+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 5,
+     "confidence": "M",
+     "rationale": "22/26 buy-equivalent (85%), 0% negative -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:12+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "200w MA below, MACD ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:13+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "A/D line trend score 2/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:13+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "blended vs SPY +5.4% (6mo +19.5%, 12mo -8.8%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:13+00:00"
+    },
+    "roic_vs_wacc": {
+     "indicator": "roic_vs_wacc",
+     "score": 3,
+     "confidence": "L",
+     "rationale": "ROIC 11.0% vs WACC 6.4% (spread +4.6pp) [WACC assumptions: Rf=5.3% (live 10y Treasury (^TNX)), ERP=4.5%]",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:13+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
+  },
+  "ACN": {
+   "pending": {
+    "fcf_yield_trend": {
+     "indicator": "fcf_yield_trend",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "yield 7.8% -> 5, trend stable -> 3, combined 4.20 -> 4",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:30+00:00"
+    },
+    "revenue_growth_consistency": {
+     "indicator": "revenue_growth_consistency",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "CAGR 4.2% / CV 0.59",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:30+00:00"
+    },
+    "fcf_margin_trend": {
+     "indicator": "fcf_margin_trend",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "FCF margin 12.6%, stable",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:30+00:00"
+    },
+    "valuation_multiples": {
+     "indicator": "valuation_multiples",
+     "score": 4,
+     "confidence": "M",
+     "rationale": "P/FCF 85% of 5y avg (modest discount)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:30+00:00"
+    },
+    "analyst_consensus": {
+     "indicator": "analyst_consensus",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "12/27 buy-equivalent (44%), 0% negative, buy% down 7pp vs -3m -- consensus-rating half only, estimate revisions not scored",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:30+00:00"
+    },
+    "technical_trend": {
+     "indicator": "technical_trend",
+     "score": 2,
+     "confidence": "M",
+     "rationale": "200w MA below, MACD not ok, Supertrend bullish",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:31+00:00"
+    },
+    "volume_accumulation": {
+     "indicator": "volume_accumulation",
+     "score": 3,
+     "confidence": "M",
+     "rationale": "A/D line trend score 3/5 (3mo/6mo accumulation-distribution vs typical volume)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:31+00:00"
+    },
+    "relative_strength": {
+     "indicator": "relative_strength",
+     "score": 1,
+     "confidence": "M",
+     "rationale": "blended vs SPY -34.7% (6mo -27.5%, 12mo -42.0%)",
+     "source": "quant_draft",
+     "citations": [],
+     "model": null,
+     "prompt_hash": null,
+     "proposed_at": "2026-09-30T21:10:31+00:00"
+    }
+   },
+   "approved": {},
+   "rejected": {}
   }
  },
  "audit": [
@@ -9108,6 +9307,159 @@
    "final_score": 2,
    "final_confidence": "L",
    "overridden": false
+  },
+  {
+   "at": "2026-09-30T21:10:12+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "fcf_yield_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:12+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "revenue_growth_consistency",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:12+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "fcf_margin_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:12+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "valuation_multiples",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:12+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "analyst_consensus",
+   "score": 5,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:13+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "technical_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:13+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "volume_accumulation",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:13+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "relative_strength",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:13+00:00",
+   "action": "propose",
+   "ticker": "UNH",
+   "indicator": "roic_vs_wacc",
+   "score": 3,
+   "confidence": "L",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:30+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "fcf_yield_trend",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:30+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "revenue_growth_consistency",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:30+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "fcf_margin_trend",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:30+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "valuation_multiples",
+   "score": 4,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:30+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "analyst_consensus",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:31+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "technical_trend",
+   "score": 2,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:31+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "volume_accumulation",
+   "score": 3,
+   "confidence": "M",
+   "source": "quant_draft"
+  },
+  {
+   "at": "2026-09-30T21:10:31+00:00",
+   "action": "propose",
+   "ticker": "ACN",
+   "indicator": "relative_strength",
+   "score": 1,
+   "confidence": "M",
+   "source": "quant_draft"
   }
  ]
 }
