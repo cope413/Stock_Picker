@@ -509,3 +509,37 @@ Turso provisioning, the `libsql-client` dependency, any actual read or
 write cutover, deciding B-vs-C. Those are cutover decisions, not prep,
 and per Alan's own framing this pass exists specifically to avoid making
 them while he's unreachable for weeks.
+
+## Revisited 2026-09-30 — sequencing decided, resume queued for next session
+
+Alan raised this unprompted ("looming need for use of db keeps coming
+back") after tonight's session surfaced it again organically. Reviewed
+this doc's own accumulated evidence with him — four of the five real
+bugs logged across 8/18 through 9/11 are write-side (Tier 1 Wtd Avg
+zero-padding, the DCA-CATCHUP-1..8 label collision, recurring Schema
+Reference/cross-tab staleness that `landry audit` exists to catch), and
+Phase B alone (read cutover only) would not have prevented any of them.
+
+**Decision: prioritize Phase C over the documented B-then-C order.**
+Alan's own framing: "sounds like C vs B is a no-brainer." Not yet
+decided: whether that means C-only (skip a standalone Phase B entirely,
+since writes moving to the DB pulls most reads along with them per the
+8/24 note) or a minimal B as a stepping stone — that detail is for the
+actual planning session, not resolved here.
+
+**Explicitly not starting now.** Alan's call: flag it and pick this up
+fresh next session, rather than start mid-flow tonight. Two concrete
+things the next session should do before writing any migration code,
+per this doc's own recurring lesson (every re-validation pass has found
+a live bug from workbook drift):
+
+1. Re-run `python -m landry.migrate_to_db` against `main`'s current
+   workbook shape — this branch is frozen at 9/11 and `main` has since
+   added GE/NFLX (Current Positions structural surgery), Rule 33 and its
+   Watch List Tracker column, the Fidelity info-tab scan practice and
+   `Process Checklist` step, and several Darryl-list screening rounds.
+   Assume another reader-bound or cross-tab surprise turns up; it has
+   every previous time.
+2. Decide the C-only-vs-minimal-B question above, then provision Turso
+   (account, auth token, secret handling, `libsql-client` dependency) —
+   still not done from the 8/24 decision.
