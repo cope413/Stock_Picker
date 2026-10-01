@@ -1,6 +1,6 @@
 """Tests for v7_scoring.py and part11_tracker.py math.
 
-The scoring fixtures reproduce docs/PART8_Test_Run_Record_7-6-26.docx
+The scoring fixtures reproduce docs/x_archive/PART8_Test_Run_Record_7-6-26.docx
 (SNEX / MFC / SHEL / CRM / ADBE, run 2026-07-06) so the code is pinned to a
 documented, hand-checked run of the framework.
 

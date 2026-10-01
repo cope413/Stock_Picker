@@ -3,8 +3,8 @@ part11_tracker.py — automate the Part 11 correlation matrix and portfolio
 drawdown log (CLAUDE TRADING SYSTEM v7, Part 11) from real price data.
 
 Replaces manual monthly price entry in
-docs/PART11_Correlation_Drawdown_Tracker_v6.xlsx: prices come from the same
-yfinance download/cache layer the backtester uses (layer1_data_strategies).
+docs/x_archive/PART11_Correlation_Drawdown_Tracker_v6.xlsx: prices come from the
+same yfinance download/cache layer the backtester uses (layer1_data_strategies).
 
 Usage
 -----
@@ -35,7 +35,7 @@ import pandas as pd
 
 from v7_scoring import CORRELATION_CAP, correlation_violations, drawdown_response
 
-DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
+DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "x_archive")
 TEMPLATE_XLSX = os.path.join(DOCS_DIR, "PART11_Correlation_Drawdown_Tracker_v6.xlsx")
 
 MAX_TRACKER_TICKERS = 12   # workbook has 12 ticker columns

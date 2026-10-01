@@ -1,6 +1,6 @@
 """
 v7_scoring.py — programmatic implementation of the CLAUDE TRADING SYSTEM v7
-scoring framework (docs/CLAUDE_TRADING_SYSTEM_v7.docx).
+scoring framework (docs/x_archive/CLAUDE_TRADING_SYSTEM_v7.docx).
 
 This is the *fundamental* stock-selection system, distinct from the layer1–6
 technical backtester in this repo. It implements:
@@ -12,7 +12,7 @@ technical backtester in this repo. It implements:
   * Part 11 — leverage hard cap, beta sizing overlay, bear-case return test,
     drawdown response bands, correlation cap check
 
-The math is verified against docs/PART8_Test_Run_Record_7-6-26.docx in
+The math is verified against docs/x_archive/PART8_Test_Run_Record_7-6-26.docx in
 tests/test_v7_scoring.py.
 
 All indicator inputs are 1–5 analyst scores; this module does not fetch
