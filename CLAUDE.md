@@ -19,7 +19,7 @@ file and the repo's own contents.
 
 ## Never touch
 
-- Any file with "copy" in the name (e.g. `..._copy.xlsx`, `TAB UPDATING..._copy.docx`) is the user's own scratch/viewing copy — never read it as a source of truth or write to it, *unless* the user explicitly names it and asks you to look at it (that overrides the default, since there's no risk of confusing it with a canonical file at that point).
+- Any file with "copy" in the name (e.g. `..._copy.xlsx`, `TAB UPDATING..._copy.docx`) is the user's own scratch/viewing copy, made by Alan himself while live-editing/discussing a tracked file — never read it as a source of truth or write to it, *unless* the user explicitly names it and asks you to look at it (that overrides the default, since there's no risk of confusing it with a canonical file at that point). **These can be deleted outright, not just left alone or archived** (confirmed 2026-10-01: Alan doesn't need them kept — he saves anything he actually wants to preserve to a Dropbox folder with no connection to the repo). Found and removed 10 of these on that date (most were untracked/gitignored already, one — `Chase_positions_9-4-2026_copy..xlsx` — predated the 8/25 gitignore fix and was still tracked). **Exception: `LANDRY_SYSTEM_WORKBOOK_25_JOURNAL_COPY.xlsx` is NOT one of these** despite the name — it's a Claude-built standing artifact (see the Journal-sort-order bullet below) with a real, ongoing purpose and its own regeneration process, not an ephemeral copy Alan made for himself. Don't delete it on the strength of this rule; it needed its own explicit carve-out even from Alan.
 
 ## File conventions
 
