@@ -13,6 +13,7 @@ every tab here to populate ``landry.db`` (see LANDRY_DATABASE_DESIGN.md).
 
 from __future__ import annotations
 
+import datetime
 import glob
 import os
 from dataclasses import dataclass
@@ -240,13 +241,21 @@ def read_market_data(path: str, sheet: str = "Market Data") -> List[dict]:
 
 def read_price_history(path: str, sheet: str = "Price History") -> List[dict]:
     """Row 2 = ticker headers (col A = 'Week Ending'), data from row 3.
-    Long/tidy output: one row per (ticker, week_ending)."""
+    Long/tidy output: one row per (ticker, week_ending).
+
+    Content-guarded rather than row-bounded (this tab grows weekly, so a
+    hardcoded max_row would go stale the same way it has three times
+    already elsewhere in this module -- see the Schema Reference /
+    Journal note on 2026-10-01's Price History row-163 fix): real data
+    rows always have a datetime in col A; the trailing "NN Weeks" footer
+    has a bare int there instead, so this stops exactly at the real data
+    without needing to know how many rows that currently is."""
     wb, ws = _open(path, sheet)
     header = next(ws.iter_rows(min_row=2, max_row=2, values_only=True))
     tickers = [str(h).strip() if h else None for h in header]
     out = []
     for r in ws.iter_rows(min_row=3, values_only=True):
-        if not r or r[0] is None:
+        if not r or not isinstance(r[0], datetime.datetime):
             continue
         week_ending = r[0]
         for i in range(1, len(r)):

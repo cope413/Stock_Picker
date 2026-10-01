@@ -543,3 +543,71 @@ a live bug from workbook drift):
 2. Decide the C-only-vs-minimal-B question above, then provision Turso
    (account, auth token, secret handling, `libsql-client` dependency) —
    still not done from the 8/24 decision.
+
+## Revisited 2026-10-01 — re-validation done, C-only decided, Turso deferred
+
+**Step 1 above, done.** Re-ran `python -m landry.migrate_to_db` against
+`main`'s current workbook (pointed the script directly at the main
+checkout's live `LANDRY_SYSTEM_WORKBOOK_25.xlsx`/`landry_scores.json` via
+its own path arguments, rather than copying anything into this worktree).
+Found a fresh bug exactly as predicted — `read_price_history` had no row
+bound and choked on Price History's "NN Weeks" footer, the fourth
+occurrence of the unbounded-reader-treats-a-footer-as-data class. Fixed
+with the same content-based-guard pattern as `read_scoring_tab` (real
+rows have a `datetime` in col A, the footer has a bare int). Tracing it
+also surfaced a genuine **data** bug in the live workbook, not just a
+reader bug: two Price History rows both dated 9/4/26, the second
+column-shifted relative to the first and actively feeding `Returns
+(Calc)` → Correlation Matrix → the Rule 38 check. Alan's read: an
+artifact of the original hand-entered 3-year price migration, not worth
+forensically reconstructing — fixed by clearing the bad row outright
+(zero formula rewrites needed; the existing `ISNUMBER` guards and the
+live `COUNT()` footer both self-corrected). Full detail: CLAUDE.md,
+Journal row 72 in the main workbook.
+
+**Step 2, decided: C-only, not a separate Phase B.** The reasoning,
+worked through directly rather than left as an open question: Phase B's
+whole value is "point reads at the DB instead of the xlsx," but nothing
+that has actually gone wrong in this project would be prevented by that
+— every real incident (Tier 1 Wtd Avg zero-padding, the DCA-CATCHUP
+label collision, Schema Reference drift, today's Price History row) came
+from the xlsx still being the thing that gets hand-edited. Phase B alone
+doesn't touch that risk surface at all — the xlsx stays the write
+target, and the DB would just be a derived copy re-migrated periodically
+(literally what today's re-validation pass already does ad hoc). The
+read-from-DB benefit only becomes real once Phase C flips the xlsx to a
+generated report, at which point Phase B's read-paths are needed as a
+direct consequence of C, not a separate thing to build and then partly
+redo — exactly the risk the 8/24 note already flagged, now with four
+more write-side incidents backing it up.
+
+**Refinement adopted in place of a separate Phase B: roll out Phase C
+itself incrementally, tab by tab, instead of as one big-bang cutover.**
+This gets the real benefit a "minimal B" was reaching for (de-risk before
+committing to the whole thing) without building something that gets
+superseded. Order: **Journal and Portfolio Drawdown Log first** — no
+real formula complexity (freeform text; a simple regime state machine)
+— then the formula-heavy, bug-prone tabs (Scoring's computed columns,
+Correlation Matrix, Returns, Action Items, Dashboard) once the pattern's
+proven on low-stakes tabs.
+
+**Backend timing, also decided: local SQLite first, Turso later, not
+Turso from day one.** The 8/24 Turso decision was specifically motivated
+by avoiding Alan's and Taylor's local DBs diverging ([[taylor_landry_
+collaborator]]-style collision risk). Taylor is currently suspended from
+repo contributions until the workbook is verified-settled, so that
+specific risk is dormant, not active, right now — re-weighed this
+explicitly with Alan rather than assuming the original urgency still
+holds unchanged. Alan confirmed he and Taylor have already discussed
+this directly: Taylor's own assessment is that SQLite → Turso migration
+is straightforward at the appropriate time, which independently backs
+local-first. Plan: build and validate Phase C's generation logic against
+a plain local SQLite file (faster iteration, no account/token setup in
+the way of early development), provision Turso once that logic is
+actually proven on real tabs — not before there's anything real to put
+in it. `models.py`'s `connect()` can stay a plain local sqlite3 file for
+this stage; the `libsql-client` dependency and Turso account/token work
+are now explicitly deferred to the point where Journal + Drawdown Log
+generation is working and validated, not before.
+
+**Decided: 2026-10-01 is the planning/decision session, full stop — no Phase C code this session.** Alan's call: "Let's treat today as planning; start fresh next time." Everything above (C-only, incremental-by-tab, Journal + Drawdown Log first, local SQLite first) is the settled plan; the next session's job is to actually start writing it, not to re-litigate it. Concretely, next time: build the Phase C generation logic for Journal first (simplest — freeform text, no formulas to replicate), get it producing correct output against a local sqlite3 file, validate it matches the live tab exactly, then do the same for Portfolio Drawdown Log before touching anything else.
