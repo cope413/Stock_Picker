@@ -377,8 +377,8 @@ sum to 0.16, making the composite 84.6 rather than 84. The decision
 
 ## The Landry System (`landry/`)
 
-The **Landry Family Equity Investment Operating System v1.0**
-(`LANDRY_SYSTEM_v1-01_final.docx` + companion workbook
+The **Landry Family Equity Investment Operating System v1.04**
+(`LANDRY_SYSTEM_v1-04_FINAL.docx` + companion workbook
 `LANDRY_SYSTEM_WORKBOOK_25.xlsx`, which supersedes the earlier
 `LANDRY_SYSTEM_WORKBOOK_11.xlsx`) is the successor to the v7 framework,
 implemented as a rule engine with a strict human-in-the-loop boundary:

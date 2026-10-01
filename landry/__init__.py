@@ -1,6 +1,6 @@
 """Landry Family Equity Investment Operating System v1.0 — rule engine.
 
-Implements LANDRY_SYSTEM_v1-01_final.docx. Successor to the v7 framework
+Implements LANDRY_SYSTEM_v1-04_FINAL.docx. Successor to the v7 framework
 (`v7_scoring.py`); the two share lineage but v1.0 has different weights,
 rule numbering, and confidence-tag semantics.
 
