@@ -66,17 +66,20 @@ def export_workbook(template_path: str,
 
     if market:
         ws = wb["Market Data"]
-        # existing ticker rows: A3..A27
+        # scan the sheet's actual extent, not a hardcoded row count --
+        # this cap used to be A3..A27 and silently stopped matching
+        # tickers once the tab grew past row 27 (found 2026-09-13)
         row_of = {}
-        for r in range(3, 28):
+        for r in range(3, ws.max_row + 1):
             t = ws.cell(row=r, column=1).value
             if t:
                 row_of[str(t).strip().upper()] = r
-        next_free = max(row_of.values(), default=2) + 1
+        last_row = max(row_of.values(), default=2)
+        next_free = last_row + 1
         for t, m in market.items():
             t = t.upper()
             r = row_of.get(t)
-            if r is None and next_free <= 27:
+            if r is None and next_free <= last_row + 1:
                 r, next_free = next_free, next_free + 1
                 ws.cell(row=r, column=1, value=t)
             if r is None:
@@ -106,20 +109,43 @@ def export_workbook(template_path: str,
 
     if approved_scores:
         ws = wb["Scoring"]
+        # scan the sheet's actual extent, not a hardcoded row count --
+        # this cap used to be A3..A27 and silently stopped matching
+        # tickers once the tab grew past row 27 (found 2026-09-13:
+        # DPZ/PG/GE at rows 32/34/43 were silently skipped)
         row_of = {}
-        for r in range(3, 28):
+        for r in range(3, ws.max_row + 1):
             t = ws.cell(row=r, column=1).value
-            if t:
-                row_of[str(t).strip().upper()] = r
-        next_free = max(row_of.values(), default=2) + 1
+            # a footer/subtotal row (e.g. the "=SUBTOTAL(103,A3:A60)" ticker-count
+            # row) puts its numeric result in column A when the workbook is read
+            # data_only=True, but the *formula text itself* -- still a string --
+            # when read data_only=False, which this function must use (writing
+            # cells here while data_only=True would silently drop every formula
+            # elsewhere in the workbook on save). A plain isinstance(str) check
+            # passes the formula text straight through as a fake "ticker," so
+            # both a non-string value AND a formula string need excluding, or
+            # last_row silently jumps to the footer's row and new tickers get
+            # appended below it instead of above it (found 2026-09-13: this
+            # exact partial fix put ABT at row 63 and SLB at row 64, past a
+            # footer that's supposed to count all real ticker rows above it).
+            if t and isinstance(t, str) and not t.startswith("="):
+                row_of[t.strip().upper()] = r
+        last_row = max(row_of.values(), default=2)
+        next_free = last_row + 1
         for t, scores in approved_scores.items():
             t = t.upper()
             r = row_of.get(t)
-            if r is None and next_free <= 27:
-                r, next_free = next_free, next_free + 1
-                ws.cell(row=r, column=1, value=t)
             if r is None:
-                continue
+                # each new ticker in this batch needs its own free row -- the
+                # previous version only ever allowed exactly one appended row
+                # per export call (next_free <= last_row + 1 is false again as
+                # soon as it's incremented once), silently dropping any
+                # additional new tickers (found 2026-09-13: SLB vanished
+                # entirely while ABT, processed first, got the one slot).
+                r = next_free
+                next_free += 1
+                row_of[t] = r
+                ws.cell(row=r, column=1, value=t)
             if scored_date:
                 ws.cell(row=r, column=3, value=scored_date)
             for name, col in _SCORE_COLS:

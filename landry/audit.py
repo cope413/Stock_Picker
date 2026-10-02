@@ -23,7 +23,7 @@ import os
 import re
 import subprocess
 import tempfile
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import openpyxl
 from openpyxl.utils import range_boundaries
@@ -346,6 +346,114 @@ def check_schema_reference(path: str) -> List[Check]:
     return out
 
 
+def check_scoring_verification(path: str, repo_dir: Optional[str] = None) -> List[Check]:
+    """Every ticker with a real Tier 1 Wtd Avg should have that score
+    backed by a genuine landry_scores.json entry -- otherwise there's no
+    way to tell whether it came from `landry draft`'s reproducible,
+    evidence-cited calculation or from something else entirely, and no
+    way to know it needs a recheck before being trusted for a live
+    decision.
+
+    Found 2026-09-13: LIN/ET/DPZ/PG/YUM/V/NFLX/GE/CMG/ETSY all predate
+    the audit trail (landry_scores.json wasn't tracked in git until
+    2026-08-18) -- their original Tier 1 scores came from a pre-tooling
+    conversational chat analysis (Darryl_List_Analysis_v1.docx, careful
+    work but not reproducible or evidence-linked the way `landry draft`
+    is), not from this codebase's own scoring pipeline. Four of six
+    rechecked so far (LIN, ET, DPZ, YUM) failed the ~4.0 prioritization
+    bar on fresh data; V -- a live $18K+ held position -- did too
+    (STRONG BUY -> BUY). This check makes "no real audit trail" and "has
+    one, but it looks copied rather than reviewed" both visible without
+    needing a human to notice and go digging, the way this one was
+    found.
+
+    Two independent signals:
+    (1) none of a ticker's 5 Tier 1 indicators have ANY approved entry
+        at all -- the score is completely unverified by this system.
+        Expected to have a large baseline right now (most of the
+        workbook predates this discipline) -- reported as one
+        consolidated finding, not one failure per ticker, so it stays
+        readable and a *new* addition to the list is still noticeable.
+    (2) 3+ indicators approved with source="manual" for the same ticker
+        share the identical approved_at timestamp to the second -- the
+        fingerprint of a mechanical bulk copy (landry.export.
+        import_scores backfilling whatever was already in the
+        workbook), not independent per-indicator review. Restricted to
+        source="manual" specifically because a scripted (but genuine)
+        `landry draft` + one-`approve`-call-per-indicator session also
+        lands multiple quant_draft approvals in the same wall-clock
+        second -- that's real review, just fast, and must not trip this.
+        This is exactly what happened to V on 2026-09-09: all 9 of its
+        non-Tier-1-quant indicators were "approved" (source=manual) in
+        the same second, nine days after it was bought, without anyone
+        actually re-deriving them."""
+    from collections import defaultdict
+    from landry.approvals import ScoreStore
+    from landry.xlsx_io import _COL_TIER1_AVG
+
+    repo_dir = repo_dir or _REPO
+    scores_path = os.path.join(repo_dir, "landry_scores.json")
+    if not os.path.exists(scores_path):
+        return [Check("scoring_verification", True,
+                      "landry_scores.json not present, skipped")]
+    store = ScoreStore(scores_path)
+    raw_tickers = store._data.get("tickers", {})  # need approved_at + source
+                                                    # together; approved_scores()
+                                                    # (the public view) drops both
+
+    TIER1_INDICATORS = ("fcf_yield_trend", "revenue_growth_consistency",
+                        "competitive_moat", "revenue_visibility", "fcf_margin_trend")
+
+    bulk_by_ticker: Dict[str, tuple] = {}
+    for ticker, rec in raw_tickers.items():
+        by_time = defaultdict(list)
+        for ind, entry in rec.get("approved", {}).items():
+            if entry.get("source") == "manual" and entry.get("approved_at"):
+                by_time[entry["approved_at"]].append(ind)
+        for ts, inds in by_time.items():
+            if len(inds) >= 3:
+                bulk_by_ticker[ticker] = (ts, inds)
+
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb["Scoring"]
+    out = []
+    unverified = []
+    for row in range(3, ws.max_row + 1):
+        ticker = ws.cell(row=row, column=1).value
+        if not ticker:
+            continue
+        tier1_val = ws.cell(row=row, column=_COL_TIER1_AVG).value
+        if not isinstance(tier1_val, (int, float)):
+            continue
+        ticker = str(ticker).strip().upper()
+        approved = store.approved_scores(ticker)
+        if not any(i in approved for i in TIER1_INDICATORS):
+            unverified.append(ticker)
+        if ticker in bulk_by_ticker:
+            ts, inds = bulk_by_ticker[ticker]
+            out.append(Check(
+                f"scoring_verification:{ticker}/bulk_import", False,
+                f"row {row}: {len(inds)} indicators approved manually at the identical "
+                f"timestamp {ts} ({', '.join(sorted(inds))}) -- looks like a mechanical "
+                f"import, not independent per-indicator review",
+                fix=f"rerun `landry draft {ticker}` and approve one at a time for at least "
+                    f"the Tier 1 quant indicators before trusting this score"))
+    wb.close()
+    if unverified:
+        out.append(Check(
+            "scoring_verification:no_audit_trail", False,
+            f"{len(unverified)} ticker(s) with a real Tier 1 Wtd Avg have no approved "
+            f"Tier 1 entry in landry_scores.json at all -- unverified by this system: "
+            f"{', '.join(unverified)}",
+            fix="run `landry draft <TICKER>` and approve before trusting any of these "
+                "for a live decision -- expected to shrink over time as the queue works "
+                "through it, not something to clear in one pass"))
+    if not any(not c.ok for c in out):
+        out.append(Check("scoring_verification", True,
+                         "every scored ticker's Tier 1 has a real, non-bulk-imported audit trail"))
+    return out
+
+
 def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
     return [
         *check_table_refs(path),
@@ -353,6 +461,7 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_cross_tab_references(path),
         *check_page_setup_vs_last_commit(path, repo_dir),
         *check_schema_reference(path),
+        *check_scoring_verification(path, repo_dir),
     ]
 
 
