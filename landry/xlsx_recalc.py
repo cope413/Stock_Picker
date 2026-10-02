@@ -28,13 +28,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import zipfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+from xml.sax.saxutils import unescape
 
 MACRO_FILENAME = "Module1.xba"
 
@@ -49,6 +52,7 @@ _MACRO_XML = """<?xml version="1.0" encoding="UTF-8"?>
 </script:module>"""
 
 EXCEL_ERRORS = ("#VALUE!", "#DIV/0!", "#REF!", "#NAME?", "#NULL!", "#NUM!", "#N/A")
+EXCEL_MAX_ROW_PT = 409.5      # Excel's hard row-height maximum
 
 
 def soffice_path() -> Optional[str]:
@@ -93,7 +97,9 @@ def recalc(path: str, timeout: int = 30) -> dict:
     LibreOffice, then scan for Excel error strings. Returns a dict with
     either an "error" key (nothing was recalculated) or "status"
     ("success" | "errors_found"), "total_errors", "total_formulas", and
-    "error_summary" ({error_type: [locations]})."""
+    "error_summary" ({error_type: [locations]}), and "clamped_rows" (rows whose
+    height was above Excel's 409.5pt maximum and was capped -- see
+    ``clamp_row_heights``; a non-empty list means a note needs a better layout)."""
     if not Path(path).exists():
         return {"error": f"{path} does not exist"}
     abs_path = str(Path(path).absolute())
@@ -137,7 +143,71 @@ def recalc(path: str, timeout: int = 30) -> dict:
     finally:
         shutil.rmtree(profile_dir, ignore_errors=True)
 
-    return _scan_errors(path)
+    clamped = clamp_row_heights(abs_path)
+    result = _scan_errors(path)
+    result["clamped_rows"] = clamped
+    return result
+
+
+def clamp_row_heights(path: str) -> List[dict]:
+    """Cap any stored row height above Excel's 409.5pt maximum, in place.
+
+    LibreOffice's auto-fit writes such a height for a long wrapped note in a
+    narrow cell (found 2026-10-02: Current Positions row 52, a 1,049-character
+    note in an 11-wide column, 941pt, sitting in every commit since 9/30), and
+    Excel answers a workbook containing one with "We found a problem with some
+    content ... Do you want us to try to recover as much as we can?" -- a file
+    that every check without a real Excel passes. Patches only the ``ht``
+    attribute inside the worksheet parts of the zip (cached values and every other part are
+    copied through untouched). Returns ``[{"sheet", "row", "was"}]``, ``[]`` when nothing needed it."""
+    clamped: List[dict] = []
+    with zipfile.ZipFile(path) as zin:
+        names = {}
+        try:
+            wb_xml = zin.read("xl/workbook.xml").decode("utf8")
+            rels = zin.read("xl/_rels/workbook.xml.rels").decode("utf8")
+            target = {rid: t for rid, t in re.findall(r'Id="([^"]+)"[^>]*Target="([^"]+)"', rels)}
+            target.update({rid: t for t, rid in re.findall(r'Target="([^"]+)"[^>]*Id="([^"]+)"', rels)})
+            for name, rid in re.findall(r'<sheet [^>]*name="([^"]+)"[^>]*r:id="([^"]+)"', wb_xml):
+                names["xl/" + target[rid].lstrip("/").replace("xl/", "", 1)] = unescape(name, {"&quot;": '"', "&apos;": "'"})
+        except KeyError:
+            pass                               # unusual package: report by part name instead
+        patched = {}
+        for info in zin.infolist():
+            if not re.fullmatch(r"xl/worksheets/[^/]+\.xml", info.filename):
+                continue
+            xml = zin.read(info.filename).decode("utf8")
+
+            def fix(m, part=info.filename):
+                tag = m.group(0)
+                ht = re.search(r'\bht="([^"]+)"', tag)
+                if not ht or float(ht.group(1)) <= EXCEL_MAX_ROW_PT:
+                    return tag
+                row = re.search(r'\br="(\d+)"', tag)
+                clamped.append({"sheet": names.get(part, part), "row": int(row.group(1)) if row else None,
+                                "was": float(ht.group(1))})
+                return tag[:ht.start(1)] + str(EXCEL_MAX_ROW_PT) + tag[ht.end(1):]
+
+            new_xml = re.sub(r"<row\b[^>]*>", fix, xml)
+            if new_xml != xml:
+                patched[info.filename] = new_xml.encode("utf8")
+        if not patched:
+            return []
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                                   prefix=".landry-clamp-", suffix=".xlsx")
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(tmp, "w") as zout:
+                for info in zin.infolist():
+                    data = patched.get(info.filename, None)
+                    zout.writestr(info, data if data is not None else zin.read(info.filename),
+                                  compress_type=info.compress_type)
+            shutil.copymode(path, tmp)
+        except BaseException:
+            os.remove(tmp)
+            raise
+    os.replace(tmp, path)
+    return clamped
 
 
 def _scan_errors(path: str) -> dict:
@@ -188,6 +258,11 @@ def main() -> int:
     timeout = int(args[1]) if len(args) > 1 else 30
     result = recalc(path, timeout)
     print(json.dumps(result, indent=2))
+    if result.get("clamped_rows"):
+        rows = ", ".join(f"{c['sheet']} row {c['row']} ({c['was']:g}pt)" for c in result["clamped_rows"])
+        print(f"WARNING: capped row height(s) above Excel's {EXCEL_MAX_ROW_PT}pt maximum: {rows}. "
+              f"Excel rejects a file holding one; the text is now clipped, so give it a better layout "
+              f"(merge the note across the table width, widen its column, or shorten it).", file=sys.stderr)
     return 1 if "error" in result else 0
 
 

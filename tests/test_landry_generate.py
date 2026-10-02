@@ -205,14 +205,46 @@ def test_a_note_starting_with_equals_stays_text(tmp_path):
     assert cell.value == "=SUM(A1:A2) is not a formula"
 
 
-def test_height_policy_entries_auto_blanks_default_pinned_ceiling(tmp_path):
+def test_height_policy_first_pass_unset_second_pass_explicit(tmp_path):
     wb, ws = _skeleton()
     generate_journal(_db(tmp_path, ENTRIES), ws)
+    # first pass: entries unmeasured (LibreOffice measures them), capacity rows at the default
     assert [ws.row_dimensions[r].height for r in (3, 4, 5)] == [None, None, None]
     assert [ws.row_dimensions[r].height for r in (6, 7)] == [generate.BLANK_ROW_PT] * 2
-    generate._apply_journal_heights(ws, rows=3, last_row=7, pinned=(4,))
-    assert ws.row_dimensions[4].height == generate.MAX_ROW_PT
-    assert ws.row_dimensions[3].height is None
+    # second pass: explicit heights for the entries, capacity rows untouched
+    generate._apply_journal_heights(ws, rows=3, last_row=7, heights={3: 40.0, 4: 409.5, 5: 15.0})
+    assert [ws.row_dimensions[r].height for r in (3, 4, 5)] == [40.0, 409.5, 15.0]
+    assert [ws.row_dimensions[r].height for r in (6, 7)] == [generate.BLANK_ROW_PT] * 2
+
+
+def test_excel_row_height_uses_excels_line_pitch_not_libreoffices():
+    one_line = generate._LO_BASE_PT + generate._LO_LINE_PT          # LibreOffice's fit for 1 line
+    ten_lines = generate._LO_BASE_PT + 10 * generate._LO_LINE_PT
+    assert generate._excel_row_height(one_line, "x") == 15.0        # 12.75 + padding
+    assert generate._excel_row_height(ten_lines, "x") == 129.75     # 10 x 12.75 + padding, not 10 x 11.2
+    assert generate._excel_row_height(ten_lines, "x") > ten_lines   # taller than LibreOffice's own fit
+    assert generate._excel_row_height(0, None) == 15.0              # no measurement: one line
+    assert generate._excel_row_height(538.8, "x" * 6000) == generate.MAX_ROW_PT   # Excel's ceiling
+
+
+@pytest.mark.skipif(soffice_path() is None, reason="soffice not installed")
+def test_journal_heights_after_the_real_recalc(tmp_path):
+    wb, ws = _skeleton(capacity=6)
+    ws.column_dimensions["C"].width = 98.6                          # as in the live tab
+    xlsx = tmp_path / "wb.xlsx"
+    wb.save(xlsx)
+    long_note = "\n\n".join(["word " * 120] * 3)                    # three wrapped paragraphs
+    huge_note = "word " * 4000                                      # needs more than Excel's ceiling
+    conn = _db(tmp_path, [("2026-10-01", "SHORT", "one line"), ("2026-10-02", "LONG", long_note),
+                          ("2026-10-03", "HUGE", huge_note)])
+    conn.close()
+    result = generate.generate_workbook(str(xlsx), str(tmp_path / "t.db"))
+    ws = openpyxl.load_workbook(xlsx)["Journal"]
+    short, long_, huge = (ws.row_dimensions[r].height for r in (3, 4, 5))
+    assert short == 15.0                                            # one line
+    assert 100 < long_ < generate.MAX_ROW_PT                        # measured, then re-pitched for Excel
+    assert huge == generate.MAX_ROW_PT and result["capped_rows"] == [5]
+    assert ws.row_dimensions[6].height == generate.BLANK_ROW_PT     # capacity rows keep the default
 
 
 @pytest.mark.parametrize("mutate, message", [

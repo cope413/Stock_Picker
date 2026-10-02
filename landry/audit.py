@@ -100,6 +100,55 @@ def check_table_refs(path: str) -> List[Check]:
     return out
 
 
+def check_merges_inside_tables(path: str) -> List[Check]:
+    """No merged range may overlap a Table. Excel cannot represent a merged cell
+    inside a Table and answers such a file with "We found a problem with some
+    content ... recover?" (then drops the Table), while openpyxl and LibreOffice
+    accept it silently. Found 2026-10-02 on Current Positions: the 9/30 row
+    insertion grew CurrentPositionsTable to row 51 but left the note's merge
+    A50:M50 behind at its old row, now inside the Table. openpyxl's insert_rows
+    moves neither merged ranges nor their heights."""
+    wb = openpyxl.load_workbook(path)
+    clashes = []
+    for ws in wb.worksheets:
+        for tname in ws.tables.keys():
+            t_min_col, t_min_row, t_max_col, t_max_row = range_boundaries(ws.tables[tname].ref)
+            for merged in ws.merged_cells.ranges:
+                if (merged.min_row <= t_max_row and merged.max_row >= t_min_row
+                        and merged.min_col <= t_max_col and merged.max_col >= t_min_col):
+                    clashes.append(f"{ws.title}: merge {merged} overlaps {tname} ({ws.tables[tname].ref})")
+    wb.close()
+    if not clashes:
+        return [Check("merges_inside_tables", True, "no merged range overlaps a Table")]
+    return [Check("merges_inside_tables", False, f"{len(clashes)} clash(es): " + "; ".join(clashes[:4]),
+                  fix="unmerge it, or move the merge outside the Table's rows (and give the Table's "
+                      "own rows ordinary cells); Excel reports the file as corrupt otherwise")]
+
+
+def check_row_height_ceiling(path: str) -> List[Check]:
+    """No row may be taller than Excel's 409.5pt maximum. Excel answers a
+    workbook holding one with "We found a problem with some content ... Do you
+    want us to try to recover as much as we can?" -- which LibreOffice, openpyxl
+    and every other check here accept without complaint. Found 2026-10-02: Current
+    Positions row 52, a 1,049-character note wrapped in an 11-wide column, auto-fit
+    by LibreOffice to 941pt and sitting in every commit since 9/30 (a row insert had
+    left the note's merge and height behind at its old row). ``xlsx_recalc`` now
+    caps such rows on every save; this catches a file that never went through it."""
+    from landry.xlsx_recalc import EXCEL_MAX_ROW_PT
+    wb = openpyxl.load_workbook(path)
+    tall = [(ws.title, r, dim.height) for ws in wb.worksheets
+            for r, dim in ws.row_dimensions.items()
+            if dim.height and dim.height > EXCEL_MAX_ROW_PT]
+    wb.close()
+    if not tall:
+        return [Check("row_height_ceiling", True, f"no row above Excel's {EXCEL_MAX_ROW_PT}pt maximum")]
+    shown = ", ".join(f"{s}!{r} ({h:g}pt)" for s, r, h in tall[:6])
+    return [Check("row_height_ceiling", False,
+                  f"{len(tall)} row(s) above Excel's {EXCEL_MAX_ROW_PT}pt maximum: {shown}",
+                  fix="Excel will report the file as corrupt. Merge the cell's note across the table "
+                      "width, widen its column, or shorten the text; then recalc")]
+
+
 def check_reader_bounds(path: str) -> List[Check]:
     """landry/xlsx_io.py has several readers with a hardcoded max_row,
     each one deliberately bounded (per its own docstring) to avoid
@@ -457,6 +506,8 @@ def check_scoring_verification(path: str, repo_dir: Optional[str] = None) -> Lis
 def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
     return [
         *check_table_refs(path),
+        *check_row_height_ceiling(path),
+        *check_merges_inside_tables(path),
         *check_reader_bounds(path),
         *check_cross_tab_references(path),
         *check_page_setup_vs_last_commit(path, repo_dir),

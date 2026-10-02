@@ -814,3 +814,48 @@ first write.
 
 **Not decided / later:** a diffable text export; the Turso inversion; more tabs (Open Items and
 Process Checklist are the simplest Table tabs left; the formula-heavy ones come after, per the plan).
+
+## Phase C — switched on for the Journal and Portfolio Drawdown Log (2026-10-02)
+
+Done in the order the step 3 checklist gives, on Alan's go-ahead: the branch committed; `main` merged
+into it (clean, no conflicts); the suite re-run on the merged tree (418 passed; the 5 workbook-dependent
+failures are the same stale tests `main` already had against its own current workbook); `main`
+fast-forwarded to the merge; CLAUDE.md updated with the new write rules; and the first real write made
+through the CLI on the live workbook (Journal row 77, label `DB-PHASE-C-SWITCH-ON`). Nothing pushed yet.
+
+**Verified on the live workbook after the first write:** across all 25,356 cells the only differences from
+the pre-write snapshot are the three cells of the new entry; `db status` reports both tabs in sync; the
+audit — including the page-setup comparison against the last commit — shows only its standing baseline.
+
+**What the first write surfaced.**
+- `main` held a stale Phase A `landry.db` (8/24, schema v0). The schema-version guard refused it with a
+  clear message instead of a missing-column error; it was moved out of the repo (derived, gitignored) and
+  the first write rebuilt the database from the workbook.
+- **Row heights, amended — the "auto-height" policy in steps 1 and 3 did not survive being looked at.** In
+  a 100%-scale render, rows with paragraph breaks lost their last line: LibreOffice's fit under-counts the
+  blank lines between paragraphs, and its line pitch for Arial Narrow 10pt (11.2pt) is tighter than Excel's
+  (12.75pt), so a LibreOffice-fitted row clips in Excel too. Replaced the same evening: the first recalc
+  pass lets LibreOffice work out how many lines each entry wraps to; a second pass stores explicit heights at
+  Excel's pitch, capped at Excel's 409.5pt ceiling. Heights are therefore explicit, not auto-flagged: to
+  compact the view turn wrapping off and AutoFit Row Height — the next write restores the canonical heights.
+  Five entries (rows 56, 59, 61, 62, 71) need more than the ceiling and show their first ~32 lines in-cell.
+  **Not verified in real Excel itself** (only LibreOffice renders): if a row still clips there, raise
+  `_EXCEL_LINE_PT` in `generate.py`.
+- Auto-height flags would not have lasted anyway: openpyxl reads any stored height back as explicit, so an
+  unrelated edit of another tab turns every row custom until the next Journal write.
+
+## Excel's repair prompt on first open (2026-10-02) — not the generator
+
+The first time the workbook was opened in real Excel after the switch-on it answered "We found a problem
+with some content … recover?". Diagnosed by diffing against the committed workbook (XML parts, schema
+validation against `sml.xsd`, formula text, cross-reference integrity): the generated tabs were clean; the
+cause was already in every commit since 9/30. The 9/30 GE/NFLX row insertion on Current Positions left the
+note's merge A50:M50 behind inside the grown `CurrentPositionsTable` (Excel cannot represent a merged cell in
+a Table) and left the note itself in a narrow wrapped cell that LibreOffice auto-fit to 941pt (Excel's
+maximum is 409.5pt). It also wiped the COMBINED PORTFOLIO TOTAL row and left two summary rows' formulas
+pointing at old rows. Repaired from the pre-surgery workbook; the restored total ($776,662.72) matches the
+pre-surgery cell and `total_portfolio_value` exactly.
+
+New guards: `landry audit` checks `merges_inside_tables` and `row_height_ceiling`; `xlsx_recalc` caps any row
+above 409.5pt on every save and returns `clamped_rows`. Lesson, now in CLAUDE.md: LibreOffice and openpyxl
+accept workbooks Excel rejects, so any structural edit needs one real open in Excel.

@@ -31,13 +31,16 @@ them here, not by hand in the sheet, or the next regeneration reverts the edit.
 ``drawdown.py`` is NOT the source: it words things differently and treats the
 exact -10/-20/-30% boundaries the other way (``<`` where the sheet has ``>=``).
 
-Journal row heights are derived layout, not data, so they are never stored:
-data rows are written without a height and the mandatory recalc pass
-(LibreOffice) fits them and flags them auto-height, which also keeps Excel's
-wrap-off/wrap-on trick for a compact view working. The one exception is a note
-that needs more than Excel's 409.5pt row ceiling: after the first pass those rows
-(and only those, measured, not guessed) are pinned to the ceiling and recalculated
-once more, because LibreOffice would otherwise write a height Excel has to clamp.
+Journal row heights are derived layout, not data, and neither renderer can be
+trusted alone: LibreOffice measures well but its line pitch for Arial Narrow 10pt
+(11.2pt) is tighter than Excel's (12.75pt) and its fit under-counts the blank lines
+between paragraphs, so a LibreOffice-fitted row clips its last line in Excel (and
+even in LibreOffice, on rows with paragraph breaks). So the first recalc pass lets
+LibreOffice work out how many lines each entry wraps to, and a second pass stores
+explicit heights computed with Excel's pitch, capped at Excel's 409.5pt row ceiling
+(an entry that needs more shows its first ~32 lines in-cell; the full text stays in
+the cell). Heights are explicit, so to compact the view turn wrapping off and
+AutoFit Row Height; the next write restores the canonical heights.
 
     python -m landry.generate journal|drawdown|all --workbook W.xlsx --db landry.db [--out OUT.xlsx] [--no-recalc]
     python -m landry.generate verify [--tab journal|drawdown] --workbook W.xlsx --db landry.db
@@ -193,6 +196,10 @@ JOURNAL_SHEET = "Journal"
 JOURNAL_TABLE = "JournalTable"
 JOURNAL_HEADERS = ("Date", "Ticker", "Notes")
 BLANK_ROW_PT = 14.25      # height of the pre-formatted capacity rows below the last entry
+_LO_BASE_PT, _LO_LINE_PT = 1.45, 11.2   # LibreOffice's fitted height for Arial Narrow 10pt: base + lines x pitch
+_EXCEL_LINE_PT = 12.75                  # Excel's line pitch for the same font
+_PAD_PT = 2.25
+_PARAGRAPH_BREAK_PT = 0.0               # extra per newline; raised only if a render shows blank lines clipping
 
 # Canonical look of a Journal data row. Mirrors the live tab as of 2026-10-02
 # (checked cell-by-cell by ``verify``) with one deliberate change: column B wraps
@@ -213,15 +220,25 @@ _JOURNAL_STYLES = tuple(
     for size, h, v, wrap, fmt in _JOURNAL_COLUMNS)
 
 
-def _apply_journal_heights(ws, rows: int, last_row: int, pinned=()) -> None:
-    """The Journal row-height policy. Entry rows get no stored height (the
-    recalc pass fits them and flags them auto-height) unless pinned to Excel's
-    ceiling; the pre-formatted capacity rows below them get the default."""
+def _apply_journal_heights(ws, rows: int, last_row: int, heights=None) -> None:
+    """The Journal row-height policy. First pass (``heights`` None): entry rows
+    get no stored height, so the recalc pass measures them. Second pass: each
+    entry row gets its explicit height from ``heights``. The pre-formatted
+    capacity rows below the entries always get the default."""
     for r in range(FIRST_ROW, last_row + 1):
         if r - FIRST_ROW >= rows:
             ws.row_dimensions[r].height = BLANK_ROW_PT
         else:
-            ws.row_dimensions[r].height = MAX_ROW_PT if r in pinned else None
+            ws.row_dimensions[r].height = heights[r] if heights else None
+
+
+def _excel_row_height(lo_fitted_pt: float, notes) -> float:
+    """Height to store for an entry LibreOffice fitted at ``lo_fitted_pt``:
+    LibreOffice's line count, Excel's line pitch, capped at Excel's ceiling."""
+    lines = max(1, round((lo_fitted_pt - _LO_BASE_PT) / _LO_LINE_PT))
+    wanted = (lines * _EXCEL_LINE_PT + _PAD_PT
+              + _PARAGRAPH_BREAK_PT * str(notes or "").count("\n"))
+    return round(min(MAX_ROW_PT, wanted), 2)
 
 
 def generate_journal(conn: sqlite3.Connection, ws) -> dict:
@@ -255,13 +272,6 @@ def generate_journal(conn: sqlite3.Connection, ws) -> dict:
             _style_cell(cell, style)
     _apply_journal_heights(ws, len(entries), last_row)
     return dict(rows=len(entries), capacity=last_row - HEADER_ROW, grew_to=grew_to)
-
-
-def _rows_over_ceiling(path: str) -> List[int]:
-    """Journal rows whose (LibreOffice-fitted) height exceeds Excel's ceiling."""
-    ws = openpyxl.load_workbook(path)[JOURNAL_SHEET]
-    return [r for r in range(FIRST_ROW, ws.max_row + 1)
-            if (ws.row_dimensions[r].height or 0) > MAX_ROW_PT]
 
 
 # ----------------------------------------------------------- Drawdown Log --
@@ -411,9 +421,10 @@ def generate_workbook(workbook_path: str, db, out_path: Optional[str] = None,
                       recalc: bool = True, tabs: Optional[Sequence[str]] = None) -> dict:
     """Regenerate ``tabs`` (default: every generated tab the workbook has) of
     ``workbook_path`` from ``db`` (a path or an open connection) and save to
-    ``out_path`` (default: in place). ``recalc`` runs the mandatory LibreOffice pass afterwards -- openpyxl
-    wipes every cached formula value on save, and that pass also fits the
-    Journal's auto-height rows.
+    ``out_path`` (default: in place). ``recalc`` runs the mandatory LibreOffice
+    pass afterwards -- openpyxl wipes every cached formula value on save -- and,
+    when the Journal is included, a second one (see the module docstring on
+    row heights).
 
     Returns ``{"tabs": {key: {rows, capacity, grew_to}}, "recalc": ..., "capped_rows": [...]}``."""
     out_path = out_path or workbook_path
@@ -427,17 +438,16 @@ def generate_workbook(workbook_path: str, db, out_path: Optional[str] = None,
         from landry.xlsx_recalc import recalc as run_recalc
         result["recalc"] = run_recalc(out_path)
         journal = result["tabs"].get("journal")
-        tall = _rows_over_ceiling(out_path) if journal else []
-        if tall:
+        if journal:
             wb = openpyxl.load_workbook(out_path)
-            # Re-apply the policy rather than just re-save: openpyxl reads
-            # LibreOffice's fitted heights back as explicit ones, which would
-            # turn every auto-height row into a fixed one.
-            _apply_journal_heights(wb[JOURNAL_SHEET], journal["rows"],
-                                   HEADER_ROW + journal["capacity"], pinned=tall)
+            ws = wb[JOURNAL_SHEET]
+            heights = {r: _excel_row_height(ws.row_dimensions[r].height or 0,
+                                            ws.cell(row=r, column=3).value)
+                       for r in range(FIRST_ROW, FIRST_ROW + journal["rows"])}
+            _apply_journal_heights(ws, journal["rows"], HEADER_ROW + journal["capacity"], heights)
             wb.save(out_path)
             result["recalc"] = run_recalc(out_path)
-        result["capped_rows"] = tall
+            result["capped_rows"] = [r for r, h in heights.items() if h >= MAX_ROW_PT]
     return result
 
 

@@ -7,6 +7,8 @@ import openpyxl
 from openpyxl.worksheet.table import Table, TableColumn
 
 from landry.audit import (
+    check_merges_inside_tables,
+    check_row_height_ceiling,
     check_cross_tab_references,
     check_page_setup_vs_last_commit,
     check_reader_bounds,
@@ -176,3 +178,54 @@ def test_report_formats_pass_and_fail_counts():
 def test_report_all_clean():
     text = report([Check("a", True, "fine")])
     assert "No structural drift detected." in text
+
+
+def test_row_height_ceiling_flags_a_row_excel_would_call_corrupt(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Current Positions"
+    ws["A52"] = "a long note"
+    ws.row_dimensions[52].height = 941.25
+    ws.row_dimensions[10].height = 409.5               # exactly the ceiling is fine
+    p = tmp_path / "wb.xlsx"
+    wb.save(p)
+    checks = check_row_height_ceiling(str(p))
+    assert len(checks) == 1 and not checks[0].ok
+    assert "Current Positions!52 (941.25pt)" in checks[0].detail
+    assert "merge" in checks[0].fix.lower()
+
+
+def test_row_height_ceiling_passes_a_workbook_within_the_limit(tmp_path):
+    wb = openpyxl.Workbook()
+    wb.active.row_dimensions[3].height = 409.5
+    p = tmp_path / "wb.xlsx"
+    wb.save(p)
+    assert [c.ok for c in check_row_height_ceiling(str(p))] == [True]
+
+
+def test_merges_inside_tables_flags_the_stale_merge_left_by_a_row_insert(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Current Positions"
+    ws.append(["Ticker", "Company", "Qty"])
+    for i in range(5):
+        ws.append([f"T{i}", "Co", i])
+    _add_table(ws, "CurrentPositionsTable", "A1:C6")
+    ws.merge_cells("A5:C5")                              # a merge that now sits inside the Table
+    p = tmp_path / "wb.xlsx"
+    wb.save(p)
+    checks = check_merges_inside_tables(str(p))
+    assert len(checks) == 1 and not checks[0].ok
+    assert "A5:C5" in checks[0].detail and "CurrentPositionsTable" in checks[0].detail
+
+
+def test_merges_inside_tables_allows_a_merge_just_below_the_table(tmp_path):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Ticker", "Company", "Qty"])
+    ws.append(["MU", "Micron", 10])
+    _add_table(ws, "T", "A1:C2")
+    ws.merge_cells("A4:C4")                              # a footnote banner, outside the Table
+    p = tmp_path / "wb.xlsx"
+    wb.save(p)
+    assert [c.ok for c in check_merges_inside_tables(str(p))] == [True]
