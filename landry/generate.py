@@ -46,6 +46,7 @@ once more, because LibreOffice would otherwise write a height Excel has to clamp
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime
 import os
 import re
@@ -378,23 +379,39 @@ def _select_tabs(wb, tabs: Optional[Sequence[str]]) -> List[_Tab]:
     return chosen
 
 
-def _open_db(db_path: str, db_tables: Sequence[str]) -> sqlite3.Connection:
-    if not os.path.exists(db_path):
-        raise FileNotFoundError(
-            f"{db_path} does not exist (sqlite would silently create an empty one)")
-    conn = models.connect(db_path)
+def _check_tables(conn: sqlite3.Connection, db_tables: Sequence[str], label: str) -> None:
     for name in db_tables:
         if not conn.execute("SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone():
-            conn.close()
-            raise GenerateError(f"{db_path} has no {name} table -- not a landry database")
-    return conn
+            raise GenerateError(f"{label} has no {name} table -- not a landry database")
 
 
-def generate_workbook(workbook_path: str, db_path: str, out_path: Optional[str] = None,
+@contextlib.contextmanager
+def _connection(db, db_tables: Sequence[str]):
+    """``db`` is a path (opened here, closed after) or an open connection (left
+    open: the ledger passes one holding an uncommitted write, so the regenerated
+    tab sees the row before it is committed)."""
+    if isinstance(db, sqlite3.Connection):
+        _check_tables(db, db_tables, "the database")
+        models.check_schema(db)
+        yield db
+        return
+    if not os.path.exists(db):
+        raise FileNotFoundError(
+            f"{db} does not exist (sqlite would silently create an empty one)")
+    conn = models.connect(db)
+    try:
+        _check_tables(conn, db_tables, db)
+        models.check_schema(conn)
+        yield conn
+    finally:
+        conn.close()
+
+
+def generate_workbook(workbook_path: str, db, out_path: Optional[str] = None,
                       recalc: bool = True, tabs: Optional[Sequence[str]] = None) -> dict:
     """Regenerate ``tabs`` (default: every generated tab the workbook has) of
-    ``workbook_path`` from ``db_path`` and save to ``out_path`` (default: in
-    place). ``recalc`` runs the mandatory LibreOffice pass afterwards -- openpyxl
+    ``workbook_path`` from ``db`` (a path or an open connection) and save to
+    ``out_path`` (default: in place). ``recalc`` runs the mandatory LibreOffice pass afterwards -- openpyxl
     wipes every cached formula value on save, and that pass also fits the
     Journal's auto-height rows.
 
@@ -402,11 +419,8 @@ def generate_workbook(workbook_path: str, db_path: str, out_path: Optional[str] 
     out_path = out_path or workbook_path
     wb = openpyxl.load_workbook(workbook_path)
     selected = _select_tabs(wb, tabs)
-    conn = _open_db(db_path, [t.db_table for t in selected])
-    try:
+    with _connection(db, [t.db_table for t in selected]) as conn:
         result: dict = {"tabs": {t.key: t.generate(conn, wb[t.sheet]) for t in selected}}
-    finally:
-        conn.close()
     wb.save(out_path)
     result["capped_rows"] = []
     if recalc:
@@ -500,31 +514,29 @@ def diff_drawdown_log(a, b) -> List[tuple]:
     return diff_tab(a, b, DRAWDOWN_TABLE, 8)
 
 
-def verify_workbook(workbook_path: str, db_path: str,
+def verify_workbook(workbook_path: str, db,
                     tabs: Optional[Sequence[str]] = None) -> Dict[str, List[tuple]]:
-    """Regenerate ``tabs`` in memory from the database and diff each against
+    """Regenerate ``tabs`` in memory from the database (``db``: a path or an
+    open connection) and diff each against
     the workbook as it stands: ``{tab: [diffs]}``. An empty list means
     generating would change nothing -- the DB and the tab agree on every value
     and every bit of formatting."""
     live = openpyxl.load_workbook(workbook_path)
     regenerated = openpyxl.load_workbook(workbook_path)
     selected = _select_tabs(live, tabs)
-    conn = _open_db(db_path, [t.db_table for t in selected])
-    try:
+    with _connection(db, [t.db_table for t in selected]) as conn:
         for t in selected:
             t.generate(conn, regenerated[t.sheet])
-    finally:
-        conn.close()
     return {t.key: diff_tab(live[t.sheet], regenerated[t.sheet], t.table, t.ncols)
             for t in selected}
 
 
-def verify_journal(workbook_path: str, db_path: str) -> List[tuple]:
-    return verify_workbook(workbook_path, db_path, ("journal",))["journal"]
+def verify_journal(workbook_path: str, db) -> List[tuple]:
+    return verify_workbook(workbook_path, db, ("journal",))["journal"]
 
 
-def verify_drawdown_log(workbook_path: str, db_path: str) -> List[tuple]:
-    return verify_workbook(workbook_path, db_path, ("drawdown",))["drawdown"]
+def verify_drawdown_log(workbook_path: str, db) -> List[tuple]:
+    return verify_workbook(workbook_path, db, ("drawdown",))["drawdown"]
 
 
 # ---------------------------------------------------------------------- CLI --

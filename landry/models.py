@@ -251,11 +251,40 @@ def connect(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+SCHEMA_VERSION = 2   # 1 = Phase A (journal.ticker FK, drawdown_log with derived columns)
+
+
+class SchemaMismatch(RuntimeError):
+    """The database file was built by an older schema than this code expects."""
+
+
+def check_schema(conn: sqlite3.Connection) -> None:
+    """Refuse a database built by an older schema with a clear message instead
+    of letting a later query die on a missing column. ``landry.db`` is derived
+    (rebuildable from the workbook), so the fix is always delete and rebuild."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version != SCHEMA_VERSION:
+        raise SchemaMismatch(
+            f"this database is schema v{version} but the code needs "
+            f"v{SCHEMA_VERSION}; it is a derived file -- delete it and rebuild "
+            f"(`python -m landry db pull`, or migrate_to_db --overwrite)")
+
+
 def init_db(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
-    """Create the database (idempotent) and return an open connection."""
+    """Create the database (idempotent) and return an open connection. A new
+    file is stamped with SCHEMA_VERSION; an existing one is checked against it."""
     conn = connect(db_path)
+    fresh = conn.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0] == 0
     conn.executescript(SCHEMA_SQL)
+    if fresh:
+        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     conn.commit()
+    try:
+        check_schema(conn)
+    except SchemaMismatch:
+        conn.close()
+        raise
     return conn
 
 
@@ -299,6 +328,44 @@ def journal_rows(conn: sqlite3.Connection) -> List[dict]:
     connection's row_factory)."""
     return [dict(id=i, date=d, label=l, notes=n) for i, d, l, n in conn.execute(
         "SELECT id, date, label, notes FROM journal ORDER BY id")]
+
+
+def journal_update(conn: sqlite3.Connection, entry_id: int, fields: dict) -> None:
+    """Change an entry in place (the Journal is append-only in spirit, but
+    CLAUDE.md has superseded entries marked in place). ``fields`` may hold
+    ``date``, ``label`` and ``notes``; raises KeyError if the id doesn't exist.
+    Does not commit."""
+    allowed = {"date", "label", "notes"}
+    if not fields or set(fields) - allowed:
+        raise ValueError(f"fields must be a non-empty subset of {sorted(allowed)}")
+    values = dict(fields)
+    if "date" in values:
+        values["date"] = iso_date(values["date"])
+    if "label" in values:
+        values["label"] = values["label"] or None
+    cur = conn.execute(
+        f"UPDATE journal SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
+        (*values.values(), entry_id))
+    if cur.rowcount != 1:
+        raise KeyError(entry_id)
+
+
+def drawdown_update(conn: sqlite3.Connection, date, fields: dict) -> None:
+    """Change the entry for ``date``; ``fields`` may hold ``portfolio_value``
+    and ``notes``. Raises KeyError if that date has no entry. Does not commit."""
+    allowed = {"portfolio_value", "notes"}
+    if not fields or set(fields) - allowed:
+        raise ValueError(f"fields must be a non-empty subset of {sorted(allowed)}")
+    values = dict(fields)
+    if "portfolio_value" in values:
+        values["portfolio_value"] = float(values["portfolio_value"])
+    if "notes" in values:
+        values["notes"] = values["notes"] or None
+    cur = conn.execute(
+        f"UPDATE drawdown_log SET {', '.join(f'{k} = ?' for k in values)} WHERE date = ?",
+        (*values.values(), iso_date(date)))
+    if cur.rowcount != 1:
+        raise KeyError(iso_date(date))
 
 
 def drawdown_add(conn: sqlite3.Connection, date, portfolio_value: float,

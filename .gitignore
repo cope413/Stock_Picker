@@ -41,6 +41,7 @@ swing/outputs/
 landry.db
 landry.db-wal
 landry.db-shm
+.landry-gen-*.xlsx
 
 # Web UI auth (secrets — never commit)
 webapp_users.json

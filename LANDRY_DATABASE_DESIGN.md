@@ -746,3 +746,71 @@ workbook.
 git-tracked backup; the cross-machine story before Turso; merging this branch with `main` (22
 commits behind). One new question: with two tabs generated, does cutover flip them together or one
 at a time?
+
+## Phase C, step 3 — cutover mechanics built, not switched on (2026-10-02)
+
+Steps 1-2 proved the tabs can be generated. This step builds the one way entries get written
+once they are, so cutover becomes a decision to flip rather than more work. **Still not merged
+and not switched on:** entries keep going into the xlsx directly until Alan says otherwise.
+
+**What exists.**
+- `landry/ledger.py`: `apply_write` (guard → write → render → swap), `pull`, `regenerate`,
+  `status`, and the entry operations `journal_add`, `journal_edit`, `drawdown_add`, `drawdown_edit`.
+- CLI: `python -m landry journal add|edit`, `drawdown add|edit`, `db status|pull|regenerate`. Notes
+  come from `--notes`, `--notes-file path` or `--notes-file -` (stdin), so multi-paragraph entries
+  need no shell quoting. `journal edit --row N` addresses an entry by the sheet row the Journal
+  itself cites ("row 62"); that is id + 2, because entries are append-only and gapless.
+- `models.py`: `journal_update`, `drawdown_update`, and a **schema version** (`PRAGMA user_version`,
+  now 2). A database built by an older schema is refused with "derived file — delete and rebuild"
+  instead of dying on a missing column; the worktree still held a 9/11 `landry.db`.
+- 29 new tests (`tests/test_landry_ledger.py`); suite 419 passed, the same 4 stale failures.
+
+**How a write works, and why each guard.**
+1. *Excel check.* Refuse if a `~$<workbook>` lock file exists and an Excel process is running. A lock
+   file alone isn't enough: `~$CANDIDATES LIST.xlsx` sat stale for days. `--force` overrides.
+2. *Drift guard.* Regenerate the tab in memory from the database and compare **content** (formulas
+   included) with the workbook; refuse on any difference, naming both ways out. Formatting differences
+   are not drift — regenerating resets them, which is the point (a hand-toggled wrap can't reach a commit).
+3. *Write in a transaction, render into a temp copy beside the workbook, recalc the copy, then
+   `os.replace` it over the workbook and commit.* A failure anywhere — including a recalc that reports
+   formula errors — rolls the database back and leaves the workbook byte-for-byte untouched, with no
+   stray temp file (tested). File mode is preserved across the swap.
+4. *No database yet* (a fresh checkout; it is gitignored): the first write builds one from the
+   workbook's own tabs.
+
+**The model, plainly.** Until Turso, the **committed workbook is the persisted source of truth** and
+`landry.db` is a local write-through cache the guard keeps honest, rebuildable any time with `db pull`.
+That is why there is no separate git-tracked export yet: the generated workbook is committed after
+every write, so git history already holds every state. A text export (JSONL/CSV) would make Journal
+entries reviewable in `git diff` instead of as binary xlsx changes — easy to add, not needed for safety.
+When Turso arrives this inverts: the database becomes the truth, the workbook pure output, and the
+drift guard flips direction.
+
+**Dry run: a scratch copy of the live workbook, through the real CLI** (journal add with stdin notes,
+drawdown add, journal edit by row, drawdown edit, status, a duplicate date). The first write built the
+database from the workbook (74 + 3 entries); a write takes ~13 seconds. Against an untouched copy,
+**exactly 11 cells differ** (Journal row 77, Drawdown row 6) and 19 of 21 sheets are identical; print
+setup, footers, print areas, gridlines and freeze panes are identical on all 21; the audit baseline is
+unchanged (the same 3 standing failures); the duplicate date was refused cleanly.
+
+**One visible, one-time change on the first real write.** Regenerating normalizes the *existing*
+Journal rows too: column B's wrap turns on for the 263 rows that lack it, and 58 of the 72 existing
+entries get new fitted heights (the compact one-line view set on rows 54-74 goes away). Intended, but
+the Journal deserves a look after the first write.
+
+**Retired.** `landry export --drawdown` now exits with a pointer to `drawdown add`. It wrote static
+values from `drawdown.py`'s regime logic over the Drawdown Log's formulas (first 40 rows only) into an
+exported copy — a competing writer with different semantics. `export_workbook`'s `drawdown` parameter
+and its test stay (library-level, tested); delete in a later cleanup.
+
+**To switch on** (each step needs Alan's say-so): (1) commit this on the branch; (2) merge `main` into
+the branch — a `git merge-tree` dry run shows **no conflicts** (24 commits in, 5 out) — and re-run the
+suite there; (3) merge the branch into `main`; (4) in `main`'s CLAUDE.md replace the hand-edit
+instructions with: *Journal and Portfolio Drawdown Log entries are written only with
+`python -m landry journal add|edit` / `drawdown add|edit`, never by editing the tab; if `db status`
+shows drift, resolve it first (`db pull` = the workbook is right, `db regenerate` = the database is
+right); run `python -m landry audit` before committing the result*; (5) look at the Journal after the
+first write.
+
+**Not decided / later:** a diffable text export; the Turso inversion; more tabs (Open Items and
+Process Checklist are the simplest Table tabs left; the formula-heavy ones come after, per the plan).

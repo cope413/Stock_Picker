@@ -11,10 +11,14 @@
     python -m landry reject NVDA competitive_moat --by "Taylor" --reason "..."
     python -m landry daily               # today's action items (Rules 30-44)
     python -m landry export              # fill a copy of the Excel workbook
-    python -m landry export --drawdown   # ...and append today's portfolio value to the Drawdown Log
     python -m landry import --by "Taylor"  # seed score store from workbook
     python -m landry doctor              # check this machine is ready to edit the workbook
     python -m landry audit               # check the workbook itself for structural drift
+    python -m landry journal add --label DCA-CATCHUP-2 --notes-file -   # append a Journal entry (notes on stdin)
+    python -m landry journal edit --row 62 --notes "SUPERSEDED ..."     # change an entry by its sheet row
+    python -m landry drawdown add --date 2026-10-31 --value 780000      # log a portfolio value
+    python -m landry db status           # does the database agree with the generated tabs?
+    python -m landry db pull|regenerate  # resolve disagreement: workbook wins | database wins
 
 `score` reads analyst scores from the companion workbook (default: the
 highest-numbered LANDRY_SYSTEM_WORKBOOK_<N>.xlsx beside the repo, currently
@@ -32,6 +36,12 @@ loop scoring workflow against landry_scores.json: `draft` proposes
 quantitative rubric drafts (and, with an evidence file + API key, AI
 drafts for the judgment indicators); nothing reaches a composite until
 `approve` records who approved it and when.
+
+`journal`, `drawdown` and `db` are the Phase C write path (LANDRY_DATABASE_DESIGN.md):
+an entry goes into landry.db and the Journal / Portfolio Drawdown Log tab is regenerated
+from it, atomically, instead of an ad hoc openpyxl edit. Every write refuses if Excel has
+the workbook open or if the database and the tab disagree; `db pull` / `db regenerate`
+resolve a disagreement in either direction. Run `audit` before committing the result.
 
 `audit` checks the workbook itself for structural drift rather than the
 environment `doctor` checks: Table refs that have fallen behind their
@@ -292,26 +302,10 @@ def _cmd_export(args) -> int:
             kwargs["approved_scores"] = approved
             kwargs["scored_date"] = dt.date.today()
     if args.drawdown:
-        try:
-            import datetime as dt
-
-            import pandas as pd
-
-            from landry.drawdown import regime_frame
-            from landry.xlsx_io import (read_drawdown_log, read_positions,
-                                        total_portfolio_value)
-            today = pd.Timestamp(dt.date.today())
-            existing = read_drawdown_log(wb)
-            today_value = total_portfolio_value(read_positions(wb))
-            existing = existing[existing.index.normalize() != today]
-            series = pd.concat([existing, pd.Series(
-                [today_value], index=[today], name="value")]).sort_index()
-            kwargs["drawdown"] = regime_frame(series)
-            print(f"drawdown: {len(existing)} prior day(s) + today "
-                 f"(${today_value:,.2f}) -> "
-                 f"{kwargs['drawdown'].iloc[-1]['status']}")
-        except Exception as e:
-            print(f"! drawdown fill skipped: {e}")
+        sys.exit("export --drawdown is retired: it wrote static values from drawdown.py's "
+                 "regime logic over the Drawdown Log's formulas, and only the first 40 "
+                 "rows. Log a value with `landry drawdown add --date YYYY-MM-DD --value N` "
+                 "instead (landry/ledger.py).")
     out = export_workbook(wb, out_path=args.out, **kwargs)
     print(f"filled workbook written: {out}")
     return 0
@@ -363,6 +357,102 @@ def _cmd_refresh(args) -> int:
     path = write_snapshot(snap, _REPO)
     print(f"\nsnapshot written: {os.path.basename(path)}")
     return 0
+
+
+def _read_notes(args):
+    if args.notes is not None and args.notes_file is not None:
+        sys.exit("--notes and --notes-file are mutually exclusive")
+    if args.notes_file is None:
+        return args.notes
+    if args.notes_file == "-":
+        return sys.stdin.read().rstrip("\n")
+    with open(args.notes_file, encoding="utf8") as f:
+        return f.read().rstrip("\n")
+
+
+def _cmd_ledger(args) -> int:
+    from landry import generate, ledger, models
+    wb = args.workbook or _default_workbook()
+    db = args.db or models.DEFAULT_DB_PATH
+    kw = dict(recalc=not args.no_recalc, force=args.force)
+    try:
+        if args.cmd == "journal" and args.action == "add":
+            result = ledger.journal_add(wb, db, _read_notes(args), date=args.date,
+                                        label=args.label, **kw)
+        elif args.cmd == "journal":
+            fields = {k: v for k, v in (("date", args.date), ("label", args.label),
+                                        ("notes", _read_notes(args))) if v is not None}
+            if not fields:
+                sys.exit("nothing to change: pass --date, --label and/or --notes")
+            result = ledger.journal_edit(wb, db, args.row, fields, **kw)
+        elif args.action == "add":
+            result = ledger.drawdown_add(wb, db, args.date, args.value, args.notes, **kw)
+        else:
+            fields = {k: v for k, v in (("portfolio_value", args.value),
+                                        ("notes", args.notes)) if v is not None}
+            if not fields:
+                sys.exit("nothing to change: pass --value and/or --notes")
+            result = ledger.drawdown_edit(wb, db, args.date, fields, **kw)
+    except (ledger.LedgerError, models.SchemaMismatch, generate.GenerateError,
+            ValueError) as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    print(f"{result['tab']} row {result['row']} {'added' if args.action == 'add' else 'changed'}.")
+    if result.get("built_db_from_workbook"):
+        print(f"  (no database yet: built {os.path.basename(db)} from the workbook first -- "
+              f"{result['built_db_from_workbook']})")
+    if result.get("recalc"):
+        print(f"  recalc: {result['recalc'].get('status')}, "
+              f"{result['recalc'].get('total_errors')} errors")
+    if result.get("capped_rows"):
+        print(f"  note: Journal rows {result['capped_rows']} exceed Excel's 409.5pt row height "
+              f"and show their first lines in-cell")
+    print("Next: `python -m landry audit`, then commit the workbook.")
+    return 0
+
+
+def _cmd_db(args) -> int:
+    from landry import generate, ledger, models
+    wb = args.workbook or _default_workbook()
+    db = args.db or models.DEFAULT_DB_PATH
+    try:
+        if args.action == "pull":
+            counts = ledger.pull(wb, db)
+            print(f"{db}: rebuilt from {os.path.basename(wb)} -- "
+                  + ", ".join(f"{k}: {n} entries" for k, n in counts.items()))
+            return 0
+        if args.action == "regenerate":
+            result = ledger.regenerate(wb, db, recalc=not args.no_recalc, force=args.force)
+            for key, info in result["tabs"].items():
+                print(f"{key}: {info['rows']} entries written from the database")
+            if result.get("recalc"):
+                print(f"  recalc: {result['recalc'].get('status')}, "
+                      f"{result['recalc'].get('total_errors')} errors")
+            print("Next: `python -m landry audit`, then commit the workbook.")
+            return 0
+        if not os.path.exists(db):
+            print(f"no database at {db} yet -- `python -m landry db pull` builds it from the workbook")
+            return 1
+        report = ledger.status(wb, db)
+    except (ledger.LedgerError, models.SchemaMismatch, generate.GenerateError) as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    drifted = False
+    for key, info in report.items():
+        line = f"{key}: {info['db_rows']} entries in the database; "
+        if info["value_diffs"]:
+            drifted = True
+            first = "; ".join(f"{w}: {str(a)[:30]!r} (workbook) vs {str(b)[:30]!r} (database)"
+                              for _, w, a, b in info["value_diffs"][:2])
+            line += f"CONTENT DIFFERS in {len(info['value_diffs'])} cell(s) -- {first}"
+        else:
+            line += "content in sync"
+        if info["format_diffs"]:
+            line += f"; {len(info['format_diffs'])} formatting difference(s) the next write resets"
+        print(line)
+    if drifted:
+        print("Resolve with `landry db pull` (workbook is right) or `landry db regenerate` (database is right).")
+    return 1 if drifted else 0
 
 
 def main(argv=None) -> int:
@@ -424,9 +514,7 @@ def main(argv=None) -> int:
     ex.add_argument("--scores", action="store_true",
                     help="also write approved scores to the Scoring tab")
     ex.add_argument("--drawdown", action="store_true",
-                    help="append today's portfolio value (Current Positions "
-                    "total) to the existing Drawdown Log history and refill "
-                    "the regime columns")
+                    help="RETIRED -- use `landry drawdown add`")
 
     im = sub.add_parser("import", help="seed the score store from the workbook")
     im.add_argument("--workbook", default=None)
@@ -442,8 +530,60 @@ def main(argv=None) -> int:
                         "references, page setup, Schema Reference)")
     au.add_argument("--workbook", default=None)
 
+    def _ledger_flags(sp, writes=True):
+        sp.add_argument("--workbook", default=None)
+        sp.add_argument("--db", default=None, help="default: landry.db at the repo root")
+        if writes:
+            sp.add_argument("--no-recalc", action="store_true",
+                            help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
+            sp.add_argument("--force", action="store_true",
+                            help="write even if Excel appears to have the workbook open")
+
+    def _notes_flags(sp):
+        sp.add_argument("--notes", default=None)
+        sp.add_argument("--notes-file", default=None,
+                        help="read the notes from a file, or '-' for stdin (no shell quoting)")
+
+    jn = sub.add_parser("journal", help="add or edit Journal entries (regenerates the tab)")
+    jsub = jn.add_subparsers(dest="action", required=True)
+    ja = jsub.add_parser("add", help="append an entry")
+    ja.add_argument("--date", default=None, help="YYYY-MM-DD (default: today)")
+    ja.add_argument("--label", default=None, help="the Ticker column: a ticker, a list, or an event label")
+    _notes_flags(ja)
+    _ledger_flags(ja)
+    je = jsub.add_parser("edit", help="change an entry by its sheet row (the number the Journal cites)")
+    je.add_argument("--row", type=int, required=True)
+    je.add_argument("--date", default=None)
+    je.add_argument("--label", default=None, help="'' clears it")
+    _notes_flags(je)
+    _ledger_flags(je)
+
+    ddp = sub.add_parser("drawdown", help="add or edit Portfolio Drawdown Log entries (regenerates the tab)")
+    dsub = ddp.add_subparsers(dest="action", required=True)
+    da = dsub.add_parser("add", help="log a portfolio value (one per date)")
+    da.add_argument("--date", required=True, help="YYYY-MM-DD")
+    da.add_argument("--value", type=float, required=True, help="total portfolio value, $")
+    da.add_argument("--notes", default=None)
+    _ledger_flags(da)
+    de = dsub.add_parser("edit", help="change the entry for a date")
+    de.add_argument("--date", required=True)
+    de.add_argument("--value", type=float, default=None)
+    de.add_argument("--notes", default=None)
+    _ledger_flags(de)
+
+    dbp = sub.add_parser("db", help="keep landry.db and the generated tabs in sync")
+    dbsub = dbp.add_subparsers(dest="action", required=True)
+    _ledger_flags(dbsub.add_parser("status", help="does the database agree with the tabs?"), writes=False)
+    _ledger_flags(dbsub.add_parser("pull", help="rebuild the database from the workbook (workbook wins)"),
+                  writes=False)
+    _ledger_flags(dbsub.add_parser("regenerate", help="rewrite the tabs from the database (database wins)"))
+
     args = p.parse_args(argv)
 
+    if args.cmd in ("journal", "drawdown"):
+        return _cmd_ledger(args)
+    if args.cmd == "db":
+        return _cmd_db(args)
     if args.cmd == "doctor":
         return _cmd_doctor(args)
     if args.cmd == "audit":
