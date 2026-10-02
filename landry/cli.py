@@ -128,6 +128,8 @@ def _cmd_draft(args) -> int:
             store.propose(ticker, d, source="quant_draft")
             print(f"proposed quant draft {name}: {d.score} ({d.confidence}) — "
                   f"{d.rationale}")
+        for w in metrics.warnings:
+            print(f"note: {w}")
     except Exception as e:
         print(f"! quantitative drafts unavailable: {e}")
 

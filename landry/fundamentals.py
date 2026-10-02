@@ -91,6 +91,22 @@ def fcf_series(inp: FundamentalInputs) -> List[float]:
             for i in range(-n, 0)]
 
 
+def capex_from_reported_fcf(cfo: Sequence[float],
+                            reported_fcf: Sequence[float]) -> List[float]:
+    """Capex (positive) per fiscal year as CFO minus the cash-flow statement's
+    own reported Free Cash Flow, for filers whose statement carries a Free
+    Cash Flow row but no Capital Expenditure row. Found 2026-10-02 on VEEV:
+    yfinance reports FCF == CFO every year, so capex derives to zero -- and
+    without this fallback fcf_series() is empty and the FCF yield, FCF
+    margin and valuation drafts vanish with no message at all. Both series
+    chronological; empty unless they cover the same number of years, since
+    each is NaN-dropped independently and a length mismatch means the years
+    can't be trusted to line up."""
+    if not cfo or len(cfo) != len(reported_fcf):
+        return []
+    return [max(c - f, 0.0) for c, f in zip(cfo, reported_fcf)]
+
+
 def net_debt(inp: FundamentalInputs) -> Optional[float]:
     if inp.total_debt is None:
         return None
@@ -502,6 +518,11 @@ def compute_metrics(inp: FundamentalInputs) -> FundamentalMetrics:
     m = FundamentalMetrics(ticker=inp.ticker, warnings=list(inp.warnings))
     fcfs = fcf_series(inp)
     m.years_of_data = len(fcfs)
+    if not fcfs:
+        m.warnings.append(
+            "no FCF series (cash-flow statement lacks operating cash flow or "
+            "capex) -- FCF yield, FCF margin and valuation drafts could not "
+            "be produced; score those by hand from filings")
     if fcfs:
         m.fcf = fcfs[-1]
         m.fcf_trend = trend_direction(fcfs)
@@ -599,6 +620,14 @@ class YFinanceFundamentals:
         inp.cfo = _row(cf, "Operating Cash Flow",
                        "Cash Flow From Continuing Operating Activities")
         inp.capex = [abs(v) for v in _row(cf, "Capital Expenditure")]
+        if not inp.capex:
+            inp.capex = capex_from_reported_fcf(inp.cfo, _row(cf, "Free Cash Flow"))
+            if inp.capex:
+                inp.warnings.append(
+                    "no 'Capital Expenditure' row in the cash-flow statement -- "
+                    "capex derived as CFO minus the statement's reported Free "
+                    "Cash Flow (zero where the two match), so FCF may be "
+                    "overstated")
         inp.sbc = [abs(v) for v in _row(cf, "Stock Based Compensation")]
         inp.revenue = _row(is_, "Total Revenue", "Operating Revenue")
         debt = _row(bs, "Total Debt")

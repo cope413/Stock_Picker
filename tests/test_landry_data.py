@@ -34,8 +34,10 @@ from landry.drawdown import band_level, track_regime
 from landry.fundamentals import (
     AnalystRecPeriod,
     FundamentalInputs,
+    YFinanceFundamentals,
     analyst_consensus_band,
     cagr,
+    capex_from_reported_fcf,
     combined_band,
     compute_metrics,
     compute_wacc,
@@ -622,6 +624,57 @@ def test_thin_history_degrades_confidence():
     # analyst consensus confidence is driven by analyst sample size, not
     # fiscal-year history -- 27-equivalent sample here stays M
     assert drafts["analyst_consensus"].confidence == "M"
+
+
+def test_capex_from_reported_fcf_derives_and_rejects_mismatch():
+    assert capex_from_reported_fcf([100, 120], [90, 105]) == [10, 15]
+    assert capex_from_reported_fcf([100, 120], [100, 120]) == [0.0, 0.0]   # VEEV: FCF == CFO
+    assert capex_from_reported_fcf([100, 120], [130, 120]) == [0.0, 0.0]   # never negative capex
+    assert capex_from_reported_fcf([100, 120, 140], [90, 105]) == []       # years can't line up
+    assert capex_from_reported_fcf([], []) == []
+
+
+def test_missing_capex_row_falls_back_to_reported_fcf(monkeypatch):
+    """VEEV's yfinance cash-flow statement has a Free Cash Flow row but no
+    Capital Expenditure row. The FCF yield / margin / valuation drafts used
+    to vanish with no message (found 2026-10-02)."""
+    cols = [pd.Timestamp(f"{y}-01-31") for y in (2026, 2025, 2024, 2023)]  # most recent first
+    cfo = [1415.2, 1090.1, 911.3, 780.5]
+    sbc = [472.7, 437.4, 393.7, 351.9]
+    rev = [3195.0, 2747.0, 2364.0, 2155.0]
+
+    class FakeTicker:
+        def __init__(self, ticker):
+            self.cashflow = pd.DataFrame(
+                {c: [o, o, s] for c, o, s in zip(cols, cfo, sbc)},
+                index=["Operating Cash Flow", "Free Cash Flow",
+                       "Stock Based Compensation"])
+            self.income_stmt = pd.DataFrame(
+                {c: [r] for c, r in zip(cols, rev)}, index=["Total Revenue"])
+            self.balance_sheet = pd.DataFrame(
+                {cols[0]: [0.0, 500.0]},
+                index=["Total Debt", "Cash And Cash Equivalents"])
+            self.fast_info = {"marketCap": 44254.0}
+            self.info = {}
+            self.recommendations = None
+
+    monkeypatch.setattr("yfinance.Ticker", FakeTicker)
+    inp = YFinanceFundamentals().get("VEEV")
+    assert inp.capex == [0.0] * 4
+    assert any("Capital Expenditure" in w for w in inp.warnings)
+    m = compute_metrics(inp)
+    assert m.fcf == pytest.approx(1415.2 - 472.7)            # normalized: CFO - capex - SBC
+    drafts = draft_quant_scores(m)
+    assert {"fcf_yield_trend", "fcf_margin_trend",
+            "revenue_growth_consistency"} <= set(drafts)
+
+
+def test_compute_metrics_warns_when_no_fcf_series():
+    inp = FundamentalInputs("X", market_cap=1000.0, revenue=[100, 120, 140],
+                            cfo=[50, 60, 70])               # no capex at all
+    m = compute_metrics(inp)
+    assert any("no FCF series" in w for w in m.warnings)
+    assert "fcf_yield_trend" not in draft_quant_scores(m)
 
 
 # --------------------------------------------------------------------------- #

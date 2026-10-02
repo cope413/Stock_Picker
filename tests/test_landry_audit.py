@@ -1,6 +1,7 @@
 """Offline tests for landry.audit -- synthetic workbooks only, no
 dependency on the real LANDRY_SYSTEM_WORKBOOK_*.xlsx."""
 
+import json
 import subprocess
 
 import openpyxl
@@ -8,6 +9,7 @@ from openpyxl.worksheet.table import Table, TableColumn
 
 from landry.audit import (
     check_merges_inside_tables,
+    check_scoring_verification,
     check_row_height_ceiling,
     check_cross_tab_references,
     check_page_setup_vs_last_commit,
@@ -229,3 +231,77 @@ def test_merges_inside_tables_allows_a_merge_just_below_the_table(tmp_path):
     p = tmp_path / "wb.xlsx"
     wb.save(p)
     assert [c.ok for c in check_merges_inside_tables(str(p))] == [True]
+
+
+# --------------------------------------------------------------------------- #
+# scoring_verification: the same-second "bulk import" fingerprint
+# --------------------------------------------------------------------------- #
+
+_TIER1 = ("fcf_yield_trend", "revenue_growth_consistency", "competitive_moat",
+          "revenue_visibility", "fcf_margin_trend")
+
+
+def _scoring_fixture(tmp_path, entries):
+    """A one-ticker Scoring tab (XYZ with a real Tier 1 Wtd Avg in col N) plus
+    a landry_scores.json whose approved section is `entries`:
+    [(indicator, source, approved_at, rationale), ...]."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Scoring"
+    ws.append(["title"])
+    ws.append(["Ticker"])
+    ws.cell(row=3, column=1, value="XYZ")
+    ws.cell(row=3, column=14, value=3.5)
+    wb_path = tmp_path / "wb.xlsx"
+    wb.save(wb_path)
+    approved = {ind: {"indicator": ind, "score": 4, "confidence": "M",
+                      "approved_by": "Alan", "approved_at": at, "source": src,
+                      "rationale": why}
+                for ind, src, at, why in entries}
+    (tmp_path / "landry_scores.json").write_text(json.dumps(
+        {"tickers": {"XYZ": {"pending": {}, "approved": approved, "rejected": {}}},
+         "audit": []}))
+    return str(wb_path)
+
+
+def _bulk(checks):
+    return [c for c in checks if c.name.endswith("/bulk_import")]
+
+
+def test_bulk_import_flagged_when_same_second_manual_entries_share_a_rationale(tmp_path):
+    ts = "2026-09-09T00:13:54+00:00"
+    wb = _scoring_fixture(tmp_path, [
+        (ind, "manual", ts, "BACKFILLED after the fact") for ind in _TIER1[:3]])
+    flagged = _bulk(check_scoring_verification(wb, repo_dir=str(tmp_path)))
+    assert len(flagged) == 1 and not flagged[0].ok
+    assert "XYZ" in flagged[0].name
+
+
+def test_bulk_import_flagged_when_same_second_manual_entries_have_no_rationale(tmp_path):
+    ts = "2026-09-09T00:13:54+00:00"
+    wb = _scoring_fixture(tmp_path, [
+        ("competitive_moat", "manual", ts, "a genuine, specific note"),
+        ("revenue_visibility", "manual", ts, ""),
+        ("management_quality", "manual", ts, "another genuine, specific note")])
+    assert len(_bulk(check_scoring_verification(wb, repo_dir=str(tmp_path)))) == 1
+
+
+def test_bulk_import_not_flagged_for_a_genuine_review_written_in_one_call(tmp_path):
+    """VEEV, 2026-10-02: three researched judgments, each with its own
+    evidence-citing rationale, approved in one scripted call (same second)."""
+    ts = "2026-10-02T21:28:47+00:00"
+    wb = _scoring_fixture(tmp_path, [
+        ("competitive_moat", "manual", ts, "Switching costs, 12 of top-20 committed ..."),
+        ("revenue_visibility", "manual", ts, "Subscription 82.6% of Q2 revenue ..."),
+        ("management_quality", "manual", ts, "Founder-CEO, aligned pay, buybacks ...")])
+    checks = check_scoring_verification(wb, repo_dir=str(tmp_path))
+    assert _bulk(checks) == []
+
+
+def test_bulk_import_ignores_quant_drafts_and_pairs(tmp_path):
+    ts = "2026-09-13T21:02:14+00:00"
+    wb = _scoring_fixture(tmp_path, [
+        (ind, "quant_draft", ts, "same text") for ind in _TIER1[:3]] + [
+        ("management_quality", "manual", ts, "same text"),
+        ("roic_vs_wacc", "manual", ts, "same text")])        # only two manual in that second
+    assert _bulk(check_scoring_verification(wb, repo_dir=str(tmp_path))) == []

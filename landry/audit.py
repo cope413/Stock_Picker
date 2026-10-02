@@ -435,7 +435,18 @@ def check_scoring_verification(path: str, repo_dir: Optional[str] = None) -> Lis
         This is exactly what happened to V on 2026-09-09: all 9 of its
         non-Tier-1-quant indicators were "approved" (source=manual) in
         the same second, nine days after it was bought, without anyone
-        actually re-deriving them."""
+        actually re-deriving them.
+
+        Refined 2026-10-02: a same-second manual group only counts when
+        it also looks mechanical -- an empty rationale, or the same
+        rationale text on two or more of its entries (import_scores
+        writes "imported from <workbook> (scored ...)" on every
+        indicator; V's backfill wrote one identical "BACKFILLED ..." note
+        on all nine). Found when VEEV's three researched judgments -- each
+        with its own evidence-citing rationale, approved by Alan in one
+        message -- were written by one scripted call, landed in the same
+        second, and tripped the timestamp-only version of this check on a
+        genuine review."""
     from collections import defaultdict
     from landry.approvals import ScoreStore
     from landry.xlsx_io import _COL_TIER1_AVG
@@ -458,10 +469,13 @@ def check_scoring_verification(path: str, repo_dir: Optional[str] = None) -> Lis
         by_time = defaultdict(list)
         for ind, entry in rec.get("approved", {}).items():
             if entry.get("source") == "manual" and entry.get("approved_at"):
-                by_time[entry["approved_at"]].append(ind)
-        for ts, inds in by_time.items():
-            if len(inds) >= 3:
-                bulk_by_ticker[ticker] = (ts, inds)
+                by_time[entry["approved_at"]].append(
+                    (ind, (entry.get("rationale") or "").strip()))
+        for ts, items in by_time.items():
+            whys = [why for _, why in items]
+            mechanical = not all(whys) or len(set(whys)) < len(whys)
+            if len(items) >= 3 and mechanical:
+                bulk_by_ticker[ticker] = (ts, [ind for ind, _ in items])
 
     wb = openpyxl.load_workbook(path, data_only=True)
     ws = wb["Scoring"]
