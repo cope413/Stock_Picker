@@ -218,16 +218,15 @@ CREATE TABLE IF NOT EXISTS entry_checklist (
     recommended_action       TEXT
 );
 
+-- The Portfolio Drawdown Log tab's INPUTS only: date, value, notes. Running
+-- peak, drawdown %, status, cash floor and new-position rule are derived (the
+-- tab's formulas) and deliberately not stored -- a stored copy can only drift
+-- from them. Generated in DATE order: the running peak is a chronological chain.
 CREATE TABLE IF NOT EXISTS drawdown_log (
-    id                 INTEGER PRIMARY KEY,
-    date               TEXT NOT NULL UNIQUE,
-    portfolio_value    REAL,
-    running_peak       REAL,
-    drawdown_pct       REAL,
-    status             TEXT,
-    cash_floor         TEXT,
-    new_position_rule  TEXT,
-    notes              TEXT
+    id               INTEGER PRIMARY KEY,
+    date             TEXT NOT NULL UNIQUE,
+    portfolio_value  REAL NOT NULL,
+    notes            TEXT
 );
 
 -- Decision log (the Journal tab). Append-only and kept in WRITE order (id),
@@ -300,3 +299,20 @@ def journal_rows(conn: sqlite3.Connection) -> List[dict]:
     connection's row_factory)."""
     return [dict(id=i, date=d, label=l, notes=n) for i, d, l, n in conn.execute(
         "SELECT id, date, label, notes FROM journal ORDER BY id")]
+
+
+def drawdown_add(conn: sqlite3.Connection, date, portfolio_value: float,
+                 notes=None) -> int:
+    """Log one portfolio value; returns its id. One entry per date (a second
+    raises sqlite3.IntegrityError). Does not commit."""
+    cur = conn.execute(
+        "INSERT INTO drawdown_log (date, portfolio_value, notes) VALUES (?,?,?)",
+        (iso_date(date), float(portfolio_value), notes or None))
+    return cur.lastrowid
+
+
+def drawdown_rows(conn: sqlite3.Connection) -> List[dict]:
+    """Every entry in DATE order (not write order: a backfilled date must
+    land before later ones, since the running peak chains chronologically)."""
+    return [dict(id=i, date=d, portfolio_value=v, notes=n) for i, d, v, n in conn.execute(
+        "SELECT id, date, portfolio_value, notes FROM drawdown_log ORDER BY date")]

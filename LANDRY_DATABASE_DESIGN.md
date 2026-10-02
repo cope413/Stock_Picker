@@ -684,3 +684,65 @@ are five live formulas in all 40 pre-built rows. Action Items reads the Status c
 bands — don't substitute one for the other. The DB should store inputs only and the generator
 should write the same formulas row-relative (no Python re-implementation to drift), keeping static
 values for the whole-workbook cutover at the end of Phase C.
+
+## Phase C, step 2 — Portfolio Drawdown Log generation built and validated (2026-10-02)
+
+Second tab of the incremental rollout, the same day. Same status as step 1: **not merged,
+not cut over** — the xlsx is still the source of truth; this is the generator and the proof.
+
+**What changed.**
+- `generate.py` refactored: a second tab made the shared machinery worth extracting (layout
+  guard, Table growth, diffing, workbook-level driver) while each tab keeps its own explicit
+  function (`generate_journal`, `generate_drawdown_log`). New CLI subcommands `drawdown` and
+  `all`; `verify` covers every generated tab the workbook has (`--tab` for one).
+  `generate_workbook` now returns `{"tabs": {...}, "recalc": ..., "capped_rows": [...]}`.
+- `models.py`: `drawdown_log(id, date UNIQUE, portfolio_value NOT NULL, notes)` — **inputs
+  only**. Running peak, drawdown %, status, cash floor and new-position rule are no longer
+  stored; a stored copy can only drift from the tab's formulas. `drawdown_add`, and
+  `drawdown_rows` in **date order**, not write order: the running peak is a chronological
+  chain, so a backfilled date has to land in place.
+- `xlsx_io.read_drawdown_log_inputs` replaces `read_drawdown_log_full`: unbounded (it already
+  was), reads only A/B/H, and raises on a half-filled row instead of skipping it.
+  `read_drawdown_log`, the minimal contract the Part 7 regime logic uses, is untouched.
+- 11 new tests (31 in the file), including one that runs the generated formulas through
+  LibreOffice and checks they compute Normal/Elevated/Severe/Critical, the cash floors, the
+  new-position rules and Action Items' readout.
+
+**Decisions, and why.**
+1. *Formulas, not static values.* The generator writes the tab's own row-relative formulas into
+   every pre-formatted row (the first row is special: no previous peak to chain from) and stores
+   nothing derived. Computing in Python and writing static values would mean re-implementing the
+   bands where they can drift from the sheet, and gains nothing until the whole workbook is
+   generated; static values wait for the end of Phase C. **Consequence:** the Part 7 bands,
+   labels, cash floors and new-position rules now live in `generate.py`. Change them there, not by
+   hand in the sheet — the next regeneration would revert a hand edit (`verify` shows it as a
+   formula difference first).
+2. *`drawdown.py` is not the source.* The thresholds agree (10/20/30%), but the wording differs,
+   its 5-day-entry/10-day-exit state machine isn't what the log's instantaneous bands do, and the
+   exact boundaries go the other way: `band_level` uses `<` where the sheet has `>=`, so a
+   portfolio at exactly -10.0% is Elevated in Python and Normal in the sheet. Harmless in practice
+   (it takes an exact boundary), but worth knowing before anyone "reconciles" the two. A test pins
+   only the four band names across them.
+3. *Growth keeps everything keyed to the last row in step* — more than the Journal needed: the
+   status conditional-format range, and **other tabs' fixed-range formulas**. Action Items reads the
+   log as `'Portfolio Drawdown Log'!E3:E42`; those references are rewritten only where they name
+   this sheet and end at the old last row (the cross-tab-drift class, handled instead of rediscovered).
+
+**Validation, against `main`'s live workbook (74 Journal entries, 3 Drawdown entries).** `verify`:
+the Drawdown Log is **identical** — values, formula text for all five derived columns, formatting,
+conditional format, Table. End to end, both tabs regenerated from the DB then the real recalc,
+against an untouched control: **25,356 cells across 21 sheets, 0 differences**; formula text in the
+Drawdown tab and Action Items identical; Action Items reads Normal / 0% / 5-15%. Growth: 304 Journal
+and 43 Drawdown entries (past the 300 and 40 pre-formatted rows) extend both Tables, the conditional
+format, Action Items' three formulas (`E3:E45`) and Schema Reference; the audit's `table_ref` (10/10)
+and `schema_ref` (20/20) pass. Suite: 390 passed; the same 4 stale failures as before.
+
+**Found along the way (not DB work).** Two stale rule citations the 10/1 renumbering sweep missed:
+the Drawdown Log's own title row and Schema Reference D50 both still said "Rules 36-37" (now
+38-39). Found by scanning every non-Journal tab for pre-renumbering rule numbers; fixed in the main
+workbook.
+
+**Still open before cutover** (unchanged from step 1): the write path, an edit path and a
+git-tracked backup; the cross-machine story before Turso; merging this branch with `main` (22
+commits behind). One new question: with two tabs generated, does cutover flip them together or one
+at a time?

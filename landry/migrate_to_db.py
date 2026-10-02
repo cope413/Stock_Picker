@@ -258,15 +258,9 @@ def migrate(workbook_path: str, db_path: str = models.DEFAULT_DB_PATH,
     counts["journal"] = len(journal)
     log(f"Journal: {len(journal)} rows")
 
-    drawdown = xlsx_io.read_drawdown_log_full(workbook_path)
+    drawdown = xlsx_io.read_drawdown_log_inputs(workbook_path)
     for d in drawdown:
-        conn.execute(
-            "INSERT OR REPLACE INTO drawdown_log (date, portfolio_value, "
-            "running_peak, drawdown_pct, status, cash_floor, "
-            "new_position_rule, notes) VALUES (?,?,?,?,?,?,?,?)",
-            (str(d["date"]), d["portfolio_value"], d["running_peak"],
-             d["drawdown_pct"], d["status"], d["cash_floor"],
-             d["new_position_rule"], d["notes"]))
+        models.drawdown_add(conn, d["date"], d["portfolio_value"], d["notes"])
     counts["drawdown_log"] = len(drawdown)
 
     conn.commit()

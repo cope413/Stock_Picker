@@ -443,22 +443,35 @@ def read_tax_loss_carryforward(path: str,
     return out
 
 
-def read_drawdown_log_full(path: str,
-                           sheet: str = "Portfolio Drawdown Log") -> List[dict]:
-    """Full column set for DB migration (read_drawdown_log above stays the
-    stable, minimal contract for Part 7 regime logic and isn't changed
-    here). A=Date,B=Value,C=RunningPeak,D=Drawdown%,E=Status,
-    F=RequiredCashFloor,G=NewPositionInitiation,H=Notes."""
+def read_drawdown_log_inputs(path: str,
+                             sheet: str = "Portfolio Drawdown Log") -> List[dict]:
+    """The tab's only inputs, for DB migration: A=Date, B=Portfolio Value,
+    H=Notes (read_drawdown_log above stays the stable, minimal contract for
+    Part 7 regime logic). C-G -- running peak, drawdown %, status, cash
+    floor, new-position rule -- are formulas derived from these, so they are
+    deliberately not read: a stored copy could only drift from them.
+
+    Unbounded (nothing sits below the Table) and loud: a half-filled row --
+    a date without a value, a value without a date, notes alone -- raises
+    instead of being skipped, because once the DB is the source of truth a
+    skipped row is a lost log entry."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, values_only=True):
-        if not r or r[0] is None or r[1] is None:
-            continue
-        out.append(dict(
-            date=r[0], portfolio_value=float(r[1]),
-            running_peak=r[2], drawdown_pct=r[3], status=r[4],
-            cash_floor=r[5], new_position_rule=r[6], notes=r[7]))
-    wb.close()
+    try:
+        for n, r in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+            date, value = r[0], r[1]
+            notes = r[7] if len(r) > 7 else None
+            if all(v in (None, "") for v in (date, value, notes)):
+                continue
+            if (not isinstance(date, datetime.date)
+                    or isinstance(value, bool) or not isinstance(value, (int, float))):
+                raise ValueError(
+                    f"{sheet} row {n}: needs a date in A and a number in B, got "
+                    f"{date!r} / {value!r} -- fix the sheet before migrating")
+            out.append(dict(date=date, portfolio_value=float(value),
+                            notes=notes if notes not in (None, "") else None))
+    finally:
+        wb.close()
     return out
 
 
