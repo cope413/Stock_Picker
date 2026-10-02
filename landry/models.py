@@ -14,8 +14,10 @@ approval history; this schema does not get to relearn it.
 
 from __future__ import annotations
 
+import datetime
 import os
 import sqlite3
+from typing import List
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(_HERE), "landry.db")
@@ -228,11 +230,17 @@ CREATE TABLE IF NOT EXISTS drawdown_log (
     notes              TEXT
 );
 
+-- Decision log (the Journal tab). Append-only and kept in WRITE order (id),
+-- never date-sorted: future-dated recurring-event placeholders would bury the
+-- real recent entries. `label` is the tab's "Ticker" column and is free text --
+-- a ticker, a comma list of them, or an event label like DCA-CATCHUP-1 -- so it
+-- is deliberately NOT a foreign key to tickers (it used to be, which made the
+-- migration invent a "ticker" for every event label).
 CREATE TABLE IF NOT EXISTS journal (
-    id      INTEGER PRIMARY KEY,
-    date    TEXT NOT NULL,
-    ticker  TEXT REFERENCES tickers(ticker),
-    notes   TEXT
+    id     INTEGER PRIMARY KEY,
+    date   TEXT NOT NULL,    -- ISO 8601: YYYY-MM-DD (full datetime only if a time is ever present)
+    label  TEXT,
+    notes  TEXT
 );
 """
 
@@ -261,3 +269,34 @@ def ensure_ticker(conn: sqlite3.Connection, ticker: str,
         "ON CONFLICT(ticker) DO UPDATE SET "
         "company=COALESCE(NULLIF(excluded.company, ''), tickers.company)",
         (ticker, company, as_of))
+
+
+def iso_date(value) -> str:
+    """Normalize a date, datetime, or ISO string to what TEXT date columns
+    store: ``YYYY-MM-DD``, or a full ISO datetime only if a time is present.
+    Raises on anything else rather than storing a string nothing can parse
+    back (the generated report round-trips these)."""
+    if isinstance(value, str):
+        value = datetime.datetime.fromisoformat(value)
+    if isinstance(value, datetime.datetime):
+        return (value.date().isoformat() if value.time() == datetime.time(0)
+                else value.isoformat())
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    raise TypeError(f"not a date: {value!r}")
+
+
+def journal_add(conn: sqlite3.Connection, date, label, notes) -> int:
+    """Append one entry; returns its id. Does not commit (the caller does,
+    like every other writer here). Order is id order, i.e. write order."""
+    cur = conn.execute(
+        "INSERT INTO journal (date, label, notes) VALUES (?,?,?)",
+        (iso_date(date), label or None, notes))
+    return cur.lastrowid
+
+
+def journal_rows(conn: sqlite3.Connection) -> List[dict]:
+    """Every entry in write order, as plain dicts (independent of the
+    connection's row_factory)."""
+    return [dict(id=i, date=d, label=l, notes=n) for i, d, l, n in conn.execute(
+        "SELECT id, date, label, notes FROM journal ORDER BY id")]

@@ -11,6 +11,7 @@ the source tabs before trusting the schema for anything real (Phase B).
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from typing import Optional
 
@@ -18,10 +19,24 @@ from landry import models, xlsx_io
 
 
 def migrate(workbook_path: str, db_path: str = models.DEFAULT_DB_PATH,
-           scores_json_path: Optional[str] = None, verbose: bool = True) -> dict:
-    """Populate ``db_path`` from ``workbook_path`` (and, if given, the
-    Part 12 approval JSON store). Returns a dict of table -> row count
-    inserted, for the caller to verify against the source tabs."""
+           scores_json_path: Optional[str] = None, verbose: bool = True,
+           overwrite: bool = False) -> dict:
+    """Populate a FRESH ``db_path`` from ``workbook_path`` (and, if given,
+    the Part 12 approval JSON store). Returns a dict of table -> row count
+    inserted, for the caller to verify against the source tabs.
+
+    Refuses to run against an existing database file unless ``overwrite``:
+    most tables here have no natural key, so a second run would silently
+    duplicate every row -- and once the Journal's source of truth is the DB
+    (LANDRY_DATABASE_DESIGN.md, Phase C), re-running this against that file
+    must not be able to double or clobber the log."""
+    if os.path.exists(db_path) and os.path.getsize(db_path) > 0:
+        if not overwrite:
+            raise FileExistsError(
+                f"{db_path} already exists -- migrate builds a fresh database. "
+                f"Pass overwrite=True (CLI: --overwrite) to replace it, or use "
+                f"a new path.")
+        os.remove(db_path)
     conn = models.init_db(db_path)
     counts: dict = {}
 
@@ -239,11 +254,7 @@ def migrate(workbook_path: str, db_path: str = models.DEFAULT_DB_PATH,
 
     journal = xlsx_io.read_journal(workbook_path)
     for j in journal:
-        if j["ticker"]:
-            models.ensure_ticker(conn, j["ticker"])
-        conn.execute(
-            "INSERT INTO journal (date, ticker, notes) VALUES (?,?,?)",
-            (str(j["date"]), j["ticker"], j["notes"]))
+        models.journal_add(conn, j["date"], j["ticker"], j["notes"])
     counts["journal"] = len(journal)
     log(f"Journal: {len(journal)} rows")
 
@@ -283,9 +294,10 @@ def main():
     ap.add_argument("--scores-json", default=None,
                     help="path to landry_scores.json (default: repo root, "
                          "if present)")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="replace --db if it already exists (default: refuse)")
     args = ap.parse_args()
 
-    import os
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     workbook = args.workbook or xlsx_io.latest_workbook(repo_root)
     if not workbook:
@@ -299,7 +311,7 @@ def main():
     print(f"Migrating {workbook} -> {args.db}")
     if scores_json:
         print(f"  + approvals from {scores_json}")
-    counts = migrate(workbook, args.db, scores_json)
+    counts = migrate(workbook, args.db, scores_json, overwrite=args.overwrite)
 
     print("\nRow counts:")
     for table, n in counts.items():

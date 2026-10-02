@@ -401,15 +401,31 @@ def read_entry_checklist(path: str, sheet: str = "Entry Checklist") -> List[dict
 
 
 def read_journal(path: str, sheet: str = "Journal") -> List[dict]:
-    """A=Date,B=Ticker,C=Notes. Freeform append-only log."""
+    """A=Date,B=Ticker/label,C=Notes. Freeform append-only log, returned in
+    sheet (= write) order -- never re-sorted by date.
+
+    No hardcoded max_row (the old ``max_row=302`` was the fifth instance of
+    that landmine: it would silently drop every entry past the Table's
+    pre-formatted rows). Nothing sits below the Journal Table, so there is no
+    footer to mis-read. A row with content but no real date raises instead of
+    being skipped: once the DB is the Journal's source of truth, a skipped
+    row is a lost decision-log entry. Values come back verbatim (no strip), so
+    the DB round-trips the tab losslessly."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=302, values_only=True):
-        if not r or r[0] is None:
-            continue
-        out.append(dict(date=r[0], ticker=(str(r[1]).strip() if r[1] else None),
-                        notes=r[2]))
-    wb.close()
+    try:
+        for n, r in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+            if not r or all(v in (None, "") for v in r[:3]):
+                continue
+            if not isinstance(r[0], datetime.date):
+                raise ValueError(
+                    f"{sheet} row {n}: column A is not a date ({r[0]!r}) but the "
+                    f"row has content -- fix the sheet before migrating")
+            out.append(dict(date=r[0],
+                            ticker=(str(r[1]) if r[1] not in (None, "") else None),
+                            notes=r[2]))
+    finally:
+        wb.close()
     return out
 
 

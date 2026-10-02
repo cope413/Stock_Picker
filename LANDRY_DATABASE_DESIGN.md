@@ -611,3 +611,76 @@ are now explicitly deferred to the point where Journal + Drawdown Log
 generation is working and validated, not before.
 
 **Decided: 2026-10-01 is the planning/decision session, full stop — no Phase C code this session.** Alan's call: "Let's treat today as planning; start fresh next time." Everything above (C-only, incremental-by-tab, Journal + Drawdown Log first, local SQLite first) is the settled plan; the next session's job is to actually start writing it, not to re-litigate it. Concretely, next time: build the Phase C generation logic for Journal first (simplest — freeform text, no formulas to replicate), get it producing correct output against a local sqlite3 file, validate it matches the live tab exactly, then do the same for Portfolio Drawdown Log before touching anything else.
+
+## Phase C, step 1 — Journal generation built and validated (2026-10-02)
+
+First increment of the plan above, done the next morning as planned. `landry/generate.py`
+regenerates the Journal tab's data region from the database. **Not merged and not
+cut over** — the xlsx is still the Journal's source of truth. What exists is the
+generator and the proof that it reproduces the live tab.
+
+**What changed.**
+- `generate.py` (new): `generate_journal(conn, ws)` works in memory;
+  `generate_workbook()` is load → generate → save → mandatory recalc;
+  `verify_journal()` regenerates in memory and diffs against the tab as it stands.
+  CLI: `python -m landry.generate journal|verify --workbook W --db D`.
+- `models.py`: `journal(id, date, label, notes)`. `label` is free text and is no longer a
+  foreign key to `tickers` — the old schema made the migration invent a "ticker" for
+  every event label (`DCA-CATCHUP-1`, `AZN,INTU`). Adds `journal_add`, `journal_rows`,
+  `iso_date`. Order is `id` order = write order, never date order.
+- `migrate_to_db.py`: Journal goes through `journal_add`, and `migrate` now **refuses an
+  existing database file** unless `--overwrite`. Most tables have no natural key, so a
+  re-run silently duplicated every row; once the DB is the Journal's source of truth, a
+  re-run must not be able to double or clobber it.
+- `xlsx_io.read_journal`: the fifth hardcoded-bound reader (`max_row=302` would silently drop
+  every entry past the pre-formatted rows). Now unbounded, returns values verbatim (no
+  strip), and raises on a row with content but no real date instead of skipping it.
+- `tests/test_landry_generate.py`: 20 tests, including a round-trip of the repo's own workbook.
+
+**Decisions, and why.**
+1. *The generator owns the data region, not the whole tab.* Title row, header, column widths,
+   sheet view and page setup stay in the workbook; other tabs read Journal by column
+   (Process Checklist: `INDEX(Journal!$A:$A, MATCH(label, Journal!$B:$B, 0))`), so that layout is
+   a contract. This is what "incremental by tab" means in practice: fill a skeleton, don't
+   rebuild the file.
+2. *Formatting is generated, not copied.* The canonical look lives in code and is re-applied
+   on every run, so a hand-toggled wrap or font can't leak into a commit. Alan's compact-view
+   habit (turn wrapping off to scan rows, back on before committing) is the motivating case:
+   forgetting the second step is now harmless. The spec mirrors the live tab as of 10/2 with one
+   deliberate change — column B wraps on every row (live: 35 of 300), since the long labels
+   (a 54-character ticker list in row 58) were clipped.
+3. *Row heights are derived layout, never stored.* Data rows are written without a height; the
+   recalc pass fits them and flags them auto-height, which also makes Excel's wrap-off trick compact
+   them. Only a note taller than Excel's 409.5pt ceiling (row 61: 538.8pt natural) is pinned, by
+   measuring after the first pass and recalculating once more. An earlier estimator capped 7 rows
+   and was dropped. (Live rows 54–74 had one-line heights: a compact-view reset, not a bug.)
+4. *Refuses to do damage:* an empty `journal` table against a tab with entries raises rather than
+   blanking the log (wrong database), and a missing `--db` raises instead of letting sqlite create an
+   empty one. A note beginning with `=` is written as text, not a formula.
+
+**Validation, against `main`'s live workbook (72 entries).** `verify`: zero value differences
+across every date, label and note; the only formatting difference is column B's wrap (265 cells,
+the deliberate change). End to end — regenerate, recalc, compare against an untouched control
+through the same pipeline: **25,356 cells across all 21 sheets, 0 differences**, so downstream
+formulas (Process Checklist's due-date lookups) are provably unaffected. Growth: 305 entries
+extends the Table, filter and print area to row 307 and Schema Reference's row-range note; the
+audit's `table_ref` (10/10) and `schema_ref` (20/20) pass. Suite: 378 passed; the 4 failures are
+identical on a pristine export of `HEAD` (stale tests against the older tracked workbook).
+
+**Not done — needed before this can be cut over.**
+- The write path: `journal_add` exists, but there is no CLI/skill step yet, no way to *edit* an
+  entry (CLAUDE.md says superseded entries get marked in place), and no git-tracked, diffable
+  backup of the table (decision 2 above — `landry.db` is gitignored).
+- Where the DB lives across machines before Turso: a fresh checkout has no `landry.db`, so the
+  committed workbook must stay regenerable-from and re-migratable-into the DB.
+- This branch is 22 commits behind `main`, with `xlsx_io.py`, `audit.py`, `export.py` and
+  `__init__.py` differing — merge or rebase first.
+
+**Next tab: Portfolio Drawdown Log (recon only, nothing built).** Inputs are just Date, Portfolio
+Value and Notes; Running Peak, Drawdown %, Status, Required Cash Floor and New Position Initiation
+are five live formulas in all 40 pre-built rows. Action Items reads the Status column
+(`INDEX(...E3:E42, COUNT(...D3:D42))`). `drawdown.py`'s regime tracker has *different* semantics
+(5-day entry / 10-day exit debounce on daily values) from the sheet's instantaneous -10/-20/-30%
+bands — don't substitute one for the other. The DB should store inputs only and the generator
+should write the same formulas row-relative (no Python re-implementation to drift), keeping static
+values for the whole-workbook cutover at the end of Phase C.
