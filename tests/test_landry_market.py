@@ -281,3 +281,35 @@ def test_a_quote_far_from_the_newest_friday_close_is_reported(tmp_path):
     warns = rep["market"]["warnings"]
     assert any(w.startswith("AAA:") and "Price History close" in w for w in warns)
     assert not any(w.startswith("BBB:") for w in warns)                         # within 3%
+
+
+# ------------------------------------------------------------ the reader --
+
+def test_read_market_data_has_no_row_bound_and_ignores_footers(tmp_path):
+    """It was hardcoded to rows 3-38 and went stale when four tickers were added (2026-10-04); the audit
+    caught it. A row counts if column A holds a ticker-shaped string -- not a footer formula, not a note."""
+    from landry import xlsx_io
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    add_market_tabs(wb)
+    md = wb["Market Data"]
+    md.cell(row=7, column=1).value = None                                        # the fixture's footer formula
+    md.cell(row=8, column=1).value = None                                        # ... and its label
+    for i in range(60):                                                          # far past the old row-38 bound
+        md.cell(row=6 + i, column=1, value=f"T{i:02d}")
+        md.cell(row=6 + i, column=3, value=10.0 + i)
+    md.cell(row=70, column=1, value="=SUBTOTAL(103,A3:A69)")
+    md.cell(row=71, column=1, value="Note: refreshed weekly by landry weekly")
+    path = str(tmp_path / "rd.xlsx")
+    wb.save(path)
+    rows = xlsx_io.read_market_data(path)
+    assert [r["ticker"] for r in rows][:4] == ["AAA", "BBB", "CCC", "T00"] and len(rows) == 63
+    assert rows[0]["price"] == 100.0 and rows[0]["company"] == "Alpha Corp" and rows[-1]["ticker"] == "T59"
+
+
+def test_audit_finds_no_hardcoded_bound_left_in_read_market_data():
+    import inspect
+    import re
+
+    from landry import xlsx_io
+    assert not re.search(r"max_row\s*=\s*\d+", inspect.getsource(xlsx_io.read_market_data))

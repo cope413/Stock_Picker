@@ -16,6 +16,7 @@ from __future__ import annotations
 import datetime
 import glob
 import os
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -225,21 +226,22 @@ def _open(path: str, sheet: str):
     return wb, wb[sheet]
 
 
+_TICKER_CELL = re.compile(r"^[A-Z][A-Z0-9.\-]{0,9}$")     # same shape landry/market.py treats as a ticker
+
+
 def read_market_data(path: str, sheet: str = "Market Data") -> List[dict]:
     """A=Ticker,B=Company,C=Price,D=Volume,E=MarketCap($M),F=P/E,
-    G=52wkLow,H=52wkHigh,I=DivYield. Rows 3-38 (36 tickers as of
-    2026-09-08, see Schema Reference) -- bounded rather than unbounded
-    in case explanatory footnote text is ever added right below the
-    table (it isn't currently), which would otherwise be read as a bogus
-    data row. `landry audit` checks this bound against the live tab on
-    every run, so it won't silently go stale again the way it did once
-    already (was hardcoded at 27 while the tab grew to 36 tickers).
-    Manual-entry tab, often empty (data_auto.py fetches this live
-    instead)."""
+    G=52wkLow,H=52wkHigh,I=DivYield. Rows 3 down (40 tickers as of
+    2026-10-04, see Schema Reference). No hardcoded row bound: this one
+    went stale twice (27, then 38 -- the audit caught the second when ABT,
+    SLB, VEEV and KGS were added on 2026-10-04). A row counts only if
+    column A holds a ticker-shaped string, so footnote text below the table
+    (none today) is still never read as a data row. Refreshed weekly by
+    landry/market.py."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=38, values_only=True):
-        if not r or not r[0]:
+    for r in ws.iter_rows(min_row=3, values_only=True):
+        if not r or not isinstance(r[0], str) or not _TICKER_CELL.match(r[0].strip()):
             continue
         out.append(dict(
             ticker=str(r[0]).strip(), company=str(r[1] or "").strip(),
