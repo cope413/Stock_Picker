@@ -491,13 +491,16 @@ def draft_volume_accumulation(tech: TechnicalState) -> Optional["Draft"]:
 # --------------------------------------------------------------------------- #
 
 def fetch_daily(tickers: Sequence[str], years: int = 6,
-                refresh: bool = False) -> Dict[str, pd.DataFrame]:
+                refresh: bool = False, min_bars: int = 200) -> Dict[str, pd.DataFrame]:
     """Daily OHLCV via the Layer 1 cache. 6 years covers the 200-week MA
-    and the 5-year beta window."""
+    and the 5-year beta window. ``min_bars`` drops tickers with less history
+    than that -- 200 suits the technicals, but a young fund (MLPI, listed
+    2025-12-18, 198 bars on 2026-10-02) is still a perfectly good weekly-close
+    series, so the prices command asks for far fewer."""
     from layer1_data_strategies import download_data
     start = (pd.Timestamp.today() - pd.DateOffset(years=years)).strftime("%Y-%m-%d")
     return download_data(list(dict.fromkeys([t.upper() for t in tickers])),
-                         start=start, end="today", min_bars=200,
+                         start=start, end="today", min_bars=min_bars,
                          refresh=refresh, verbose=False)
 
 

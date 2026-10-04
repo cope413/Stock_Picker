@@ -4,8 +4,14 @@ seed the score store from a workbook (one-time migration).
 Export philosophy: the workbook's formula tabs (Returns, Correlation
 Matrix, Scoring computed columns, Action Items) recalculate in Excel on
 open — we fill only value cells the Schema Reference tab designates as
-inputs: Price History weekly closes, Market Data, the Portfolio Drawdown
-Log, and (optionally) analyst scores on the Scoring tab.
+inputs: Market Data, the Portfolio Drawdown Log, and (optionally) analyst
+scores on the Scoring tab.
+
+Price History is NOT filled here any more (retired 2026-10-04). The old block
+wiped and rewrote A3:Q162 from the first 16 tickers alphabetically; around
+10/1 that destroyed the tab's documented layout, dropped holdings' columns,
+left the old R-V columns five weeks out of alignment and left eight positions
+with no column. Use ``python -m landry prices`` (landry/prices.py).
 """
 
 from __future__ import annotations
@@ -13,11 +19,6 @@ from __future__ import annotations
 import datetime as _dt
 import os
 from typing import Dict, List, Mapping, Optional
-
-# Price History layout (Schema Reference): rows 3-162, A=Week Ending,
-# B-Q = up to 16 ticker columns, headers in row 2.
-PRICE_HISTORY_MAX_TICKERS = 16
-PRICE_HISTORY_MAX_ROWS = 160
 
 # Market Data layout: rows 3-27, A-I.
 MARKET_COLS = ("price", "volume", "market_cap_m", "pe",
@@ -36,33 +37,19 @@ def export_workbook(template_path: str,
                     scored_date: Optional[_dt.date] = None) -> str:
     """Fill a copy of the workbook. Only the sections passed are touched.
 
+    ``weekly_closes`` is refused -- see the module docstring.
+
     approved_scores: {ticker: {indicator: IndicatorScore}} — written to the
     Scoring tab rows whose ticker matches (scores + confidence only; the
     composite/decision/flag columns are Excel formulas and recalculate).
     """
     import openpyxl
 
-    wb = openpyxl.load_workbook(template_path)   # keep formulas intact
-
     if weekly_closes is not None:
-        ws = wb["Price History"]
-        cols = list(weekly_closes.columns)[:PRICE_HISTORY_MAX_TICKERS]
-        tail = weekly_closes[cols].dropna(how="all").tail(PRICE_HISTORY_MAX_ROWS)
-        # clear the data block, then write headers + rows
-        # (ws.cell(value=None) is a no-op in openpyxl — assign explicitly)
-        for r in range(3, 3 + PRICE_HISTORY_MAX_ROWS):
-            for c in range(1, 2 + PRICE_HISTORY_MAX_TICKERS):
-                ws.cell(row=r, column=c).value = None
-        for j, t in enumerate(cols):
-            ws.cell(row=2, column=2 + j, value=t)
-        for i, (dt, row) in enumerate(tail.iterrows()):
-            r = 3 + i
-            ws.cell(row=r, column=1, value=dt.to_pydatetime()
-                    if hasattr(dt, "to_pydatetime") else dt)
-            for j, t in enumerate(cols):
-                v = row[t]
-                if v == v and v is not None:      # not NaN
-                    ws.cell(row=r, column=2 + j, value=round(float(v), 2))
+        raise ValueError("export no longer writes Price History (it truncated to 16 tickers and destroyed "
+                         "the tab's layout on 2026-10-01) -- use `python -m landry prices`")
+
+    wb = openpyxl.load_workbook(template_path)   # keep formulas intact
 
     if market:
         ws = wb["Market Data"]

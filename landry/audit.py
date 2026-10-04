@@ -517,6 +517,62 @@ def check_scoring_verification(path: str, repo_dir: Optional[str] = None) -> Lis
     return out
 
 
+def check_price_history(path: str) -> List[Check]:
+    """Price History is the one tab whose structure the whole Rule 38 check hangs on, and it can be
+    silently wrecked: on ~2026-10-01 `landry export` rewrote its header from the first 16 tickers
+    alphabetically, so SPMO and V each appeared twice, VRT/VRTX/HELO lost their columns, JEPQ/VFLO
+    and the second SPMO/V sat five weeks out of alignment (their correlations with everything read
+    ~0), eight held positions had no column at all, and the 19 charts -- titled by ticker, reading
+    Returns (Calc) columns by position -- plotted the wrong instruments. Nothing flagged any of it
+    for days. This catches every one of those: a duplicate or missing header ticker, a holding with
+    no column, a blank in the newest row, a non-Friday date, and any chart whose title is not the
+    header of the column it reads."""
+    import html
+    import zipfile
+    from openpyxl.utils import column_index_from_string
+    from landry import prices
+
+    wb = openpyxl.load_workbook(path, data_only=True)
+    if prices.PH_SHEET not in wb.sheetnames:
+        wb.close()
+        return [Check("price_history", True, "no Price History tab, skipped")]
+    head = {c: wb[prices.PH_SHEET].cell(row=prices.HEADER_ROW, column=c).value
+            for c in range(2, wb[prices.PH_SHEET].max_column + 1)}
+    wb.close()
+    out: List[Check] = []
+    st = prices.status(path)
+    for problem in st["problems"]:
+        out.append(Check("price_history:header", False, problem,
+                         fix="`python -m landry prices status`; add a missing holding with `python -m landry prices add TICKER`, "
+                             "and never let `landry export` near Price History (its block is retired)"))
+    try:
+        with zipfile.ZipFile(path) as z:
+            charts = sorted(n for n in z.namelist() if re.match(r"xl/charts/chart\d+\.xml$", n))
+            for name in charts:
+                xml = z.read(name).decode("utf8", "replace")
+                title = re.findall(r"<a:t>([^<]*)</a:t>", xml)
+                refs = [html.unescape(r) for r in re.findall(r"<(?:c:)?f>([^<]*)</(?:c:)?f>", xml)]
+                value_cols = [m.group(1) for r in refs if "Returns (Calc)" in r and r.endswith("$500")
+                              for m in [re.search(r"\$([A-Z]+)\$3:", r)] if m and "$A$3" not in r]
+                if not title or not value_cols:
+                    continue
+                col = column_index_from_string(value_cols[0])
+                shown = str(head.get(col) or "").strip()
+                if html.unescape(title[0]).strip() != shown:
+                    out.append(Check("price_history:chart", False,
+                                     f"{os.path.basename(name)} is titled '{html.unescape(title[0]).strip()}' but plots "
+                                     f"Returns (Calc) column {value_cols[0]}, which is {shown or 'blank'}",
+                                     fix="the chart's series references (and title) must follow the Price History header; "
+                                         "re-point or retitle it"))
+    except zipfile.BadZipFile:
+        pass
+    if not out:
+        out.append(Check("price_history", True,
+                         f"{len(st['tickers'])} tickers, every holding has a column, last row complete, "
+                         f"{st['weeks_behind']} completed week(s) behind; charts match the header"))
+    return out
+
+
 def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
     return [
         *check_table_refs(path),
@@ -527,6 +583,7 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_page_setup_vs_last_commit(path, repo_dir),
         *check_schema_reference(path),
         *check_scoring_verification(path, repo_dir),
+        *check_price_history(path),
     ]
 
 

@@ -28,27 +28,18 @@ def test_export_fills_values_and_preserves_formulas(tmp_path):
     from landry.export import export_workbook
     from landry.scoring import IndicatorScore
 
-    idx = pd.date_range("2026-01-09", periods=20, freq="W-FRI")
-    closes = pd.DataFrame({"NVDA": range(100, 120),
-                           "TSM": range(50, 70)}, index=idx, dtype=float)
     values = pd.Series([100.0] * 5 + [88.0] * 6,
                        index=pd.bdate_range("2026-07-01", periods=11))
     scores = {"NVDA": {"competitive_moat": IndicatorScore(5, "H")}}
     market = {"NVDA": {"price": 219.22, "market_cap": 5.4e12, "pe": 55.0}}
 
     out = export_workbook(_WB, out_path=str(tmp_path / "filled.xlsx"),
-                          weekly_closes=closes, market=market,
+                          market=market,
                           drawdown=regime_frame(values),
                           approved_scores=scores,
                           scored_date=dt.date(2026, 8, 10))
 
     wb = openpyxl.load_workbook(out)          # formulas view
-    ph = wb["Price History"]
-    assert ph.cell(row=2, column=2).value == "NVDA"
-    assert ph.cell(row=3, column=2).value == 100.0
-    assert ph.cell(row=22, column=3).value == 69.0
-    assert ph.cell(row=23, column=2).value is None      # cleared beyond data
-
     md = wb["Market Data"]
     nvda_row = next(r for r in range(3, 28)
                     if md.cell(row=r, column=1).value == "NVDA")

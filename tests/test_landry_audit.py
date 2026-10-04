@@ -12,6 +12,7 @@ from landry.audit import (
     check_scoring_verification,
     check_row_height_ceiling,
     check_cross_tab_references,
+    check_price_history,
     check_page_setup_vs_last_commit,
     check_reader_bounds,
     check_schema_reference,
@@ -305,3 +306,73 @@ def test_bulk_import_ignores_quant_drafts_and_pairs(tmp_path):
         ("management_quality", "manual", ts, "same text"),
         ("roic_vs_wacc", "manual", ts, "same text")])        # only two manual in that second
     assert _bulk(check_scoring_verification(wb, repo_dir=str(tmp_path))) == []
+
+
+# --------------------------------------------------------------------------- #
+# price_history: the header / holdings / chart-title guard
+# --------------------------------------------------------------------------- #
+
+def _ph_workbook(tmp_path, header, chart=None, last_row_values=True):
+    import datetime as _dt
+    from openpyxl.chart import LineChart, Reference
+    wb = openpyxl.Workbook()
+    ph = wb.active
+    ph.title = "Price History"
+    ph["A2"] = "Week Ending"
+    for i, h in enumerate(header):
+        ph.cell(row=2, column=2 + i, value=h)
+    for r, d in enumerate((_dt.datetime(2026, 9, 25), _dt.datetime(2026, 10, 2)), start=3):
+        ph.cell(row=r, column=1, value=d)
+        for i, h in enumerate(header):
+            if h and (last_row_values or r == 3):
+                ph.cell(row=r, column=2 + i, value=100.0 + i)
+    ret = wb.create_sheet("Returns (Calc)")
+    if chart:
+        title, col = chart
+        ch = LineChart()
+        ch.title = title
+        ch.add_data(Reference(ret, min_col=col, min_row=3, max_row=500))
+        ret.add_chart(ch, "A164")
+    p = tmp_path / "ph.xlsx"
+    wb.save(p)
+    return str(p)
+
+
+def _patch_positions(monkeypatch, tickers):
+    class Pos:
+        def __init__(self, ticker):
+            self.ticker, self.quantity = ticker, 10
+    import landry.xlsx_io as xio
+    monkeypatch.setattr(xio, "read_positions", lambda p: [Pos(t) for t in tickers])
+
+
+def test_price_history_check_passes_a_clean_tab(tmp_path, monkeypatch):
+    _patch_positions(monkeypatch, ["AAA", "BBB"])
+    checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB"], chart=("BBB", 3)))
+    assert len(checks) == 1 and checks[0].ok
+
+
+def test_price_history_check_flags_a_duplicate_header(tmp_path, monkeypatch):
+    _patch_positions(monkeypatch, ["AAA", "BBB"])
+    checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB", "AAA"]))
+    assert any(not c.ok and "AAA twice" in c.detail for c in checks)
+
+
+def test_price_history_check_flags_a_holding_with_no_column(tmp_path, monkeypatch):
+    _patch_positions(monkeypatch, ["AAA", "BBB", "NEWHOLD"])
+    checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB"]))
+    assert any(not c.ok and "NEWHOLD" in c.detail for c in checks)
+
+
+def test_price_history_check_flags_a_blank_in_the_newest_row(tmp_path, monkeypatch):
+    _patch_positions(monkeypatch, ["AAA", "BBB"])
+    checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB"], last_row_values=False))
+    assert any(not c.ok and "last row" in c.detail for c in checks)
+
+
+def test_price_history_check_flags_a_chart_plotting_the_wrong_ticker(tmp_path, monkeypatch):
+    _patch_positions(monkeypatch, ["AAA", "BBB"])
+    # titled AAA, but reads Returns (Calc) column C -- the BBB column
+    checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB"], chart=("AAA", 3)))
+    bad = [c for c in checks if c.name == "price_history:chart"]
+    assert len(bad) == 1 and not bad[0].ok and "'AAA'" in bad[0].detail and "BBB" in bad[0].detail

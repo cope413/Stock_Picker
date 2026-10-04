@@ -17,6 +17,10 @@
     python -m landry journal add --label DCA-CATCHUP-2 --notes-file -   # append a Journal entry (notes on stdin)
     python -m landry journal edit --row 62 --notes "SUPERSEDED ..."     # change an entry by its sheet row
     python -m landry drawdown add --date 2026-10-31 --value 780000      # log a portfolio value
+    python -m landry prices status       # Price History health: duplicates, holdings with no column, weeks behind
+    python -m landry prices append       # add the completed Friday(s); extends Returns (Calc), footer, charts
+    python -m landry prices rebuild      # quarterly: rewrite every close from one adjusted pull
+    python -m landry prices add VYM      # give a new holding a column (Returns + Correlation Matrix follow)
     python -m landry db status           # does the database agree with the generated tabs?
     python -m landry db pull|regenerate  # resolve disagreement: workbook wins | database wins
 
@@ -287,14 +291,6 @@ def _cmd_export(args) -> int:
                   if e.get("market")}
         if market:
             kwargs["market"] = market
-    if not args.no_prices:
-        try:
-            from landry.data_auto import fetch_daily, weekly_closes
-            from landry.xlsx_io import equity_weights, read_positions
-            tickers = sorted(equity_weights(read_positions(wb)))
-            kwargs["weekly_closes"] = weekly_closes(fetch_daily(tickers))
-        except Exception as e:
-            print(f"! price fill skipped: {e}")
     if args.scores:
         store = _store()
         approved = {t: store.approved_scores(t) for t in store.tickers()
@@ -457,6 +453,59 @@ def _cmd_db(args) -> int:
     return 1 if drifted else 0
 
 
+def _cmd_prices(args) -> int:
+    from landry import ledger, prices
+    wb = args.workbook or _default_workbook()
+    if args.action == "status":
+        st = prices.status(wb)
+        if st.get("last_date"):
+            print(f"Price History: {st['weeks']} weeks through {st['last_date']} (row {st['last_row']}), "
+                  f"{len(st['tickers'])} tickers, {st['weeks_behind']} completed week(s) behind"
+                  + (f" ({', '.join(d.isoformat() for d in st['missing_fridays'])})" if st['weeks_behind'] else ""))
+            if st["gaps"]:
+                print(f"  free header slot(s): {', '.join(st['gaps'])}")
+            if st["in_header_not_held"]:
+                print(f"  tracked but no longer held: {', '.join(st['in_header_not_held'])}")
+        for p in st["problems"]:
+            print(f"! {p}")
+        print("OK" if st["ok"] else "problems found -- see above")
+        return 0 if st["ok"] else 1
+    write = not args.dry_run
+    if write and not args.force and ledger._excel_has_open(wb):
+        print("! Excel appears to have the workbook open -- close it (or pass --force)", file=sys.stderr)
+        return 1
+    try:
+        if args.action == "append":
+            rep = prices.append_weeks(wb, write=write, force=args.allow_big_moves)
+            if rep["up_to_date"]:
+                print(f"up to date: last row {rep['last_date_before']}, no completed week is missing")
+                return 0
+            print(f"{'would append' if not write else 'appended'}: {', '.join(rep['appended'])}")
+        elif args.action == "rebuild":
+            rep = prices.rebuild(wb, write=write)
+            print(f"{'would change' if not write else 'rewrote'} {rep['cells_changed']} cells "
+                  f"({rep['cells_newly_filled']} newly filled; largest change {rep['largest_relative_change']:.1%}) "
+                  f"across {rep['weeks']} weeks x {rep['tickers']} tickers")
+        else:
+            if not args.ticker:
+                print("! prices add needs a ticker", file=sys.stderr)
+                return 1
+            rep = prices.add_ticker(wb, args.ticker, write=write)
+            print(f"{'would add' if not write else 'added'} {rep['ticker']} at column {rep['column']}"
+                  + (" (reused a free slot)" if rep.get("reused_slot") else ""))
+    except prices.PricesError as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    for w in rep.get("warnings", []):
+        print(f"  warning: {w}")
+    if write and not args.no_recalc:
+        from landry.xlsx_recalc import recalc
+        res = recalc(wb)
+        print(f"  recalc: {res.get('status')}, {res.get('total_errors')} errors")
+    print("Next: `python -m landry audit`, then commit the workbook.")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="landry")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -512,7 +561,7 @@ def main(argv=None) -> int:
     ex.add_argument("--workbook", default=None, help="template workbook")
     ex.add_argument("--out", default=None)
     ex.add_argument("--no-prices", action="store_true",
-                    help="skip the Price History fill (no download)")
+                    help="ignored -- export no longer writes Price History (use `landry prices`)")
     ex.add_argument("--scores", action="store_true",
                     help="also write approved scores to the Scoring tab")
     ex.add_argument("--drawdown", action="store_true",
@@ -573,6 +622,17 @@ def main(argv=None) -> int:
     de.add_argument("--notes", default=None)
     _ledger_flags(de)
 
+    pr = sub.add_parser("prices", help="Price History weekly closes: status / append / rebuild / add")
+    pr.add_argument("action", choices=["status", "append", "rebuild", "add"])
+    pr.add_argument("ticker", nargs="?", default=None, help="for `add`: the ticker to give a column")
+    pr.add_argument("--workbook", default=None)
+    pr.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
+    pr.add_argument("--no-recalc", action="store_true",
+                    help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
+    pr.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
+    pr.add_argument("--allow-big-moves", action="store_true",
+                    help="append even if a close is >35%% from last week's (check the column first)")
+
     dbp = sub.add_parser("db", help="keep landry.db and the generated tabs in sync")
     dbsub = dbp.add_subparsers(dest="action", required=True)
     _ledger_flags(dbsub.add_parser("status", help="does the database agree with the tabs?"), writes=False)
@@ -584,6 +644,8 @@ def main(argv=None) -> int:
 
     if args.cmd in ("journal", "drawdown"):
         return _cmd_ledger(args)
+    if args.cmd == "prices":
+        return _cmd_prices(args)
     if args.cmd == "db":
         return _cmd_db(args)
     if args.cmd == "doctor":
