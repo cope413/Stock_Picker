@@ -728,9 +728,24 @@ def test_read_positions_from_workbook():
     assert all(p.quantity > 0 for p in pos)       # sold rows excluded
     assert "TSLA" not in tickers                   # sold 08/07/26
     w = equity_weights(pos)
-    assert "NVDA" in w and w["NVDA"] > 0.06        # summed across accounts
+    assert "NVDA" in w and w["NVDA"] > 0
+    nvda = [p for p in pos if p.ticker == "NVDA"]
+    assert w["NVDA"] == pytest.approx(sum(p.pct_of_portfolio for p in nvda))     # summed across accounts
+    if len(nvda) > 1:
+        assert w["NVDA"] > max(p.pct_of_portfolio for p in nvda)
     assert "FZDXX" not in w                        # cash is not an equity
-    assert 0.25 < sum(w.values()) < 0.60           # equities are a minority here
+    # a share of the whole portfolio: positive and not above 1. (This used to assert 0.25 < sum < 0.60, "equities
+    # are a minority here" -- true in August, false once the cash was deployed; a live value does not belong in a test.)
+    assert 0 < sum(w.values()) <= 1.0 + 1e-9
+
+
+def test_equity_weights_sum_across_accounts_and_skip_cash():
+    from landry.xlsx_io import Position, equity_weights
+    pos = [Position("A", "NVDA", "NVIDIA", "Equity", 10, 1000.0, 0.10),
+           Position("A", "FZDXX", "Cash sweep", "Cash", 5000, 5000.0, 0.50),
+           Position("B", "NVDA", "NVIDIA", "Equity", 5, 500.0, 0.05),
+           Position("B", "ASML", "ASML", "Equity", 1, 1000.0, 0.10)]
+    assert equity_weights(pos) == pytest.approx({"NVDA": 0.15, "ASML": 0.10})
 
 
 def test_total_portfolio_value_sums_every_position():

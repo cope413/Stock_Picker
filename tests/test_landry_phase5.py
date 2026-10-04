@@ -74,9 +74,14 @@ def test_import_seeds_store_and_reproduces_composite(tmp_path):
                            tickers=["NVDA", "TSLA"])
     assert counts["NVDA"] == 12
     assert counts["TSLA"] == 5                # Tier 1 only (gate failed)
+    from landry.xlsx_io import read_scoring_tab
+    row = next(r for r in read_scoring_tab(_WB) if r.ticker == "NVDA")
     card = score_stock("NVDA", store.approved_scores("NVDA"))
-    assert card.composite == pytest.approx(93.2)
-    assert card.decision == "STRONG BUY"
+    # the engine, fed the imported scores, must reproduce the workbook's OWN composite and decision -- not a number
+    # pinned in August (93.2; NVDA's FCF yield score has moved since, and the composite with it)
+    assert row.composite is not None
+    assert card.composite == pytest.approx(row.composite)
+    assert card.decision == row.decision
     assert store.pending() == {}              # everything auto-approved
     assert any(a["action"] == "approve" for a in store.audit)
 
@@ -136,11 +141,51 @@ def test_cohort_trigger_requires_10_matured_and_double_underperformance():
     assert not revg["STRONG BUY"].review_triggered
 
 
+def _performance_workbook(tmp_path, rows=()):
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Performance Tracking"
+    ws["A1"] = "Performance tracking"
+    for c, h in enumerate(["Ticker", "Company", "Entry Date", "Entry Price", "Entry Score", "Confidence", "Band",
+                           "SPY @ Entry", "Status", "Exit Date", "Exit Price", "Exit Reason", "Current/Exit Price",
+                           "SPY now"], 1):
+        ws.cell(row=2, column=c, value=h)
+    for i, row in enumerate(rows):
+        for c, v in enumerate(row, 1):
+            ws.cell(row=3 + i, column=c, value=v)
+    path = str(tmp_path / "perf.xlsx")
+    wb.save(path)
+    return path
+
+
+def test_read_performance_tab_empty_is_ok(tmp_path):
+    from landry.performance import read_performance_tab
+    # a synthetic tab: the live one was empty when this was written (August) and has entries now
+    assert read_performance_tab(_performance_workbook(tmp_path)) == []
+
+
+def test_read_performance_tab_reads_a_populated_row(tmp_path):
+    from landry.performance import read_performance_tab
+    path = _performance_workbook(tmp_path, [
+        ("NVDA", "NVIDIA", dt.datetime(2026, 8, 7), 180.0, 89.2, "M", "STRONG BUY", 640.0, "Held", None, None, None,
+         227.0, 660.0),
+        ("SFM", "Sprouts", dt.datetime(2026, 8, 7), 100.0, 70.0, "H", "BUY", 640.0, "Sold", dt.datetime(2026, 9, 1),
+         104.0, "Rule 3", 104.0, 655.0)])
+    a, b = read_performance_tab(path)
+    assert (a.ticker, a.entry_date, a.entry_price, a.band, a.exit_date, a.current_price) == (
+        "NVDA", dt.date(2026, 8, 7), 180.0, "STRONG BUY", None, 227.0)
+    assert (b.ticker, b.exit_date, b.exit_price, b.exit_reason) == ("SFM", dt.date(2026, 9, 1), 104.0, "Rule 3")
+
+
 @needs_workbook
-def test_read_performance_tab_empty_is_ok():
+def test_read_performance_tab_reads_the_live_entries():
     pytest.importorskip("openpyxl")
     from landry.performance import read_performance_tab
-    assert read_performance_tab(_WB) == []   # tab exists, no data yet
+    for e in read_performance_tab(_WB):               # however many there are today
+        assert e.ticker and isinstance(e.entry_date, dt.date) and e.entry_price > 0
+        assert e.band in ("STRONG BUY", "BUY")
+        assert e.exit_date is None or e.exit_date >= e.entry_date
 
 
 # --------------------------------------------------------------------------- #

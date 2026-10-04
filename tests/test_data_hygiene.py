@@ -25,6 +25,14 @@ def _frame(start="2020-01-01", periods=800, freq="B", seed=0):
                          "Volume": np.full(periods, 2e6)}, index=idx)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_cache(monkeypatch, tmp_path):
+    """Every test here gets an empty cache directory. cache_is_stale() and friends fall back to the REAL,
+    gitignored data_cache/ when no cache_dir is passed, so a machine that had downloaded SPY failed
+    test_fresh_cache_not_stale (its meta sidecar says "built from 2020-10-02") while a fresh checkout passed."""
+    monkeypatch.setattr(L, "CACHE_DIR", str(tmp_path))
+
+
 # --------------------------------------------------------------------------- #
 # resolve_end
 # --------------------------------------------------------------------------- #

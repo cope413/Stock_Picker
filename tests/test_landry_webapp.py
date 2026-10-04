@@ -115,16 +115,30 @@ def test_dashboard_shape(client):
 @needs_workbook
 @pytest.mark.unit
 def test_dashboard_engine_agrees_with_workbook(client):
+    from test_landry_scoring import KNOWN_GATE_BYPASS
     d = client.get("/api/landry/dashboard").json()
     checked = 0
+    mismatched = set()
     for row in d["rows"]:
         rec = row["recomputed"]
-        assert rec is not None and "error" not in rec
+        assert rec is not None
+        if "error" in rec:
+            # a candidate still mid-scoring: the engine needs every indicator once the Tier 1 gate passes, and the
+            # workbook's composite is blank for it -- a row WITH a composite must always be recomputable
+            assert "missing indicator scores" in rec["error"] and row["composite"] is None, row["ticker"]
+            continue
         if row["composite"] is not None:
-            assert row["mismatch"] is False
+            if row["mismatch"]:
+                # the dashboard is doing its job: the engine stops at a failed Tier 1 gate (AVOID, no composite)
+                # where the workbook's Decision column prints a band -- see KNOWN_GATE_BYPASS / Open Items #29
+                mismatched.add(row["ticker"])
+                assert rec["decision"] == "AVOID" and rec["rule_flags"][2] == "AVOID", row["ticker"]
+                continue
             assert abs(rec["composite"] - row["composite"]) < 1e-6
             checked += 1
     assert checked > 0
+    assert mismatched == KNOWN_GATE_BYPASS, (
+        f"dashboard mismatches are now {sorted(mismatched)}, expected {sorted(KNOWN_GATE_BYPASS)} (Open Items #29)")
 
 
 @pytest.mark.unit

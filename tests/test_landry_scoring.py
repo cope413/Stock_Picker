@@ -17,6 +17,7 @@ import pytest
 
 from landry.scoring import (
     ALL_WEIGHTS,
+    TIER1_WEIGHTS,
     TIER1_TOTAL_WEIGHT,
     TIER2_TOTAL_WEIGHT,
     TIER3_TOTAL_WEIGHT,
@@ -259,6 +260,22 @@ from landry.xlsx_io import latest_workbook  # noqa: E402
 
 _WB = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Scoring!Decision (col AG) is a plain composite-to-band lookup. It does NOT apply the Tier 1 gate that the rulebook
+# (Part 3, Rule 3: "Two or more Tier 1 indicators scored at 2.0 or below shall automatically classify the stock as
+# Avoid") and landry.scoring.classify both apply: the engine stops at a failed gate (composite None, decision AVOID),
+# while the workbook goes on and prints a composite and a band. Three HELD positions sit in that gap -- FCF yield and
+# FCF margin both scored 2: AVGO (workbook says BUY), VRTX (BUY) and CRWD (WATCH LIST), each with its own Rule 3 column
+# reading AVOID. Whether to fix the formula or amend the rule for holdings is Alan's call (Open Items #29), so this test
+# names the gap instead of loosening itself around it: for these rows the numbers and flags must still agree, and the
+# SET of such rows must equal this one. A new name means the workbook is bypassing a Hard Rule gate for another stock; a
+# name that leaves means the gap was closed -- update this set (and webapp's dashboard test, which imports it).
+KNOWN_GATE_BYPASS = frozenset({"AVGO", "VRTX", "CRWD"})
+
+
+def gate_bypass(row, card) -> bool:
+    """The workbook computed a composite for a stock whose Tier 1 gate failed (the engine stops at the gate)."""
+    return row.composite is not None and not card.flags.tier1_passes
+
 
 @pytest.mark.skipif(not _WB, reason="no workbook file present")
 def test_roundtrip_against_workbook_file():
@@ -268,22 +285,59 @@ def test_roundtrip_against_workbook_file():
     rows = read_scoring_tab(_WB)  # highest-numbered workbook (excludes TEMPLATE_FINAL etc.)
     assert len(rows) >= 16
     checked = 0
+    bypass = set()
     for row in rows:
+        # A candidate with Tier 1 only part-scored (the Darryl-list screening leaves several like that) cannot be
+        # evaluated by the engine at all; the workbook's own composite must be blank for it.
+        if not set(TIER1_WEIGHTS) <= set(row.scores):
+            assert row.composite is None, row.ticker
+            continue
         # Skip candidates still mid-scoring: Tier 1 gate passed but Tier 2/3
         # not yet entered in the workbook (score_stock requires all 12 once
         # the gate passes; a gate-fail/auto-avoid row needs only Tier 1 and
         # is still fully checkable).
         if (rule_flags(row.scores).tier1_passes
                 and not set(ALL_WEIGHTS) <= set(row.scores)):
+            assert row.composite is None, row.ticker      # the composite formula waits for all 12 indicators
             continue
         card = score_stock(row.ticker, row.scores)
         if row.tier1_weighted_average is not None:
             assert card.tier1_weighted_average == pytest.approx(
                 row.tier1_weighted_average), row.ticker
-        if row.composite is not None:
+        if gate_bypass(row, card):
+            bypass.add(row.ticker)
+            # the same arithmetic, and a Decision that is nothing but the composite's band
+            assert composite_score(row.scores) == pytest.approx(row.composite), row.ticker
+            assert row.decision == classify(row.composite, rule_flags_ok()), (
+                f"{row.ticker}: the workbook's Decision now differs from the plain band of its composite -- it may "
+                f"have started applying the gate; if so, take it out of KNOWN_GATE_BYPASS")
+        elif row.composite is not None:
             assert card.composite == pytest.approx(row.composite), row.ticker
             assert card.decision == row.decision, row.ticker
         assert (card.flags.rule1, card.flags.rule2, card.flags.rule3,
                 card.flags.rule4) == row.rule_flags, row.ticker
         checked += 1
     assert checked >= 16
+    assert bypass == KNOWN_GATE_BYPASS, (
+        f"rows where the workbook computes a composite despite a failed Tier 1 gate are now {sorted(bypass)}, "
+        f"expected {sorted(KNOWN_GATE_BYPASS)} (Open Items #29): a new name means another stock is bypassing a Hard "
+        f"Rule gate; a name gone means the gap was closed -- update KNOWN_GATE_BYPASS")
+
+
+def rule_flags_ok():
+    from landry.scoring import RuleFlags
+    return RuleFlags("OK", "OK", "OK", "OK")
+
+
+def test_the_engine_stops_at_a_failed_tier1_gate_where_the_workbook_formula_would_not():
+    """The synthetic form of the gap above: FCF yield 2 + FCF margin 2 (two Tier 1 indicators <= 2) with every other
+    indicator strong. The Scoring tab's formula would still print a BUY-or-better band from the composite; the engine
+    -- like Part 3, Rule 3 -- classifies it AVOID outright and leaves the composite empty."""
+    scores = {k: S(5, "H") for k in _ORDER}
+    scores["fcf_yield_trend"] = S(2, "M")
+    scores["fcf_margin_trend"] = S(2, "M")
+    card = score_stock("GAP", scores)
+    assert card.flags.rule3 == "AVOID" and card.decision == "AVOID" and card.composite is None
+    plain = composite_score(scores)
+    assert classify(plain, rule_flags_ok()) in ("BUY", "STRONG BUY")        # what a band-only lookup would say
+    assert classify(plain, card.flags) == "AVOID"
