@@ -146,14 +146,19 @@ def normalize(raw: Mapping, previous: Optional[Mapping] = None) -> Tuple[Dict[st
         warns.append(f"52-week range {raw.get('wk52_low')!r}..{raw.get('wk52_high')!r} is not usable; left as is")
 
     dy = _num(raw.get("dividend_yield"))
-    if dy is None:
-        # Silence from the provider keeps the cell. But a provider that affirmatively reports nothing paid in
-        # the last twelve months makes a yield left in the cell stale, so it is cleared (found 10/4/26: ETSY,
-        # NFLX, PLTR and MLPI carried 0.5-0.8% yields in this tab although none had paid anything).
-        if _num(raw.get("dividend_trailing_rate")) == 0:
+    rate = _num(raw.get("dividend_rate"))
+    if dy is None or (dy == 0 and not (rate and rate > 0)):
+        # Silence from the provider keeps the cell. But a provider that affirmatively reports nothing paid makes
+        # a yield left in the cell stale, so it is cleared (found 10/4/26: ETSY, NFLX, PLTR and MLPI carried
+        # 0.5-0.8% yields in this tab although none had paid anything). "Nothing paid" is either a trailing
+        # twelve-month rate of 0 or a yield of exactly 0 with no dividend rate -- Yahoo returns None for a
+        # non-payer on one call and 0.0 on the next (it flipped for CRWD, NFLX and VEEV within two hours on
+        # 10/4), and a blank cell is this tab's convention for a non-payer, so both read as blank and a week
+        # with nothing new leaves the file alone.
+        if dy == 0 or _num(raw.get("dividend_trailing_rate")) == 0:
             out["dividend_yield"] = None
     elif dy >= 0:
-        rate, old_dy = _num(raw.get("dividend_rate")), _num(previous.get("dividend_yield"))
+        old_dy = _num(previous.get("dividend_yield"))
         if rate and price:                      # a stock: rate / price pins the unit down
             implied = rate / price * 100
             tol = max(0.1, 0.25 * implied)

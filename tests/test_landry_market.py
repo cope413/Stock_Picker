@@ -116,6 +116,24 @@ def test_dividend_yield_unit_change_is_caught_for_stocks_and_funds():
     assert out["dividend_yield"] == 3.2 and warns == []
 
 
+def test_a_yield_of_exactly_zero_with_no_rate_reads_as_nothing_paid():
+    out, _ = market.normalize(snap(dy=0.0, rate=None, trail=None))
+    assert "dividend_yield" in out and out["dividend_yield"] is None              # Yahoo's 0.0 for a non-payer: blank
+    out, _ = market.normalize(snap(dy=0.0, rate=0.04, trail=None))
+    assert out["dividend_yield"] == 0.0                                           # a (tiny) payer keeps its zero
+
+
+def test_yahoo_flipping_between_none_and_zero_for_a_non_payer_leaves_the_file_alone(tmp_path):
+    path = build(tmp_path)
+    rows = {"AAA": snap(dy=None, rate=None, trail=0.0), "BBB": GOOD["BBB"], "CCC": GOOD["CCC"]}
+    first = market.refresh(path, snapshot=table(rows), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    assert first["wrote"] and values(path, "Market Data", 3, [9]) == [None]
+    rows["AAA"] = snap(dy=0.0, rate=None, trail=0.0)                              # the same non-payer, as 0.0 this time
+    second = market.refresh(path, snapshot=table(rows), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    assert not second["wrote"] and second["market"]["cells_changed"] == 0
+    assert values(path, "Market Data", 3, [9]) == [None]
+
+
 def test_a_yield_is_cleared_only_when_the_provider_says_nothing_was_paid():
     out, _ = market.normalize(snap(dy=None, rate=None, trail=0.0))
     assert "dividend_yield" in out and out["dividend_yield"] is None             # affirmative "nothing": clear it
