@@ -187,6 +187,20 @@ def status(path: str, now: Optional[dt.datetime] = None) -> dict:
             "held_not_in_header": missing, "in_header_not_held": unheld}
 
 
+def latest_closes(path: str) -> Tuple[dt.date, Dict[str, float]]:
+    """The newest Price History row: (its date, {ticker: close}); blank cells are left out. Used to
+    cross-check Market Data's quotes against the close that was just appended."""
+    import openpyxl
+    ws = openpyxl.load_workbook(path)[PH_SHEET]
+    layout = read_layout(ws)
+    closes: Dict[str, float] = {}
+    for c, t in layout.tickers.items():
+        v = ws.cell(row=layout.last_row, column=c).value
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            closes[t] = float(v)
+    return layout.last_date.date(), closes
+
+
 # ------------------------------------------------------------------ helpers --
 
 def _copy_style(src, dst) -> None:

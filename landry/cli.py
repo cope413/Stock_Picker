@@ -21,7 +21,9 @@
     python -m landry prices append       # add the completed Friday(s); extends Returns (Calc), footer, charts
     python -m landry prices rebuild      # quarterly: rewrite every close from one adjusted pull
     python -m landry prices add VYM      # give a new holding a column (Returns + Correlation Matrix follow)
-    python -m landry db status           # does the database agree with the generated tabs?
+    python -m landry weekly              # Friday-close routine: prices append + Market Data/earnings refresh + one recalc + audit
+    python -m landry market              # just Market Data + earnings dates, refreshed in place from yfinance
+    python -m landry db status          # does the database agree with the generated tabs?
     python -m landry db pull|regenerate  # resolve disagreement: workbook wins | database wins
 
 `score` reads analyst scores from the companion workbook (default: the
@@ -278,19 +280,12 @@ def _cmd_daily(args) -> int:
 
 
 def _cmd_export(args) -> int:
-    import json
-
     from landry.export import export_workbook
     wb = args.workbook or _default_workbook()
     kwargs = {}
-    snap_path = os.path.join(_REPO, "landry_snapshot.json")
-    if os.path.exists(snap_path):
-        with open(snap_path) as f:
-            snap = json.load(f)
-        market = {t: e["market"] for t, e in snap.get("tickers", {}).items()
-                  if e.get("market")}
-        if market:
-            kwargs["market"] = market
+    # Market Data is NOT filled here any more (retired 2026-10-04): the only source was
+    # landry_snapshot.json -- whatever the last `landry refresh` left, five days stale on 10/4 --
+    # written into a copy. `landry market` / `landry weekly` refresh the live tab from yfinance.
     if args.scores:
         store = _store()
         approved = {t: store.approved_scores(t) for t in store.tickers()
@@ -506,6 +501,23 @@ def _cmd_prices(args) -> int:
     return 0
 
 
+def _cmd_weekly(args) -> int:
+    """The Friday-close routine (``market`` is the same minus Price History). Exit status: 0 clean,
+    1 refused (Excel has the workbook open; nothing changed), 2 ran but something needs attention."""
+    from landry import ledger, weekly
+    wb = args.workbook or _default_workbook()
+    write = not args.dry_run
+    if write and not args.force and ledger._excel_has_open(wb):
+        print("! Excel appears to have the workbook open -- nothing was changed. Close it and run "
+              f"`python -m landry {args.cmd}` again (a weekly run catches up any missed Friday).", file=sys.stderr)
+        return 1
+    rep = weekly.run(wb, write=write, do_prices=args.cmd == "weekly",
+                     allow_big_moves=getattr(args, "allow_big_moves", False))
+    weekly.verify(wb, rep, repo_dir=_REPO, recalc_now=not args.no_recalc)
+    print(weekly.format_report(rep, workbook=os.path.basename(wb)))
+    return 2 if rep["problems"] else 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="landry")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -633,6 +645,23 @@ def main(argv=None) -> int:
     pr.add_argument("--allow-big-moves", action="store_true",
                     help="append even if a close is >35%% from last week's (check the column first)")
 
+    def _weekly_flags(sp):
+        sp.add_argument("--workbook", default=None)
+        sp.add_argument("--dry-run", action="store_true",
+                        help="fetch and report what would change; write, recalc and save nothing")
+        sp.add_argument("--no-recalc", action="store_true",
+                        help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
+        sp.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
+
+    wk = sub.add_parser("weekly", help="the Friday-close routine: append Price History, refresh Market Data "
+                        "and earnings dates, one recalc, audit (never commits)")
+    _weekly_flags(wk)
+    wk.add_argument("--allow-big-moves", action="store_true",
+                    help="append even if a close is >35%% from last week's (check the column first)")
+    mk = sub.add_parser("market", help="refresh Market Data and the Monitor tab's earnings dates in place "
+                        "(the weekly routine minus Price History)")
+    _weekly_flags(mk)
+
     dbp = sub.add_parser("db", help="keep landry.db and the generated tabs in sync")
     dbsub = dbp.add_subparsers(dest="action", required=True)
     _ledger_flags(dbsub.add_parser("status", help="does the database agree with the tabs?"), writes=False)
@@ -646,6 +675,8 @@ def main(argv=None) -> int:
         return _cmd_ledger(args)
     if args.cmd == "prices":
         return _cmd_prices(args)
+    if args.cmd in ("weekly", "market"):
+        return _cmd_weekly(args)
     if args.cmd == "db":
         return _cmd_db(args)
     if args.cmd == "doctor":

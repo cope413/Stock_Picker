@@ -322,3 +322,19 @@ def test_export_no_longer_rewrites_price_history():
     from landry.export import export_workbook
     with pytest.raises(ValueError, match="landry prices"):
         export_workbook("does-not-matter.xlsx", weekly_closes=pd.DataFrame({"X": [1.0]}))
+
+
+# ------------------------------------------------------------ latest closes --
+
+def test_latest_closes_returns_the_newest_row(tmp_path):
+    path = build_workbook(tmp_path)
+    last, closes = prices.latest_closes(path)
+    assert last == _friday(5).date() and len(closes) == 21
+    assert closes["T01"] == 107.5 and closes["T21"] == 127.5               # 100 + k + 5 * 1.5
+
+
+def test_latest_closes_skips_blank_cells(tmp_path):
+    header = [f"T{i:02d}" for i in range(1, 22)]
+    header[3] = None
+    last, closes = prices.latest_closes(build_workbook(tmp_path, header=header))
+    assert "T04" not in closes and len(closes) == 20

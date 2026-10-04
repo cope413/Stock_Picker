@@ -505,11 +505,17 @@ def fetch_daily(tickers: Sequence[str], years: int = 6,
 
 
 def market_snapshot(ticker: str) -> Dict[str, Optional[float]]:
-    """Workbook Market Data tab equivalents, best-effort from yfinance."""
+    """Workbook Market Data tab equivalents, best-effort from yfinance.
+
+    ``dividend_yield`` is a percent (yfinance 0.2.54+; it was a fraction before), ``dividend_rate``
+    is dollars per share per year and is None for funds -- ``landry.market`` cross-checks the one
+    against the other so a unit change upstream cannot silently put a 100x error in the tab.
+    ``dividend_trailing_rate`` is what was actually paid over the last 12 months: 0.0 is the
+    provider affirmatively saying "nothing", unlike a missing ``dividend_yield``, which is silence."""
     import yfinance as yf
     out: Dict[str, Optional[float]] = dict.fromkeys(
         ("price", "volume", "market_cap", "pe", "wk52_low", "wk52_high",
-         "dividend_yield"))
+         "dividend_yield", "dividend_rate", "dividend_trailing_rate"))
     try:
         info = yf.Ticker(ticker).info or {}
     except Exception:
@@ -522,6 +528,8 @@ def market_snapshot(ticker: str) -> Dict[str, Optional[float]]:
         wk52_low=info.get("fiftyTwoWeekLow"),
         wk52_high=info.get("fiftyTwoWeekHigh"),
         dividend_yield=info.get("dividendYield"),
+        dividend_rate=info.get("dividendRate"),
+        dividend_trailing_rate=info.get("trailingAnnualDividendRate"),
     )
     return out
 

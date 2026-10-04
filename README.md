@@ -395,6 +395,9 @@ python -m landry score NVDA --store    # composite from approved scores
 python -m landry daily                 # action items with rule citations + deadlines
 python -m landry import --by "Name"    # seed the score store from the workbook
 python -m landry export --scores       # fill a copy of the Excel workbook
+python -m landry weekly                # Friday-close routine: prices append + Market Data/earnings refresh + recalc + audit (never commits)
+python -m landry market                # just Market Data + earnings dates, refreshed in place from yfinance
+python -m landry prices status         # Price History health check (append / rebuild / add live there too)
 python -m landry doctor                # check this machine is ready to edit the workbook
 ```
 
