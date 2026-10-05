@@ -502,6 +502,31 @@ def _cmd_prices(args) -> int:
     return 0
 
 
+def _cmd_rules_list(args) -> int:
+    """Write the printable Hard Rules list, but only if it still matches the rulebook (``--check`` just checks)."""
+    from landry import rules_list
+    try:
+        problems = rules_list.check(args.rulebook)
+    except rules_list.RulesListError as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    for pr in problems:
+        print(f"  ! {pr}")
+    if args.check:
+        print("the rules list matches the rulebook" if not problems else f"{len(problems)} mismatch(es) with the rulebook")
+        return 1 if problems else 0
+    if problems and not args.force:
+        print("! not written: update PARTS in landry/rules_list.py to the rulebook's current text and numbering "
+              "(or pass --force)", file=sys.stderr)
+        return 1
+    out = rules_list.build(args.out)
+    print(f"wrote {out}")
+    if args.pdf:
+        pdf = rules_list.to_pdf(out)
+        print(f"wrote {pdf}" if pdf else "! no PDF: LibreOffice (soffice) not found")
+    return 0
+
+
 def _cmd_monitor(args) -> int:
     """Keep the Monitor & Recheck Triggers tab current for held positions: ``status`` (read-only; exit 1 if anything is
     out of date), ``stamp`` (Last Score columns from the Scoring rows) and ``refresh`` (insider / analyst signals)."""
@@ -742,6 +767,14 @@ def main(argv=None) -> int:
     mk.add_argument("--positions-only", action="store_true",
                     help="no network: only set Current Positions' fallback prices to Market Data's as it stands")
 
+    rl = sub.add_parser("rules-list", help="write the printable Hard Rules list (docs/Landry System Hard Rules List "
+                        "v<version>.docx) after checking it against the rulebook")
+    rl.add_argument("--out", default=None, help="where to write the docx (default: docs/)")
+    rl.add_argument("--rulebook", default=None, help="the rulebook docx to check against (default: the newest in the repo root)")
+    rl.add_argument("--check", action="store_true", help="only check the list against the rulebook; write nothing (exit 1 on a mismatch)")
+    rl.add_argument("--pdf", action="store_true", help="also render a PDF beside the docx (needs LibreOffice)")
+    rl.add_argument("--force", action="store_true", help="write even though the check found a mismatch")
+
     dbp = sub.add_parser("db", help="keep landry.db and the generated tabs in sync")
     dbsub = dbp.add_subparsers(dest="action", required=True)
     _ledger_flags(dbsub.add_parser("status", help="does the database agree with the tabs?"), writes=False)
@@ -759,6 +792,8 @@ def main(argv=None) -> int:
         return _cmd_weekly(args)
     if args.cmd == "monitor":
         return _cmd_monitor(args)
+    if args.cmd == "rules-list":
+        return _cmd_rules_list(args)
     if args.cmd == "db":
         return _cmd_db(args)
     if args.cmd == "doctor":
