@@ -585,16 +585,19 @@ def check_price_history(path: str) -> List[Check]:
 def check_performance_tracking_ties(path: str) -> List[Check]:
     """The Performance Tracking lot ledger ties to Current Positions (added 2026-10-05 with the summary block).
 
-    Six checks, each a way the summary could quietly stop meaning what its label says (the sixth, "cycles", is
-    below): (1) for every ticker the
+    Seven checks, each a way the summary could quietly stop meaning what its label says (the "sources" and "cycles"
+    checks are below): (1) for every ticker the
     held lots' Shares add up to its quantity on Current Positions -- a System lot larger than the position, a
     position closed on one tab but not the other; (2) no held baseline stock or ETF lot has drifted from its typed
     8/5/26 share count by more than $1,000 or 1% -- a baseline lot's Shares follow Current Positions by themselves,
     so a purchase recorded only there would otherwise be measured from the 8/5 close without anybody noticing;
     (3) the held lots' Current Value adds up to the portfolio total (``total_portfolio_value`` of Current
     Positions) within 0.5% -- prices on both tabs come from Market Data, so any bigger gap is a lot priced wrongly
-    or not at all; (4) the summary's TOTAL line shows that same figure; (5) the benchmark cells (SPY now, SPY at
-    8/5/26 and 12/31/25, the as-of date, the inception date) exist and hold numbers; (6) no formula on the tab
+    or not at all; (4) the summary's TOTAL line shows that same figure; (5) the by-source lines (System lots only,
+    Legacy stocks, Dry-powder ETFs, Cash -- added 2026-10-05) each match the ledger rows that belong to them, every
+    lot belongs to exactly one, and the four add up to the Cumulative TOTAL -- a lot with no Basis or no Type would
+    be in that total but in none of the four; (6) the benchmark cells (SPY now, SPY at
+    8/5/26 and 12/31/25, the as-of date, the inception date) exist and hold numbers; (7) no formula on the tab
     depends on itself through a range -- Excel reports that as a circular reference, LibreOffice does not (the
     whole-column ranges in Shares did exactly that on 2026-10-05, found before the file reached Excel). Values are read from the cached results, so the
     workbook must have been recalculated. A tab still in the old A:Q layout is skipped."""
@@ -614,6 +617,8 @@ def check_performance_tracking_ties(path: str) -> List[Check]:
         total_row = next((r for r in range(top, top + perf_tab.BLOCK_ROWS)
                           if ws.cell(row=r, column=1).value == "TOTAL"), None)
         summary_total = ws.cell(row=total_row, column=5).value if total_row else None
+        block = {ws.cell(row=r, column=1).value: (ws.cell(row=r, column=4).value, ws.cell(row=r, column=5).value)
+                 for r in range(top, top + perf_tab.BLOCK_ROWS) if isinstance(ws.cell(row=r, column=1).value, str)}
         bench = {k: (perf_tab._name_ref(wb, k) and ws[perf_tab._name_ref(wb, k)[1]].value) for k in perf_tab.NAMES}
         positions = xlsx_io.read_positions(path)
     except Exception as e:
@@ -684,6 +689,39 @@ def check_performance_tracking_ties(path: str) -> List[Check]:
                      else f"the summary's TOTAL line ({summary_total:,.2f}) equals the held lots' Current Value",
                      fix=None if ok else "the summary block is generated: landry.perf_tab.rebuild_block(wb) rewrites it, "
                                           "then recalc"))
+
+    # the by-source lines partition the ledger: each shows what its own lots add up to, every lot is in exactly one,
+    # and together they are the Cumulative TOTAL (the "All sources" line is built as their sum, not as a second total)
+    src_labels = {k: label for k, label, _how in perf_tab.SOURCE_LINES}
+    cum_label = next((lab for lab in block if isinstance(lab, str) and lab.startswith("Cumulative TOTAL")), None)
+    problems = []
+    unclassified = [f"row {l['row']} ({l['ticker']})" for l in lots if perf_tab.source_of(l["basis"], l["type"]) is None]
+    if unclassified:
+        problems.append("no usable Basis or Type: " + ", ".join(unclassified[:6]))
+    if not all(label in block for label in src_labels.values()) or cum_label is None:
+        problems.append("the by-source lines are missing from the summary block")
+    else:
+        want = {k: [0.0, 0.0] for k in src_labels}
+        for l in lots:
+            k = perf_tab.source_of(l["basis"], l["type"])
+            if k:
+                want[k][0] += l["entry_value"] if isinstance(l["entry_value"], (int, float)) else 0.0
+                want[k][1] += l["cur_value"] if isinstance(l["cur_value"], (int, float)) else 0.0
+        want["all"] = [sum(want[k][0] for k in want if k != "all"), sum(want[k][1] for k in want if k != "all")]
+        for k, label in src_labels.items():
+            shown = block[label]
+            if not all(isinstance(v, (int, float)) for v in shown) or any(abs(s - w) >= 1.0 for s, w in zip(shown, want[k])):
+                problems.append(f"'{label}' shows {shown!r}, its lots add to ({want[k][0]:,.2f}, {want[k][1]:,.2f})")
+        cum = block[cum_label]
+        allsrc = block[src_labels["all"]]
+        if all(isinstance(v, (int, float)) for v in cum + allsrc) and any(abs(a - c) >= 1.0 for a, c in zip(allsrc, cum)):
+            problems.append(f"the four lines add to ({allsrc[0]:,.2f}, {allsrc[1]:,.2f}), the Cumulative TOTAL line shows "
+                            f"({cum[0]:,.2f}, {cum[1]:,.2f})")
+    out.append(Check(f"{name}:sources", not problems,
+                     "; ".join(problems[:4]) if problems
+                     else "every lot is in exactly one by-source line and the four lines add up to the Cumulative TOTAL",
+                     fix=None if not problems else "give every ledger row a Basis (System / Baseline) and a Type "
+                         "(Stock / ETF / Cash); the block is generated -- landry.perf_tab.rebuild_block(wb), then recalc"))
 
     try:
         cycles = perf_tab.find_cycles(openpyxl.load_workbook(path))

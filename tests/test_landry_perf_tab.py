@@ -188,6 +188,41 @@ def test_the_block_has_alans_lines_in_order_and_formulas_bounded_to_the_table():
         [dt.datetime(2026, 10, 2), 750.0, 700.0, 650.0, dt.datetime(2026, 8, 5)]
 
 
+def test_the_by_source_section_follows_the_summary_and_every_lot_is_in_exactly_one_line():
+    """Alan, 10/5/26: keep the legacy shares of ADBE / VRTX / PLD and get the System-only record from slices of the
+    ledger instead -- System lots, Legacy stocks, Dry-powder ETFs, Cash -- that add up to the Cumulative TOTAL."""
+    import re
+    wb = make_book()
+    ws = wb[pt.SHEET]
+    _first, last = pt.table_bounds(ws)
+    top = pt.block_top(last)
+    lines = pt.block_lines(ws, last)
+    labels = [label for _k, label, _how in pt.SOURCE_LINES]
+    assert lines["Avg Annual Gain/(Loss)"] == top + 7
+    assert ws.cell(row=top + 9, column=1).value == pt.SOURCE_HEADING                  # a blank row, then the section
+    assert [ws.cell(row=top + 10 + i, column=1).value for i in range(5)] == labels
+    assert lines["Benchmark & dates"] == top + 16 and top + pt.BLOCK_ROWS - 1 == top + 23
+    # each source line reads only the Table's rows, selected by Basis (and, for the baseline split, Type)
+    types = {"legacy": "Stock", "etf": "ETF", "cash": "Cash"}
+    for key, row in zip(("system", "legacy", "etf", "cash"), range(top + 10, top + 14)):
+        f = ws.cell(row=row, column=4).value
+        assert f"$S$3:$S${last}" in f and not re.search(r"\$[A-Z]+:\$[A-Z]+", f), f
+        assert ('"System"' in f) == (key == "system") and ('"Baseline"' in f) == (key != "system"), f
+        assert ('"Stock"' in f) == (key == "legacy") and ('"ETF"' in f) == (key == "etf") and ('"Cash"' in f) == (key == "cash")
+        assert key == "system" or f'"{types[key]}"' in f
+    # the sum is built from the four lines, not from a second total, so it can disagree with Cumulative TOTAL
+    assert ws.cell(row=top + 14, column=4).value == "=D{}+D{}+D{}+D{}".format(*range(top + 10, top + 14))
+    assert ws.cell(row=top + 14, column=1).font.b and ws.cell(row=top + 10, column=1).font.b is False
+    # the partition: every Basis / Type a lot can carry lands in at most one line, a missing one in none
+    assert pt.source_of("System", "Stock") == "system" and pt.source_of("System", "ETF") == "system"
+    assert [pt.source_of("Baseline", t) for t in pt.TYPES] == ["legacy", "etf", "cash"]
+    assert pt.source_of("Baseline", None) is None and pt.source_of(None, "Stock") is None
+    assert pt.source_of("Other", "Stock") is None
+    # colour rules reach the new lines; the formulas still contain no cycle
+    assert any(f"F{top + 10}:I{top + 10}" in str(cf.sqref) for cf in ws.conditional_formatting)
+    assert pt.find_cycles(wb) == []
+
+
 def test_the_tabs_formulas_have_no_circular_reference_and_no_whole_column_range():
     """Excel reports a range-level cycle; LibreOffice does not (it evaluates SUMIFS lazily) -- so this is the only
     thing that would have caught Shares reading $I:$I, a column the summary's Excess formulas also live in."""
@@ -320,13 +355,50 @@ def test_every_summary_line_matches_independent_arithmetic(tmp_path):
     assert f[2:] == [approx(g / yrs), approx(ret / yrs), approx(spy_c / yrs), approx(ret / yrs - spy_c / yrs)]
     assert f[0] in (None, "") and f[1] in (None, "")
 
+    # by source: System lots, then the baseline lots split by Type, held and sold alike; SPY is each lot's own period
+    bases = ["System", "Baseline", "Baseline", "Baseline", "Baseline", "Baseline"]         # lots() order
+    lines = pt.block_lines(v, pt.table_bounds(v)[1])
+    src_line = lambda label: [v.cell(row=lines[label], column=c).value for c in range(4, 10)]    # noqa: E731
+    spy_all = b_all = 0.0
+    for key, label, _how in pt.SOURCE_LINES[:4]:
+        idx = [i for i, row in enumerate(L) if pt.source_of(bases[i], row[0]) == key]
+        b = sum(L[i][2] * L[i][3] for i in idx)
+        c = sum(L[i][2] * L[i][5] for i in idx)
+        spy = sum(L[i][2] * L[i][3] * (L[i][7] / L[i][4] - 1) for i in idx)
+        spy_all, b_all = spy_all + spy, b_all + b
+        assert src_line(label) == [approx(b), approx(c), approx(c - b), approx((c - b) / b), approx(spy / b),
+                                   approx((c - b) / b - spy / b)], key
+    assert [len(idx) for idx in ([i for i, row in enumerate(L) if pt.source_of(bases[i], row[0]) == k]
+                                 for k in ("system", "legacy", "etf", "cash"))] == [1, 3, 1, 1]
+    b, c, g, ret = agg(everything, "entry")
+    all_label = pt.SOURCE_LINES[-1][1]
+    assert src_line(all_label) == [approx(b), approx(c), approx(g), approx(ret), approx(spy_all / b_all),
+                                   approx(ret - spy_all / b_all)]
+    assert v.cell(row=lines[all_label], column=10).value == pt.SOURCE_ADDS_UP        # the sheet's own tie note
+
+
+@needs_soffice
+def test_a_lot_with_no_type_breaks_the_by_source_tie_and_the_audit_and_the_sheet_both_say_so(tmp_path):
+    wb = make_book()
+    ws = wb[pt.SHEET]
+    assert ws.cell(row=5, column=1).value == "BBB"
+    ws.cell(row=5, column=pt.TYPE).value = None                           # the ETF: now in none of the four lines
+    path = save(wb, tmp_path)
+    assert recalc(path)["total_errors"] == 0
+    bad = {c.name.split(":")[1]: c for c in check_performance_tracking_ties(path) if not c.ok}
+    assert "sources" in bad and "row 5 (BBB)" in bad["sources"].detail and bad["sources"].fix
+    v = openpyxl.load_workbook(path, data_only=True)[pt.SHEET]
+    lines = pt.block_lines(v, pt.table_bounds(v)[1])
+    assert v.cell(row=lines[pt.SOURCE_LINES[-1][1]], column=10).value == pt.SOURCE_BROKEN
+
 
 @needs_soffice
 def test_the_audit_ties_hold_on_a_consistent_book_and_catch_a_lot_that_drifts(tmp_path):
     path = save(make_book(), tmp_path)
     assert recalc(path)["total_errors"] == 0
     checks = check_performance_tracking_ties(path)
-    assert [c.name.split(":")[1] for c in checks] == ["shares", "baseline", "value", "summary", "cycles", "benchmark"]
+    assert [c.name.split(":")[1] for c in checks] == ["shares", "baseline", "value", "summary", "sources", "cycles",
+                                                      "benchmark"]
     assert all(c.ok for c in checks), [c.detail for c in checks if not c.ok]
     # a System lot bigger than the position: Current Positions holds 5 CCC, the System says it bought 9
     wb = openpyxl.load_workbook(path)
@@ -511,9 +583,38 @@ def test_live_ledger_has_no_circular_reference():
 
 
 @needs_workbook
+def test_live_by_source_lines_split_the_ledger_and_add_up_to_the_cumulative_total():
+    """The System-only record (Alan, 10/5/26: keep the legacy lots, "stick with the System") read straight off the
+    live ledger rows, with arithmetic done here -- not read back from the sheet's own formulas."""
+    wb = openpyxl.load_workbook(_WB, data_only=True)
+    ws = wb[pt.SHEET]
+    lines = pt.block_lines(ws, pt.table_bounds(ws)[1])
+    ls = pt.read_lots(wb)
+    num = lambda v: v if isinstance(v, (int, float)) else 0.0                    # noqa: E731
+    assert all(pt.source_of(l["basis"], l["type"]) for l in ls)                  # every lot is in one of the four
+    shown = {k: [ws.cell(row=lines[label], column=c).value for c in range(4, 10)] for k, label, _h in pt.SOURCE_LINES}
+    spy_all = base_all = 0.0
+    for key in ("system", "legacy", "etf", "cash"):
+        mine = [l for l in ls if pt.source_of(l["basis"], l["type"]) == key]
+        base, cur = sum(num(l["entry_value"]) for l in mine), sum(num(l["cur_value"]) for l in mine)
+        spy = sum(num(l["spy_gain"]) for l in mine)
+        spy_all, base_all = spy_all + spy, base_all + base
+        assert shown[key][:4] == [pytest.approx(base), pytest.approx(cur), pytest.approx(cur - base),
+                                  pytest.approx((cur - base) / base)], key
+        assert shown[key][4] == pytest.approx(spy / base), key
+    cum = [ws.cell(row=lines["Cumulative TOTAL (since inception 8/5)"], column=c).value for c in range(4, 8)]
+    assert shown["all"][:4] == [pytest.approx(x) for x in cum]                   # the four lines are the Cumulative TOTAL
+    assert shown["all"][4] == pytest.approx(spy_all / base_all)
+    assert ws.cell(row=lines[pt.SOURCE_LINES[-1][1]], column=10).value == pt.SOURCE_ADDS_UP
+    # the System line is the System's own lots, held and sold, and nothing else
+    system = [l for l in ls if l["basis"] == "System"]
+    assert shown["system"][0] == pytest.approx(sum(num(l["entry_value"]) for l in system))
+
+
+@needs_workbook
 def test_live_audit_ties_hold():
     checks = check_performance_tracking_ties(_WB)
-    assert [c.ok for c in checks] == [True] * 6, [c.detail for c in checks if not c.ok]
+    assert [c.ok for c in checks] == [True] * 7, [c.detail for c in checks if not c.ok]
 
 
 @needs_workbook

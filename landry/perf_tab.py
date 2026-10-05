@@ -34,6 +34,12 @@ the block under the table moves whenever the table grows.
 The summary block is GENERATED (``build_block``): its formulas carry explicit row bounds, so it is rewritten
 below the new last row whenever ``extend_table`` / ``add_lot`` grows the table. That is the one safe way to grow
 this tab with openpyxl -- ``insert_rows`` leaves merges, heights and every formula behind (CLAUDE.md, 10/2/26).
+
+The block's second section splits the ledger BY SOURCE (Alan, 10/5/26, after deciding to keep the pre-8/5 shares of
+ADBE / VRTX / PLD: "stick with the System"): System lots only, Legacy stocks, Dry-powder ETFs and Cash. Every ledger
+row falls in exactly one of them (``source_of``), held and sold alike, so the four add up to the Cumulative TOTAL
+line -- the audit checks that -- and the System's own record from entry, against SPY over each lot's own period,
+is on the tab without any trade being made to tidy it.
 """
 
 from __future__ import annotations
@@ -79,7 +85,8 @@ LIGHT_RED, DARK_RED = "FFFFC7CE", "FF9C0006"
 
 BASELINE_DRIFT_USD = 1000.0                                # a baseline lot may drift this far (or ...
 BASELINE_DRIFT_PCT = 0.01                                  # ... this share of its value) from its 8/5/26 share count
-BLOCK_ROWS = 17                                            # header, 7 summary lines, benchmark block, footnote
+BLOCK_ROWS = 24                                            # header, 7 summary lines, by-source section (header + 5
+                                                           # lines), benchmark block (header + 5 lines), footnote
 MD_SHEET = "Market Data"
 MD_RANGE_END = 300                                         # Market Data is not a Table: a generous fixed range
 
@@ -308,6 +315,23 @@ SUMMARY_LINES = (
     ("Avg Annual Gain/(Loss)", "Cumulative TOTAL / years since 8/5/26, simple not compounded -- extrapolated from under "
                                "a year, not a forecast"),
 )
+SOURCE_HEADING = "By source (since 8/5; held + sold)"
+SOURCE_LINES = (
+    ("system", "System lots only (from entry)",
+     "the System's own purchases (Basis = System), held + sold, from each entry date; SPY = the same dollars in SPY over "
+     "each lot's own period"),
+    ("legacy", "Legacy stocks (from the 8/5 close)",
+     "Basis = Baseline, stocks: held at the 8/5/26 snapshot (pre-System shares of ADBE / VRTX / PLD included) and sold "
+     "8/7/26; same SPY measure"),
+    ("etf", "Dry-powder ETFs (from the 8/5 close)",
+     "Basis = Baseline, ETFs: held at the 8/5/26 snapshot (and any sold since); same SPY measure"),
+    ("cash", "Cash & money funds",
+     "Basis = Baseline, cash: money-market and sweep funds at $1.00 -- price return 0%, interest not captured"),
+    ("all", "All sources (= Cumulative TOTAL)", None),          # its note is a formula: does the split still add up?
+)
+SOURCE_ADDS_UP = ("adds up to the Cumulative TOTAL line above (SPY here is each lot's own period, so it can differ a "
+                  "little from that line's 8/5 -> now)")
+SOURCE_BROKEN = "DOES NOT add up to the Cumulative TOTAL -- a lot has no Basis or no Type"
 BENCHMARK_LINES = (
     ("as_of", "Prices as of", "written by `landry weekly` (the last close it saw)"),
     ("spy_now", "SPY current", "written by `landry weekly`"),
@@ -377,6 +401,35 @@ def _clear_block(ws, top: int) -> None:
             cell.number_format = "General"
 
 
+def source_of(basis, type_) -> Optional[str]:
+    """Which by-source line a lot belongs to -- 'system', 'legacy', 'etf' or 'cash' -- or None when its Basis or
+    Type is missing or unknown (such a lot would be in the Cumulative TOTAL but in none of the four lines, which is
+    exactly what the 'All sources' note and the audit's ``sources`` check exist to catch)."""
+    if basis == "System":
+        return "system"
+    if basis == "Baseline":
+        return {"Stock": "legacy", "ETF": "etf", "Cash": "cash"}.get(type_)
+    return None
+
+
+def block_lines(ws, last: int) -> Dict[str, int]:
+    """{label: row} of every labelled line in the summary block (column A), for the audit and the tests."""
+    top = block_top(last)
+    return {ws.cell(row=r, column=1).value: r for r in range(top, top + BLOCK_ROWS)
+            if isinstance(ws.cell(row=r, column=1).value, str)}
+
+
+def _paint_header(ws, r: int, heads: Dict[int, str], base: Dict[str, object], navy: str) -> None:
+    from openpyxl.styles import Alignment, Font, PatternFill
+    for c in range(1, 18):
+        cell = ws.cell(row=r, column=c)
+        cell.fill = PatternFill("solid", fgColor=navy)
+        cell.font = Font(bold=True, color="FFFFFFFF", **base)
+        cell.alignment = Alignment(horizontal="left" if c in (1, 10) else "center", vertical="center")
+        cell.value = heads.get(c)
+    ws.row_dimensions[r].height = 18.0
+
+
 def build_block(wb, ws, last: int, benchmark: Optional[Dict[str, object]] = None) -> int:
     """(Re)write the summary block below the table. Returns its top row. ``benchmark`` carries the five
     benchmark values (as_of, spy_now, spy_0805, spy_1231, inception) -- read from the old block when it moves."""
@@ -392,13 +445,7 @@ def build_block(wb, ws, last: int, benchmark: Optional[Dict[str, object]] = None
     # header
     heads = {1: "Performance summary", 4: "Basis ($)", 5: "Value ($)", 6: "Gain/(Loss) ($)", 7: "Return", 8: "SPY",
              9: "Excess", 10: "How it is measured"}
-    for c in range(1, 18):
-        cell = ws.cell(row=top, column=c)
-        cell.fill = PatternFill("solid", fgColor=navy)
-        cell.font = Font(bold=True, color="FFFFFFFF", **base)
-        cell.alignment = Alignment(horizontal="left" if c in (1, 10) else "center", vertical="center")
-        cell.value = heads.get(c)
-    ws.row_dimensions[top].height = 18.0
+    _paint_header(ws, top, heads, base, navy)
 
     rng = lambda col: f"${L(col)}$3:${L(col)}${last}"            # noqa: E731
     stock = f'{rng(TYPE)},"Stock"'
@@ -455,8 +502,57 @@ def build_block(wb, ws, last: int, benchmark: Optional[Dict[str, object]] = None
         d.alignment = Alignment(horizontal="left", vertical="center")
         ws.row_dimensions[r].height = 15.0
 
+    # by source: every ledger row is in exactly one of the four lines (``source_of``), held and sold alike, so they
+    # add up to the Cumulative TOTAL. SPY is the same dollars over each lot's own period on every line -- the right
+    # yardstick for System lots, which start on different days.
+    sh = r1 + len(SUMMARY_LINES) + 1
+    _paint_header(ws, sh, {**heads, 1: SOURCE_HEADING}, base, navy)
+    skeys = tuple(k for k, _label, _how in SOURCE_LINES)
+    srows = {k: sh + 1 + i for i, k in enumerate(skeys)}
+    parts = [k for k in skeys if k != "all"]
+    crit = {"system": f'{rng(BASIS)},"System"',
+            "legacy": f'{rng(BASIS)},"Baseline",{rng(TYPE)},"Stock"',
+            "etf": f'{rng(BASIS)},"Baseline",{rng(TYPE)},"ETF"',
+            "cash": f'{rng(BASIS)},"Baseline",{rng(TYPE)},"Cash"'}
+    for key, label, how in SOURCE_LINES:
+        r = srows[key]
+        total = key == "all"
+        ws.cell(row=r, column=1).value = label
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+        for c in range(1, 11):
+            cell = ws.cell(row=r, column=c)
+            cell.font = Font(bold=total, **base)
+            cell.border = box
+            cell.fill = PatternFill("solid", fgColor="FFDDEBF7" if total else "FFF2F2F2")
+            cell.alignment = Alignment(horizontal="left" if c == 1 else "center", vertical="center")
+        if total:
+            ws.cell(row=r, column=4).value = "=" + "+".join(f"D{srows[k]}" for k in parts)
+            ws.cell(row=r, column=5).value = "=" + "+".join(f"E{srows[k]}" for k in parts)
+            spy_sum = "+".join(f"SUMIFS({rng(SPY_GAIN)},{crit[k]})" for k in parts)
+            ws.cell(row=r, column=8).value = f'=IF(D{r}=0,"",({spy_sum})/D{r})'
+            how = (f'=IF(AND(ABS(D{r}-D{rows["ctot"]})<0.5,ABS(E{r}-E{rows["ctot"]})<0.5),'
+                   f'"{SOURCE_ADDS_UP}","{SOURCE_BROKEN}")')
+        else:
+            ws.cell(row=r, column=4).value = f"=SUMIFS({rng(ENTRY_VALUE)},{crit[key]})"
+            ws.cell(row=r, column=5).value = f"=SUMIFS({rng(CUR_VALUE)},{crit[key]})"
+            ws.cell(row=r, column=8).value = f'=IF(D{r}=0,"",SUMIFS({rng(SPY_GAIN)},{crit[key]})/D{r})'
+        ws.cell(row=r, column=6).value = f"=E{r}-D{r}"
+        ws.cell(row=r, column=7).value = f'=IF(D{r}=0,"",F{r}/D{r})'
+        ws.cell(row=r, column=9).value = f'=IF(OR(G{r}="",H{r}=""),"",G{r}-H{r})'
+        for c in (4, 5, 6):
+            ws.cell(row=r, column=c).number_format = usd
+        for c in (7, 8, 9):
+            ws.cell(row=r, column=c).number_format = pct
+        d = ws.cell(row=r, column=10)
+        d.value = how
+        d.font = Font(italic=True, color="FF808080", name="Arial Narrow", sz=8)
+        d.border = Border()
+        d.fill = PatternFill()
+        d.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[r].height = 15.0
+
     # benchmark & dates
-    bh = r1 + len(SUMMARY_LINES) + 1
+    bh = sh + len(SOURCE_LINES) + 2
     ws.cell(row=bh, column=1).value = "Benchmark & dates"
     for c in range(1, 18):
         cell = ws.cell(row=bh, column=c)
@@ -496,7 +592,7 @@ def build_block(wb, ws, last: int, benchmark: Optional[Dict[str, object]] = None
     ws.merge_cells(start_row=fr, start_column=1, end_row=fr, end_column=17)
     ws.row_dimensions[fr].height = 72.0
     assert fr == top + BLOCK_ROWS - 1, (fr, top)
-    _set_rules(ws, last, [rows[k] for k in rows])
+    _set_rules(ws, last, [rows[k] for k in rows] + [srows[k] for k in skeys])
     return top
 
 
