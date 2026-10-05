@@ -7,7 +7,8 @@
 2. Market Data and the Monitor tab's earnings dates: refresh in place (``market.refresh``), then keep Current
    Positions' fallback prices equal to Market Data's (``market.sync_fallbacks``);
 3. ONE LibreOffice recalc for both -- a workbook saved by openpyxl is not safe to commit without it;
-4. read Rule 38's status back from the Correlation Matrix and run ``landry audit``.
+4. read Rule 38's status back from the Correlation Matrix, run ``landry audit`` and the Journal / Drawdown Log
+   drift guard (``landry db status``) -- an Excel hand-edit of either generated tab shows up here weekly.
 
 It never commits and never touches another tab. The CLI layer refuses to start while Excel has the
 workbook open. A problem in one step does not stop the other (each only ever saves a finished
@@ -18,6 +19,7 @@ over it. The functions here return data; ``format_report`` is the only thing tha
 from __future__ import annotations
 
 import datetime as dt
+import os
 from typing import Callable, Dict, List, Optional
 
 from landry import market, prices
@@ -121,6 +123,23 @@ def rule38_status(path: str) -> Optional[dict]:
         return None
 
 
+def database_status(path: str, db_path: Optional[str] = None) -> dict:
+    """The Journal / Drawdown Log drift guard (``landry db status``) as data. ``ok`` is True (the tabs and the
+    database agree), False (they differ, or the check could not run) or None (no database yet: a fresh checkout
+    builds it on its first write, so that is a note, not a failure)."""
+    from landry import ledger, models
+    db = db_path or models.DEFAULT_DB_PATH
+    if not os.path.exists(db):
+        return {"ok": None, "note": f"no database at {os.path.basename(db)} yet (`landry db pull` builds it from the workbook)"}
+    try:
+        report = ledger.status(path, db)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    tabs = {k: {"rows": v["db_rows"], "value_diffs": len(v["value_diffs"]), "format_diffs": len(v["format_diffs"])}
+            for k, v in report.items()}
+    return {"ok": not any(t["value_diffs"] for t in tabs.values()), "tabs": tabs}
+
+
 def _recalc(path: str) -> dict:
     from landry.xlsx_recalc import recalc
     return recalc(path)
@@ -132,9 +151,10 @@ def _audit(path: str, repo_dir: Optional[str]):
 
 
 def verify(path: str, rep: dict, *, recalc_fn: Optional[Callable] = None, audit_fn: Optional[Callable] = None,
-           repo_dir: Optional[str] = None, recalc_now: bool = True) -> dict:
-    """Step 3 and 4: one recalc if anything was written, then Rule 38 and the audit. Mutates and
-    returns ``rep``."""
+           repo_dir: Optional[str] = None, recalc_now: bool = True, db_fn: Optional[Callable] = None,
+           db_path: Optional[str] = None) -> dict:
+    """Step 3 and 4: one recalc if anything was written, then Rule 38, the database drift guard and the
+    audit. Mutates and returns ``rep``."""
     if rep["wrote"] and not recalc_now:
         rep["warnings"].append("recalc skipped (--no-recalc): the workbook is NOT safe to commit until it is run")
     if rep["wrote"] and recalc_now:
@@ -148,6 +168,11 @@ def verify(path: str, rep: dict, *, recalc_fn: Optional[Callable] = None, audit_
         if res.get("clamped_rows"):
             rep["problems"].append(f"recalc capped {len(res['clamped_rows'])} row height(s) at Excel's 409.5pt maximum")
     rep["rule38"] = rule38_status(path)
+    rep["db"] = (db_fn or database_status)(path, db_path)
+    if rep["db"].get("ok") is False:
+        detail = rep["db"].get("error") or ", ".join(f"{k}: {t['value_diffs']} cell(s) differ" for k, t in rep["db"]["tabs"].items() if t["value_diffs"])
+        rep["problems"].append(f"database: the Journal / Drawdown Log tab and landry.db disagree ({detail}) -- `python -m landry db status`; "
+                               f"`db pull` if the workbook is right, `db regenerate` if the database is")
     try:
         checks = (audit_fn or _audit)(path, repo_dir)
     except Exception as e:                      # the audit must never be the reason a run says nothing
@@ -242,6 +267,17 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
     r38 = rep.get("rule38")
     if r38 is not None:
         lines.append(f"Rule 38         {r38['over_cap']} position(s) over the 0.70 cap -- {r38['status']}")
+    d = rep.get("db")
+    if d is not None:
+        if d.get("ok") is None:
+            lines.append(f"Database        {d['note']}")
+        elif d.get("error"):
+            lines.append(f"Database        DRIFT CHECK FAILED: {d['error']}")
+        else:
+            body = ", ".join(f"{k} {t['rows']} entries" for k, t in d["tabs"].items())
+            fmt = sum(t["format_diffs"] for t in d["tabs"].values())
+            lines.append(f"Database        {body}: " + ("in sync" if d["ok"] else "DISAGREES with the workbook")
+                         + (f" ({fmt} formatting difference(s) the next Journal / Drawdown write resets)" if fmt else ""))
     a = rep.get("audit")
     if a is not None:
         lines.append(f"Audit           {a['checks']} checks, {len(a['failed'])} failed"

@@ -18,6 +18,13 @@ WED = dt.datetime(2026, 10, 7, 9, 0)
 NOSLEEP = lambda s: None                                         # noqa: E731
 
 
+@pytest.fixture(autouse=True)
+def _no_real_database(monkeypatch):
+    """verify() runs the Journal / Drawdown drift guard; tests must never read the repo's real landry.db against
+    a synthetic workbook. The tests that care about it pass their own db_fn."""
+    monkeypatch.setattr(weekly, "database_status", lambda path, db_path=None: {"ok": True, "tabs": {}})
+
+
 def combined(tmp_path, name="w.xlsx"):
     """Price History + Returns (Calc) + Correlation Matrix from the prices fixture, plus the two tabs
     the market refresh writes."""
@@ -330,3 +337,54 @@ def test_cli_passes_the_positions_only_flag(monkeypatch, capsys):
     assert cli._cmd_weekly(_args(cmd="market", positions_only=True)) == 0
     assert seen["positions_only"] is True and seen["do_prices"] is False
     assert cli._cmd_weekly(_args(cmd="weekly")) == 0 and seen["positions_only"] is False
+
+
+# ------------------------------------------------------------------ the database drift guard --
+
+def test_verify_reports_the_database_as_in_sync_in_the_report():
+    rep = {"wrote": False, "problems": [], "warnings": [], "prices": None, "market": None, "dry_run": False}
+    ok = {"ok": True, "tabs": {"journal": {"rows": 88, "value_diffs": 0, "format_diffs": 0},
+                               "drawdown": {"rows": 3, "value_diffs": 0, "format_diffs": 0}}}
+    weekly.verify("wb.xlsx", rep, audit_fn=lambda p, r: checks(), db_fn=lambda p, d: ok)
+    assert rep["db"] == ok and rep["problems"] == []
+    text = weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+    assert "Database        journal 88 entries, drawdown 3 entries: in sync" in text
+
+
+def test_verify_turns_database_drift_into_a_problem_and_says_how_to_resolve_it():
+    rep = {"wrote": False, "problems": [], "warnings": [], "prices": None, "market": None, "dry_run": False}
+    bad = {"ok": False, "tabs": {"journal": {"rows": 88, "value_diffs": 2, "format_diffs": 1},
+                                 "drawdown": {"rows": 3, "value_diffs": 0, "format_diffs": 0}}}
+    weekly.verify("wb.xlsx", rep, audit_fn=lambda p, r: checks(), db_fn=lambda p, d: bad)
+    assert len(rep["problems"]) == 1 and "journal: 2 cell(s) differ" in rep["problems"][0]
+    assert "db pull" in rep["problems"][0] and "db regenerate" in rep["problems"][0]
+    text = weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+    assert "DISAGREES with the workbook (1 formatting difference(s)" in text and "NEEDS ATTENTION" in text
+
+
+def test_a_failing_drift_check_is_a_problem_but_a_missing_database_is_only_a_note():
+    rep = {"wrote": False, "problems": [], "warnings": [], "prices": None, "market": None, "dry_run": False}
+    weekly.verify("wb.xlsx", rep, audit_fn=lambda p, r: checks(), db_fn=lambda p, d: {"ok": False, "error": "schema mismatch"})
+    assert "schema mismatch" in rep["problems"][0]
+    assert "DRIFT CHECK FAILED: schema mismatch" in weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+    rep = {"wrote": False, "problems": [], "warnings": [], "prices": None, "market": None, "dry_run": False}
+    weekly.verify("wb.xlsx", rep, audit_fn=lambda p, r: checks(), db_fn=lambda p, d: {"ok": None, "note": "no database at landry.db yet"})
+    assert rep["problems"] == [] and "Database        no database at landry.db yet" in weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+
+
+def test_database_status_wraps_ledger_status(tmp_path, monkeypatch):
+    from landry import ledger
+    monkeypatch.undo()                                                                    # the autouse stub off for this one
+    db = tmp_path / "x.db"
+    assert weekly.database_status("wb.xlsx", str(db))["ok"] is None                      # no database file
+    db.write_bytes(b"")
+    monkeypatch.setattr(ledger, "status", lambda wb, d: {
+        "journal": {"db_rows": 5, "value_diffs": [], "format_diffs": []},
+        "drawdown": {"db_rows": 3, "value_diffs": [(1, "B3", 1, 2)], "format_diffs": []}})
+    got = weekly.database_status("wb.xlsx", str(db))
+    assert got["ok"] is False and got["tabs"]["drawdown"]["value_diffs"] == 1 and got["tabs"]["journal"]["rows"] == 5
+
+    def boom(wb, d):
+        raise ledger.LedgerError("db is newer than this code")
+    monkeypatch.setattr(ledger, "status", boom)
+    assert weekly.database_status("wb.xlsx", str(db)) == {"ok": False, "error": "db is newer than this code"}
