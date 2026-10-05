@@ -136,7 +136,13 @@ def read_performance_tab(path: str,
     """Columns (header row 2): A=Ticker, B=Company, C=EntryDate,
     D=EntryPrice, E=EntryScore, F=EntryConfidence, G=EntryDecisionBand,
     H=SPY@Entry, I=Status, J=ExitDate, K=ExitPrice, L=ExitReason,
-    M=Current/ExitPrice, N=SPY(current/exit)."""
+    M=Current/ExitPrice, N=SPY(current/exit).
+
+    Only the System's own entries count. Since 2026-10-05 the tab lists every current holding, and
+    the legacy stocks, dry-powder ETFs and cash funds among them carry an average-cost Entry Price
+    but no Entry Date, Score or Band: a row with no Entry Date is skipped, and so is one that has a
+    date but neither a score nor a band -- no cohort can be built from invented history (the tab's
+    A1 note, agreed 2026-08-26: "a blank Decision Band naturally excludes it")."""
     import openpyxl
 
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
@@ -144,6 +150,8 @@ def read_performance_tab(path: str,
     out: List[EntryRecord] = []
     for r in ws.iter_rows(min_row=3, values_only=True):
         if not r or not r[0] or r[2] is None or r[3] is None:
+            continue
+        if r[4] is None and r[6] is None:       # no score and no band: not a System entry
             continue
         def _d(v):
             if v is None:

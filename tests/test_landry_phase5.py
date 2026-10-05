@@ -178,6 +178,71 @@ def test_read_performance_tab_reads_a_populated_row(tmp_path):
     assert (b.ticker, b.exit_date, b.exit_price, b.exit_reason) == ("SFM", dt.date(2026, 9, 1), 104.0, "Rule 3")
 
 
+def test_read_performance_tab_skips_rows_that_are_not_system_entries(tmp_path):
+    """Since 2026-10-05 the tab lists every holding. Legacy, ETF and cash rows carry an average-cost Entry Price and no
+    Entry Date, Score or Band, so none of them may reach the Rule-46 cohort -- a dated row without a score or a band
+    included (the tab's A1 note: a blank Decision Band excludes it)."""
+    from landry.performance import read_performance_tab
+    path = _performance_workbook(tmp_path, [
+        ("ANET", "Arista", None, 146.47, None, None, None, None, "Held", None, None, None, 207.35, None),   # legacy, no date
+        ("FZDXX", "Fidelity MM", None, 1.0, None, None, None, None, "Held", None, None, None, 1.0, None),   # cash fund
+        ("OLD", "Dated legacy", dt.datetime(2020, 1, 2), 10.0, None, None, None, None, "Held", None, None, None,
+         12.0, None),                                                                                       # date, no score/band
+        ("NVDA", "NVIDIA", dt.datetime(2026, 8, 7), 180.0, 89.2, "M", "STRONG BUY", 640.0, "Held", None, None, None,
+         227.0, 660.0),
+        ("NOBAND", "Score only", dt.datetime(2026, 8, 7), 50.0, 71.0, "M", None, 640.0, "Held", None, None, None,
+         52.0, 660.0),
+        ("Total Return Since Entry is a simple price return (a footnote, not a position)",),
+    ])
+    got = read_performance_tab(path)
+    assert [e.ticker for e in got] == ["NVDA", "NOBAND"]
+    assert got[1].band == "BUY"                       # a missing band is still derived when there is a score
+
+
+def test_read_performance_tracking_lists_every_ticker_row_and_never_the_footnote(tmp_path):
+    """No row bound: the table was extended past the old fixed bound (33) and a footnote sits right below it."""
+    from landry.xlsx_io import read_performance_tracking
+    path = _performance_workbook(tmp_path, [
+        ("NVDA", "NVIDIA", dt.datetime(2026, 8, 7), 180.0, 89.2, "M", "STRONG BUY", 640.0, "Held"),
+        ("ANET", "Arista", None, 146.47, None, None, None, None, "Held"),
+        *[(None,)] * 40,                                                       # pre-built blank rows
+        ("LATE", "Row past the old bound", None, 10.0, None, None, None, None, "Held"),
+        ("Total Return Since Entry is a simple price return (a footnote, not a position)",),
+    ])
+    got = read_performance_tracking(path)
+    assert [g["ticker"] for g in got] == ["NVDA", "ANET", "LATE"]
+    assert got[1]["entry_date"] is None and got[1]["entry_price"] == 146.47 and got[1]["status"] == "Held"
+    assert got[2]["entry_band"] is None
+
+
+@needs_workbook
+def test_live_performance_tracking_lists_every_holding_with_cash_equivalents_in_green():
+    """Alan, 2026-10-05: include all positions; cash / cash-equivalent Ticker cells light green with dark-green text.
+    "Cash / Cash Equivalents" is Current Positions' own aggregate (money-market and sweep funds plus the dry-powder
+    ETFs), so the set is read from that row's formula rather than typed in a second place."""
+    openpyxl = pytest.importorskip("openpyxl")
+    import re
+    from landry.xlsx_io import read_positions
+    wb = openpyxl.load_workbook(_WB)
+    cp, pt = wb["Current Positions"], wb["Performance Tracking"]
+    agg = next(r for r in range(3, cp.max_row + 1) if cp.cell(r, 3).value == "Cash / Cash Equivalents")
+    formula = cp.cell(agg, 7).value
+    rows = {int(m.group(1)) for m in re.finditer(r"(?<![:\d])G(\d+)(?![\d:])", formula)}   # single cells, not range ends
+    for m in re.finditer(r"G(\d+):G(\d+)", formula):
+        rows |= set(range(int(m.group(1)), int(m.group(2)) + 1))
+    cash_like = {str(cp.cell(r, 2).value).strip() for r in rows}
+    assert {"FZDXX", "VMFXX", "QACDS"} <= cash_like                       # the formula parsed to something sensible
+
+    tab = {str(pt.cell(r, 1).value).strip(): pt.cell(r, 1) for r in range(3, pt.max_row + 1)
+           if isinstance(pt.cell(r, 1).value, str) and re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", pt.cell(r, 1).value.strip())}
+    held = {p.ticker for p in read_positions(_WB)}
+    assert held <= set(tab), sorted(held - set(tab))                     # every current holding has a row
+    for t, cell in tab.items():
+        green = cell.fill.fill_type == "solid" and cell.fill.fgColor.rgb == "FFC6EFCE"
+        dark = cell.font.color is not None and cell.font.color.rgb == "FF006100"
+        assert (green and dark) == (t in cash_like and t in held), t
+
+
 @needs_workbook
 def test_read_performance_tab_reads_the_live_entries():
     pytest.importorskip("openpyxl")

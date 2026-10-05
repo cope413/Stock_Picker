@@ -321,14 +321,19 @@ def read_performance_tracking(path: str,
     """A=Ticker,B=Company,C=EntryDate,D=EntryPrice,E=EntryScore,
     F=EntryConfidence,G=EntryBand,H=SPYatEntry,I=Status,J=ExitDate,
     K=ExitPrice,L=ExitReason. M-Q (current/exit price, SPY, returns)
-    omitted -- computed at report time from current market data. Bounded
-    to the PerformanceTrackingTable's own range (row 33): explanatory
-    footnote text starts right below it and would otherwise be read as a
-    bogus data row."""
+    omitted -- computed at report time from current market data. Since
+    2026-10-05 the tab lists every current holding: the System's own
+    entries carry the full record, while legacy stocks, dry-powder ETFs and
+    cash funds carry only an average-cost Entry Price (Entry Date, Score,
+    Confidence, Band and SPY at Entry come back as None). No hardcoded row
+    bound (it was 33 until the table was extended to row 47 on 2026-10-05,
+    the same stale-bound failure as the other readers): the footnote text
+    right below the table is prose in column A and would be read as a bogus
+    data row, so a row counts only if column A looks like a ticker."""
     wb, ws = _open(path, sheet)
     out = []
-    for r in ws.iter_rows(min_row=3, max_row=33, values_only=True):
-        if not r or not r[0]:
+    for r in ws.iter_rows(min_row=3, values_only=True):
+        if not r or not isinstance(r[0], str) or not _TICKER_CELL.match(r[0].strip()):
             continue
         out.append(dict(
             ticker=str(r[0]).strip(), entry_date=r[2], entry_price=r[3],

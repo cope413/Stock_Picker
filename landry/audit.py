@@ -594,6 +594,7 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_scoring_verification(path, repo_dir),
         *check_price_history(path),
         *check_held_positions_tracked(path),
+        *check_performance_tracking_coverage(path),
     ]
 
 
@@ -634,6 +635,39 @@ def check_held_positions_tracked(path: str) -> List[Check]:
     n = sum(1 for t in held if expected.get(decision.get(t, "")))
     return [Check(name, True, f"every held scored position classified Watch List / Avoid / Pass is in the Watch List "
                               f"Tracker with the matching status ({n} of {len(held)} held equities)")]
+
+
+def check_performance_tracking_coverage(path: str) -> List[Check]:
+    """Every current holding has a row in Performance Tracking. Alan, 2026-10-05: "update the Performance Tracking
+    tab to include all positions" -- legacy stocks, dry-powder ETFs and the cash / money-market funds as well as the
+    System's own entries. The tab is hand-kept (Instructions: populated the same moment a confirmed trade updates
+    Current Positions), and a new position bought on a DCA date is exactly how it would fall out of date without
+    anyone noticing, so this fails until the row exists. Cash funds count; a ticker the tab lists that nothing holds
+    any more is fine (an exited position keeps its row with Status Exited). Positions are read with
+    ``read_positions``, which skips zero-quantity rows (sold names kept on Current Positions for the record)."""
+    from landry import xlsx_io
+    name = "performance_tracking_coverage"
+    wb = openpyxl.load_workbook(path, read_only=True)
+    both = {"Current Positions", "Performance Tracking"} <= set(wb.sheetnames)
+    wb.close()
+    if not both:
+        return [Check(name, True, "Current Positions / Performance Tracking not both present, skipped")]
+    try:
+        held = sorted({p.ticker for p in xlsx_io.read_positions(path)})
+        tracked = {r["ticker"] for r in xlsx_io.read_performance_tracking(path)}
+    except Exception as e:
+        return [Check(name, False, f"could not read Current Positions / Performance Tracking: {e}",
+                      fix="run `python -m landry audit` after fixing the workbook read error")]
+    missing = [t for t in held if t not in tracked]
+    if missing:
+        return [Check(name, False,
+                      f"{len(missing)} current holding(s) have no Performance Tracking row: {', '.join(missing)}",
+                      fix="use the next pre-built row below the last one: Ticker, Company, Status Held, Current Price "
+                          "from Market Data, and Entry Price = average cost (Current Positions cost basis / quantity) "
+                          "unless it is a System entry that also gets Entry Date/Score/Confidence/Band/SPY at Entry; "
+                          "shade the Ticker cell light green with dark-green text if Current Positions counts it in "
+                          "Cash / Cash Equivalents (the tab's A1 note says how)")]
+    return [Check(name, True, f"every current holding has a Performance Tracking row ({len(held)} tickers)")]
 
 
 def report(checks: List[Check], workbook_name: str = "") -> str:

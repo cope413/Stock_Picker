@@ -13,6 +13,7 @@ from landry.audit import (
     check_row_height_ceiling,
     check_cross_tab_references,
     check_held_positions_tracked,
+    check_performance_tracking_coverage,
     check_price_history,
     check_page_setup_vs_last_commit,
     check_reader_bounds,
@@ -439,6 +440,59 @@ def test_held_positions_tracked_needs_no_tracker_when_nothing_is_flagged(tmp_pat
     wb.save(p)
     (check,) = check_held_positions_tracked(str(p))
     assert check.ok
+
+
+# ------------------------------------------------ every holding has a Performance Tracking row --
+
+def _coverage_book(tmp_path, held, tracked):
+    """Current Positions as the real tab lays it out (13 columns: A=Account, B=Ticker, C=Description, D=Asset Class,
+    E=Quantity, G=Market Value ... M=Notes, data from row 3) and a Performance Tracking tab with its footnote below."""
+    wb = openpyxl.Workbook()
+    cp = wb.active
+    cp.title = "Current Positions"
+    cp.append(["Positions"])
+    cp.append(["Account", "Ticker", "Description", "Asset Class", "Quantity", "Price", "Market Value",
+               "Cost Basis", "Unrealized G/L", "G/L %", "% of Account", "% of Combined", "Notes"])
+    for ticker, qty, cls in held:
+        cp.append(["JT ULTRA (Fidelity)", ticker, ticker + " Inc", cls, qty, 10.0, qty * 10.0,
+                   qty * 9.0, qty, 0.1, 0.1, 0.1, ""])
+    pt = wb.create_sheet("Performance Tracking")
+    pt.append(["Every position, per Part 9 ..."])
+    pt.append(["Ticker", "Company", "Entry Date", "Entry Price", "Entry Score", "Entry Confidence", "Entry Band",
+               "SPY at Entry", "Status", "Exit Date", "Exit Price", "Exit Reason"])
+    for t in tracked:
+        pt.append([t, t + " Inc", None, 10.0, None, None, None, None, "Held", None, None, None])
+    pt.append(["Total Return Since Entry is a simple price return (footnote, not a ticker)"] + [None] * 11)
+    p = tmp_path / "pt.xlsx"
+    wb.save(p)
+    return str(p)
+
+
+def test_performance_tracking_coverage_passes_when_every_holding_has_a_row(tmp_path):
+    path = _coverage_book(
+        tmp_path,
+        held=[("AAA", 10, "Equity"), ("ETFX", 5, "Equity"), ("FZDXX", 1000, "Cash"), ("SOLD", 0, "Equity")],
+        tracked=["AAA", "ETFX", "FZDXX", "GONE"])                     # GONE: exited, kept on the tab; SOLD: not held
+    (check,) = check_performance_tracking_coverage(path)
+    assert check.ok and "3 tickers" in check.detail
+
+
+def test_performance_tracking_coverage_names_the_holding_nobody_added(tmp_path):
+    """A DCA buy lands on Current Positions; the tab is hand-kept, so this is how it would silently go stale."""
+    path = _coverage_book(tmp_path, held=[("AAA", 10, "Equity"), ("NEWB", 5, "Equity"), ("FZDXX", 1, "Cash")],
+                          tracked=["AAA"])
+    (check,) = check_performance_tracking_coverage(path)
+    assert not check.ok
+    assert "NEWB" in check.detail and "FZDXX" in check.detail and "AAA" not in check.detail
+    assert check.fix
+
+
+def test_performance_tracking_coverage_is_skipped_without_both_tabs(tmp_path):
+    wb = openpyxl.Workbook()
+    p = tmp_path / "bare.xlsx"
+    wb.save(p)
+    (check,) = check_performance_tracking_coverage(str(p))
+    assert check.ok and "skipped" in check.detail
 
 
 # ------------------------------------------------ page setup: defaults an Excel save leaves out --
