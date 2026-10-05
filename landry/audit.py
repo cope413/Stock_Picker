@@ -582,6 +582,188 @@ def check_price_history(path: str) -> List[Check]:
     return out
 
 
+def check_performance_tracking_ties(path: str) -> List[Check]:
+    """The Performance Tracking lot ledger ties to Current Positions (added 2026-10-05 with the summary block).
+
+    Six checks, each a way the summary could quietly stop meaning what its label says (the sixth, "cycles", is
+    below): (1) for every ticker the
+    held lots' Shares add up to its quantity on Current Positions -- a System lot larger than the position, a
+    position closed on one tab but not the other; (2) no held baseline stock or ETF lot has drifted from its typed
+    8/5/26 share count by more than $1,000 or 1% -- a baseline lot's Shares follow Current Positions by themselves,
+    so a purchase recorded only there would otherwise be measured from the 8/5 close without anybody noticing;
+    (3) the held lots' Current Value adds up to the portfolio total (``total_portfolio_value`` of Current
+    Positions) within 0.5% -- prices on both tabs come from Market Data, so any bigger gap is a lot priced wrongly
+    or not at all; (4) the summary's TOTAL line shows that same figure; (5) the benchmark cells (SPY now, SPY at
+    8/5/26 and 12/31/25, the as-of date, the inception date) exist and hold numbers; (6) no formula on the tab
+    depends on itself through a range -- Excel reports that as a circular reference, LibreOffice does not (the
+    whole-column ranges in Shares did exactly that on 2026-10-05, found before the file reached Excel). Values are read from the cached results, so the
+    workbook must have been recalculated. A tab still in the old A:Q layout is skipped."""
+    from collections import defaultdict
+    from landry import perf_tab, xlsx_io
+    name = "performance_tracking_ties"
+    wb = openpyxl.load_workbook(path, data_only=True)
+    try:
+        if not {"Current Positions", perf_tab.SHEET} <= set(wb.sheetnames):
+            return [Check(name, True, "Current Positions / Performance Tracking not both present, skipped")]
+        ws = wb[perf_tab.SHEET]
+        if perf_tab.TABLE not in ws.tables or len(ws.tables[perf_tab.TABLE].tableColumns) < perf_tab.LAST_COL:
+            return [Check(name, True, "the tab has no lot-ledger columns (R:AC), skipped")]
+        lots = perf_tab.read_lots(wb)
+        _first, last = perf_tab.table_bounds(ws)
+        top = perf_tab.block_top(last)
+        total_row = next((r for r in range(top, top + perf_tab.BLOCK_ROWS)
+                          if ws.cell(row=r, column=1).value == "TOTAL"), None)
+        summary_total = ws.cell(row=total_row, column=5).value if total_row else None
+        bench = {k: (perf_tab._name_ref(wb, k) and ws[perf_tab._name_ref(wb, k)[1]].value) for k in perf_tab.NAMES}
+        positions = xlsx_io.read_positions(path)
+    except Exception as e:
+        return [Check(name, False, f"could not read the lot ledger / Current Positions: {e}",
+                      fix="run `python -m landry audit` after fixing the workbook read error")]
+    finally:
+        wb.close()
+    out: List[Check] = []
+
+    held_shares, held_value, problems = defaultdict(float), 0.0, []
+    for lot in lots:
+        if lot["status"] != "Held":
+            continue
+        sh, val = lot["shares"], lot["cur_value"]
+        if not isinstance(sh, (int, float)) or sh < 0:
+            problems.append(f"row {lot['row']} ({lot['ticker']}) has no usable Shares ({sh!r}) -- recalc, or a System "
+                            f"lot larger than the position")
+            continue
+        held_shares[lot["ticker"]] += sh
+        if isinstance(val, (int, float)):
+            held_value += val
+        else:
+            problems.append(f"row {lot['row']} ({lot['ticker']}) has no Current Value -- priced by Market Data?")
+    cp = defaultdict(float)
+    for p in positions:
+        cp[p.ticker] += p.quantity
+    for t in sorted(set(held_shares) | set(cp)):
+        if t not in held_shares:
+            continue                                     # a holding with no lot at all: performance_tracking_coverage
+        have, want = held_shares[t], cp.get(t, 0.0)
+        if abs(have - want) > max(1e-6, 1e-9 * abs(want)):
+            problems.append(f"{t}: the held lots add to {have:,.4f} shares, Current Positions holds {want:,.4f}")
+    out.append(Check(f"{name}:shares", not problems,
+                     "; ".join(problems[:6]) + (f" ... and {len(problems) - 6} more" if len(problems) > 6 else "")
+                     if problems else f"held lots add up to Current Positions' quantity for all {len(held_shares)} tickers",
+                     fix=None if not problems else "a purchase or sale reached Current Positions but not the lot ledger: "
+                         "landry.perf_tab.add_lot / close_lot, then recalc (a baseline lot follows Current Positions by itself)"))
+
+    # a held baseline stock / ETF lot follows Current Positions, so a purchase recorded only there would be measured
+    # from the 8/5/26 close without anybody noticing; its typed 8/5 snapshot (Lot Shares) is what exposes it
+    drift = []
+    for lot in lots:
+        if (lot["basis"] == "Baseline" and lot["status"] == "Held" and lot["type"] != "Cash"
+                and isinstance(lot["lot_shares"], (int, float)) and isinstance(lot["shares"], (int, float))):
+            gap_sh = lot["shares"] - lot["lot_shares"]
+            price = lot["current"] if isinstance(lot["current"], (int, float)) else (lot["entry_price"] or 0)
+            worth = abs(gap_sh) * price
+            if worth > max(perf_tab.BASELINE_DRIFT_USD, perf_tab.BASELINE_DRIFT_PCT * lot["lot_shares"] * price):
+                drift.append(f"{lot['ticker']}: Current Positions implies {lot['shares']:,.4f} sh, the 8/5/26 snapshot "
+                             f"says {lot['lot_shares']:,.4f} ({gap_sh:+,.4f} sh, about ${worth:,.0f})")
+    out.append(Check(f"{name}:baseline", not drift,
+                     "; ".join(drift[:6]) if drift else "no held baseline lot has drifted from its 8/5/26 share count "
+                     "by more than the tolerance",
+                     fix=None if not drift else "a purchase or sale reached Current Positions with no lot: "
+                         "landry.perf_tab.add_lot / close_lot; if it is only dividend reinvestment, "
+                         "landry.perf_tab.rebase_baseline(wb) resets the snapshot"))
+
+    total = xlsx_io.total_portfolio_value(positions)
+    gap = abs(held_value - total) / total if total else 0.0
+    out.append(Check(f"{name}:value", gap <= 0.005,
+                     f"held lots' Current Value {held_value:,.2f} vs the portfolio total {total:,.2f} ({gap:.2%} apart)",
+                     fix=None if gap <= 0.005 else "a lot is priced wrongly or not at all -- compare Market Data with "
+                         "Current Positions' prices, then check which lot's Current Price is blank"))
+
+    ok = isinstance(summary_total, (int, float)) and abs(summary_total - held_value) < 1.0
+    out.append(Check(f"{name}:summary", ok,
+                     f"the summary's TOTAL line shows {summary_total!r}, the held lots add to {held_value:,.2f}" if not ok
+                     else f"the summary's TOTAL line ({summary_total:,.2f}) equals the held lots' Current Value",
+                     fix=None if ok else "the summary block is generated: landry.perf_tab.rebuild_block(wb) rewrites it, "
+                                          "then recalc"))
+
+    try:
+        cycles = perf_tab.find_cycles(openpyxl.load_workbook(path))
+    except Exception as e:
+        cycles = [f"could not look: {e}"]
+    out.append(Check(f"{name}:cycles", not cycles,
+                     "circular reference(s) on Performance Tracking (Excel reports them, LibreOffice does not): "
+                     + "; ".join(c if len(c) < 160 else c[:157] + "..." for c in cycles[:2]) if cycles
+                     else "no circular reference among the tab's formulas",
+                     fix=None if not cycles else "a formula reads a range that contains a cell depending on it -- bound "
+                         "its ranges to the Table's rows (landry.perf_tab.calc_formulas) instead of whole columns"))
+
+    bad = [k for k, v in bench.items()
+           if v in (None, "") or (k in ("spy_now", "spy_0805", "spy_1231") and not (isinstance(v, (int, float)) and v > 0))]
+    out.append(Check(f"{name}:benchmark", not bad,
+                     f"benchmark cells missing or not numbers: {', '.join(perf_tab.NAMES[k] for k in bad)}" if bad
+                     else "the benchmark cells (SPY now, SPY at 8/5/26 and 12/31/25, as-of and inception dates) are in place",
+                     fix=None if not bad else "the weekly run writes PT_SPY_Now and PT_AsOf; the others are typed constants"))
+    return out
+
+
+def check_monitor_last_score(path: str) -> List[Check]:
+    """Every held, scored position's row on Monitor & Recheck Triggers mirrors its Scoring row: the same Date Scored,
+    composite, Tier 1 average and decision, and a Price at Last Score. Alan, 2026-10-05: "we'll definitely want to
+    keep Monitoring tab monthly-current for held positions". The Instructions (A52) say cols C-G are stamped every
+    time a ticker is re-scored, but nothing in the code did it, so it was left to hand and the 9/13/26 re-score of 14
+    held names (and the 9/30 reconfirmation of ADBE / PLD) was never stamped -- found 10/5 when the tab still showed
+    CRWD at "70.4 BUY, 8/6/26" against a Scoring row of 63.4 AVOID. The same drift fails here whenever a re-score, or
+    a rule that moves a Decision, reaches Scoring without the Monitor: ``python -m landry monitor stamp`` fixes it."""
+    from landry import monitor_tab
+    name = "monitor_last_score"
+    wb = openpyxl.load_workbook(path, read_only=True)
+    have = {monitor_tab.SHEET, "Scoring", "Current Positions"} <= set(wb.sheetnames)
+    wb.close()
+    if not have:
+        return [Check(name, True, "Monitor / Scoring / Current Positions not all present, skipped")]
+    try:
+        problems = monitor_tab.mirror_problems(path)
+        n = len(monitor_tab.held_scored(path))
+    except Exception as e:
+        return [Check(name, False, f"could not compare the Monitor tab with Scoring: {e}",
+                      fix="recalculate the workbook (the Scoring composite and decision are formulas), then rerun")]
+    if problems:
+        shown = "; ".join(f"{t}: {', '.join(p)}" for t, p in problems[:6])
+        more = f" ... and {len(problems) - 6} more" if len(problems) > 6 else ""
+        return [Check(name, False, f"{len(problems)} held position(s) whose Monitor row does not mirror Scoring: {shown}{more}",
+                      fix="`python -m landry monitor stamp` stamps Last Score (cols C-G) from the Scoring rows, with the "
+                          "close on or before the date scored; then recalc")]
+    return [Check(name, True, f"every held scored position's Monitor row mirrors its Scoring row ({n} tickers)")]
+
+
+def check_monitor_signals(path: str, today: Optional[object] = None) -> List[Check]:
+    """The Monitor tab's insider-activity and analyst-shift columns (K-N) are "refreshed periodically, not live" --
+    SEC Form 4 over a 30-day lookback, yfinance's consensus. Alan, 2026-10-05: keep the tab monthly-current for held
+    positions. The day of the last complete refresh sits in Q1 (defined name MON_SignalsAsOf); a month and a week
+    without one fails here, so the weekly routine's audit says so every Saturday until
+    ``python -m landry monitor refresh`` has run. (They had last been populated about 9/4: by 10/5 ADBE's flag was
+    already out of date.)"""
+    import datetime as dt
+    from landry import monitor_tab
+    name = "monitor_signals"
+    wb = openpyxl.load_workbook(path, read_only=True)
+    has = monitor_tab.SHEET in wb.sheetnames
+    wb.close()
+    if not has:
+        return [Check(name, True, "no Monitor tab, skipped")]
+    as_of = monitor_tab.signals_as_of(path)
+    if as_of is None:
+        return [Check(name, False, "the Monitor tab has no 'signals refreshed' date (Q1, defined name MON_SignalsAsOf)",
+                      fix="`python -m landry monitor refresh` refreshes the insider / analyst columns for held positions "
+                          "and dates it")]
+    age = ((today or dt.date.today()) - as_of).days
+    ok = age <= monitor_tab.MAX_SIGNAL_AGE_DAYS
+    return [Check(name, ok,
+                  f"insider / analyst signals last refreshed {as_of:%m/%d/%y}, {age} day(s) ago"
+                  + ("" if ok else f" (the limit is {monitor_tab.MAX_SIGNAL_AGE_DAYS})"),
+                  fix=None if ok else "`python -m landry monitor refresh` (SEC Form 4 + yfinance consensus, held positions, "
+                                      "a few minutes), then recalc")]
+
+
 def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
     return [
         *check_table_refs(path),
@@ -595,6 +777,9 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_price_history(path),
         *check_held_positions_tracked(path),
         *check_performance_tracking_coverage(path),
+        *check_performance_tracking_ties(path),
+        *check_monitor_last_score(path),
+        *check_monitor_signals(path),
     ]
 
 
@@ -662,11 +847,10 @@ def check_performance_tracking_coverage(path: str) -> List[Check]:
     if missing:
         return [Check(name, False,
                       f"{len(missing)} current holding(s) have no Performance Tracking row: {', '.join(missing)}",
-                      fix="use the next pre-built row below the last one: Ticker, Company, Status Held, Current Price "
-                          "from Market Data, and Entry Price = average cost (Current Positions cost basis / quantity) "
-                          "unless it is a System entry that also gets Entry Date/Score/Confidence/Band/SPY at Entry; "
-                          "shade the Ticker cell light green with dark-green text if Current Positions counts it in "
-                          "Cash / Cash Equivalents (the tab's A1 note says how)")]
+                      fix="add the lot with landry.perf_tab.add_lot (a System purchase: its real entry date, price, "
+                          "shares and SPY at entry; anything else: a Baseline lot), then run the recalc -- it uses the "
+                          "next spare row, grows the Table and moves the summary block when there is none, and shades "
+                          "the Ticker cell for an ETF or cash fund (the tab's A1 note says how)")]
     return [Check(name, True, f"every current holding has a Performance Tracking row ({len(held)} tickers)")]
 
 

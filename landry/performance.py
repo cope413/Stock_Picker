@@ -142,7 +142,9 @@ def read_performance_tab(path: str,
     the legacy stocks, dry-powder ETFs and cash funds among them carry an average-cost Entry Price
     but no Entry Date, Score or Band: a row with no Entry Date is skipped, and so is one that has a
     date but neither a score nor a band -- no cohort can be built from invented history (the tab's
-    A1 note, agreed 2026-08-26: "a blank Decision Band naturally excludes it")."""
+    A1 note, agreed 2026-08-26: "a blank Decision Band naturally excludes it"). Since 2026-10-05 the
+    baseline lots carry the 8/5/26 snapshot date as their Entry Date and say so in column S (Basis);
+    those are skipped explicitly, whatever else the row holds."""
     import openpyxl
 
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
@@ -153,6 +155,8 @@ def read_performance_tab(path: str,
             continue
         if r[4] is None and r[6] is None:       # no score and no band: not a System entry
             continue
+        if len(r) > 18 and str(r[18] or "").strip().lower() == "baseline":
+            continue                            # Basis = Baseline: held at the 8/5/26 snapshot, measured as-if
         def _d(v):
             if v is None:
                 return None

@@ -502,6 +502,72 @@ def _cmd_prices(args) -> int:
     return 0
 
 
+def _cmd_monitor(args) -> int:
+    """Keep the Monitor & Recheck Triggers tab current for held positions: ``status`` (read-only; exit 1 if anything is
+    out of date), ``stamp`` (Last Score columns from the Scoring rows) and ``refresh`` (insider / analyst signals)."""
+    import datetime as dt
+    from landry import ledger, monitor_tab
+    wb = args.workbook or _default_workbook()
+    if args.action == "status":
+        try:
+            problems = monitor_tab.mirror_problems(wb)
+            as_of = monitor_tab.signals_as_of(wb)
+        except monitor_tab.MonitorError as e:
+            print(f"! {e}", file=sys.stderr)
+            return 1
+        for t, p in problems:
+            print(f"  {t}: {', '.join(p)}")
+        age = (dt.date.today() - as_of).days if as_of else None
+        stale = age is None or age > monitor_tab.MAX_SIGNAL_AGE_DAYS
+        print(f"Last Score: " + (f"{len(problems)} held position(s) do not mirror Scoring -- `landry monitor stamp`" if problems
+                                 else "every held scored position mirrors its Scoring row"))
+        print("Signals:    " + (f"refreshed {as_of:%m/%d/%y} ({age} days ago)" if as_of else "never dated")
+              + (f" -- OVERDUE (limit {monitor_tab.MAX_SIGNAL_AGE_DAYS}); `landry monitor refresh`" if stale else ""))
+        return 1 if (problems or stale) else 0
+    write = not args.dry_run
+    if write and not args.force and ledger._excel_has_open(wb):
+        print("! Excel appears to have the workbook open -- close it (or pass --force)", file=sys.stderr)
+        return 1
+    tickers = args.tickers or None
+    try:
+        if args.action == "stamp":
+            rep = monitor_tab.stamp(wb, tickers, write=write)
+            verb = "would stamp" if not write else "stamped"
+            for t, old, new in rep["stamped"]:
+                print(f"  {verb} {t}: last scored {old:%m/%d/%y} -> {new:%m/%d/%y}" if old else f"  {verb} {t}: -> {new:%m/%d/%y}")
+            print(f"{len(rep['stamped'])} {'would be stamped' if not write else 'stamped'}, {rep['unchanged']} already right")
+            for t in rep["price_failed"]:
+                print(f"  ! no close for {t}: its row was left alone")
+            for t in rep["no_row"]:
+                print(f"  ! {t} has no row on the Monitor tab (what the tab covers is Alan's call): not added")
+            wrote = rep["wrote"]
+            bad = bool(rep["price_failed"] or rep["no_row"])
+        else:
+            rep = monitor_tab.refresh_signals(wb, tickers, write=write)
+            verb = "would change" if not write else "changed"
+            for t, what in rep["changed"]:
+                print(f"  {t}: {what}")
+            print(f"{rep['refreshed']} ticker(s) looked up, {verb} {len(rep['changed'])}; "
+                  + (f"signals dated {rep['as_of']:%m/%d/%y}" if rep["as_of"] else "signals NOT re-dated"))
+            for t in rep["unavailable"]:
+                print(f"  note: {t}: kept as it was")
+            for t in rep["failed"]:
+                print(f"  ! lookup failed for {t}: left as it was")
+            for t in rep["no_row"]:
+                print(f"  ! {t} has no row on the Monitor tab: not added")
+            wrote = rep["wrote"]
+            bad = bool(rep["failed"] or rep["no_row"])
+    except monitor_tab.MonitorError as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    if write and wrote and not args.no_recalc:
+        from landry.xlsx_recalc import recalc
+        res = recalc(wb)
+        print(f"  recalc: {res.get('status')}, {res.get('total_errors')} errors")
+    print("Next: `python -m landry audit`, then commit the workbook." if wrote else "Nothing to write.")
+    return 2 if bad else 0
+
+
 def _cmd_weekly(args) -> int:
     """The Friday-close routine (``market`` is the same minus Price History). Exit status: 0 clean,
     1 refused (Excel has the workbook open; nothing changed), 2 ran but something needs attention."""
@@ -647,6 +713,16 @@ def main(argv=None) -> int:
     pr.add_argument("--allow-big-moves", action="store_true",
                     help="append even if a close is >35%% from last week's (check the column first)")
 
+    mn = sub.add_parser("monitor", help="keep the Monitor & Recheck Triggers tab current for held positions: "
+                        "status / stamp (Last Score from Scoring) / refresh (insider + analyst signals)")
+    mn.add_argument("action", choices=["status", "stamp", "refresh"])
+    mn.add_argument("tickers", nargs="*", help="limit stamp / refresh to these tickers (default: every held scored position that needs it)")
+    mn.add_argument("--workbook", default=None)
+    mn.add_argument("--dry-run", action="store_true", help="show what would change; write nothing")
+    mn.add_argument("--no-recalc", action="store_true",
+                    help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
+    mn.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
+
     def _weekly_flags(sp):
         sp.add_argument("--workbook", default=None)
         sp.add_argument("--dry-run", action="store_true",
@@ -681,6 +757,8 @@ def main(argv=None) -> int:
         return _cmd_prices(args)
     if args.cmd in ("weekly", "market"):
         return _cmd_weekly(args)
+    if args.cmd == "monitor":
+        return _cmd_monitor(args)
     if args.cmd == "db":
         return _cmd_db(args)
     if args.cmd == "doctor":

@@ -5,7 +5,8 @@
 1. Price History: append every completed Friday that is not in the tab yet (``prices.append_weeks``,
    which also extends Returns (Calc) one row ahead and moves the footer and the charts);
 2. Market Data and the Monitor tab's earnings dates: refresh in place (``market.refresh``), then keep Current
-   Positions' fallback prices equal to Market Data's (``market.sync_fallbacks``);
+   Positions' fallback prices equal to Market Data's (``market.sync_fallbacks``) and write Performance Tracking's
+   SPY benchmark (``market.sync_performance``; the lots' own prices there are Market Data lookups);
 3. ONE LibreOffice recalc for both -- a workbook saved by openpyxl is not safe to commit without it;
 4. read Rule 38's status back from the Correlation Matrix, run ``landry audit`` and the Journal / Drawdown Log
    drift guard (``landry db status``) -- an Excel hand-edit of either generated tab shows up here weekly.
@@ -103,6 +104,12 @@ def run(path: str, *, write: bool = True, now: Optional[dt.datetime] = None, all
                                 for r, t in pos["no_price"]]
             rep["warnings"] += [f"Current Positions: the price formula in row {r} ({t}) is not in the expected shape -- left alone"
                                 for r, t in pos["odd"]]
+            perf = m["performance"]
+            rep["warnings"] += [f"Performance Tracking: no Market Data price for {t} -- its held lot shows no Current Price"
+                                for t in perf["no_price"]]
+            if perf.get("spy_failed"):
+                rep["warnings"].append("Performance Tracking: no SPY quote came back -- the benchmark keeps its last value")
+            rep["warnings"] += [f"Performance Tracking: {w}" for w in perf["warnings"]]
             rep["wrote"] = rep["wrote"] or m["wrote"]
     return rep
 
@@ -211,6 +218,30 @@ def _positions_lines(pos: dict, rep: dict) -> List[str]:
     return out
 
 
+def _performance_lines(perf: Optional[dict], rep: dict) -> List[str]:
+    """The Performance Tracking line: the SPY benchmark (the only cells the routine writes there) and how many held
+    lots price from Market Data."""
+    if not perf or not perf.get("present"):
+        return []
+
+    def usd(v):
+        return f"${v:,.2f}" if isinstance(v, (int, float)) else "(blank)"
+
+    def day(d):
+        return f"{d:%Y-%m-%d}" if isinstance(d, dt.date) else "(blank)"
+    held = f"{perf['held']} held lots price from Market Data"
+    if rep.get("positions_only"):
+        spy = "SPY not refreshed (positions only)"
+    elif perf.get("spy_failed"):
+        spy = "SPY NOT refreshed (no quote)"
+    elif perf["changed"]:
+        spy = (f"SPY {'would be' if rep.get('dry_run') else 'now'} {usd(perf['spy_new'])} as of {day(perf['as_of_new'])} "
+               f"(was {usd(perf['spy_old'])} as of {day(perf['as_of_old'])})")
+    else:
+        spy = f"SPY {usd(perf['spy_new'])} as of {day(perf['as_of_new'])}, unchanged"
+    return [f"Performance     {spy}; {held}"]
+
+
 def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] = None) -> str:
     when = when or dt.datetime.now().astimezone()
     head = f"Weekly routine -- {when:%A %Y-%m-%d %H:%M %Z}" + (f" ({workbook})" if workbook else "")
@@ -236,6 +267,7 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
     elif rep.get("positions_only"):
         lines.append("Market Data     not refreshed (positions only: prices are read from the tab as it stands)")
         lines += _positions_lines(m["positions"], rep)
+        lines += _performance_lines(m.get("performance"), rep)
     else:
         md, em = m["market"], m["earnings"]
         verb = "would change" if rep.get("dry_run") else "changed"
@@ -260,6 +292,7 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
             lines.append(f"                held names reporting within {market.UPCOMING_DAYS} days: "
                          + ", ".join(f"{t} {d:%m/%d}" for t, d in em["upcoming"]))
         lines += _positions_lines(m["positions"], rep)
+        lines += _performance_lines(m.get("performance"), rep)
 
     r = rep.get("recalc")
     if r is not None:

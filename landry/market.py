@@ -10,7 +10,9 @@ list, and touches nothing else:
 
 * Market Data C:I -- price, volume, market cap ($M), P/E, 52-week low/high, dividend yield (%);
 * Monitor & Recheck Triggers col J -- Next/Last Earnings Date (Excel has no native field for it);
-* Current Positions col F's hardcoded FALLBACK price (see ``sync_fallbacks``).
+* Current Positions col F's hardcoded FALLBACK price (see ``sync_fallbacks``);
+* Performance Tracking's two benchmark cells, SPY now and the as-of date (``sync_performance``, added 2026-10-05):
+  every held lot's Current Price there is a lookup into Market Data, so SPY is the only thing that tab needs written.
 
 Rules it keeps, each because of something that has gone wrong in this workbook before:
 
@@ -285,6 +287,47 @@ def sync_fallbacks(wb, md, wanted: Optional[set] = None) -> dict:
     return rep
 
 
+# --------------------------------------------------- performance tracking --
+
+BENCHMARK = "SPY"
+SPY_MOVE_WARN = 0.05           # vs the benchmark cell's previous value: a week's move this size is worth a look
+
+
+def _as_of(today: dt.date) -> dt.date:
+    """The date the prices belong to: a Saturday or Sunday run sees Friday's close."""
+    return today - dt.timedelta(days={5: 1, 6: 2}.get(today.weekday(), 0))
+
+
+def sync_performance(wb, md, spy: Optional[float] = None, as_of: Optional[dt.date] = None) -> dict:
+    """Keep Performance Tracking's two benchmark cells (SPY now, the as-of date) current and report the held
+    lots Market Data cannot price. Added 2026-10-05 (Alan: "hook the current-price and SPY columns into the weekly
+    run").
+
+    Nothing else on that tab is written. A held stock's or ETF's Current Price is an INDEX/MATCH into Market Data
+    (``landry.perf_tab``), so it already follows this run's refresh; what the tab cannot look up is SPY, which
+    Market Data does not list (and which this routine must not add as a row -- what the tabs cover is Alan's
+    call), so the quote is fetched here and written into the benchmark cell every lot's "SPY Price (current /
+    exit)" reads. ``spy`` / ``as_of`` of None leave the cells alone (no network, or the quote failed). The cells
+    are found by their defined names, never by position: the block under the table moves whenever the table grows.
+    ``wb`` is an open openpyxl workbook; the caller saves it."""
+    from landry import perf_tab
+    rep = {"present": False, "changed": False, "spy_old": None, "spy_new": None, "as_of_old": None,
+           "as_of_new": None, "held": 0, "no_price": [], "warnings": []}
+    if perf_tab.SHEET not in wb.sheetnames:
+        return rep
+    rep.update(perf_tab.set_benchmark(wb, spy, as_of))
+    if not rep["present"]:
+        return rep
+    old = rep["spy_old"]
+    if spy is not None and isinstance(old, (int, float)) and old > 0 and abs(spy / old - 1) > SPY_MOVE_WARN:
+        rep["warnings"].append(f"SPY {spy:g} is {spy / old - 1:+.1%} from the sheet's previous {old:g}")
+    prices = {t: p for r, t in _rows(md) if (p := _num(md.cell(row=r, column=3).value)) and p > 0}
+    pricing = perf_tab.held_pricing_rows(wb[perf_tab.SHEET])
+    rep["held"] = len(pricing)
+    rep["no_price"] = sorted({t for _r, t in pricing if t not in prices})
+    return rep
+
+
 # ----------------------------------------------------------------- refresh --
 
 def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optional[Callable] = None,
@@ -294,7 +337,8 @@ def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optiona
             attempts: int = 2, pause: float = 1.5, sleep: Callable = time.sleep) -> dict:
     """Refresh Market Data and the Monitor tab's earnings dates in ``path``, then bring Current Positions'
     fallback prices into line with Market Data (``do_market=False, do_earnings=False`` makes that the only
-    step: the prices are read from the tab as it stands, no network).
+    step: the prices are read from the tab as it stands, no network) and Performance Tracking's SPY benchmark
+    (``sync_performance``: fetched with the market refresh, so not in the positions-only mode).
 
     ``reference`` maps ticker -> the newest Price History close; a quote more than 3% away from it is
     reported (pass it only when the quote should equal that close -- the weekend after it).
@@ -325,6 +369,8 @@ def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optiona
                    "failed": [], "kept": [], "cleared": [], "warnings": []},
         "earnings": {"rows": 0, "updated": [], "unchanged": 0, "kept": [], "no_date": [], "upcoming": []},
         "positions": {"rows": 0, "updated": [], "unchanged": 0, "no_price": [], "odd": []},
+        "performance": {"present": False, "changed": False, "spy_old": None, "spy_new": None, "as_of_old": None,
+                        "as_of_new": None, "held": 0, "no_price": [], "warnings": [], "spy_failed": False},
         "wrote": False,
     }
 
@@ -405,8 +451,21 @@ def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optiona
     if do_positions:                                        # after Market Data, so it sees this run's prices
         report["positions"] = sync_fallbacks(wb, md, wanted)
 
+        spy, spy_failed = None, False                       # SPY is not in Market Data: fetched here, only with the
+        if do_market and wanted is None:                    # full market refresh and only if the tab can take it
+            from landry import perf_tab
+            if perf_tab.SHEET in wb.sheetnames and perf_tab.set_benchmark(wb)["present"]:
+                got, _bad = _fetch_all([BENCHMARK], snapshot,
+                                       lambda s: s is not None and (_num(s.get("price")) or 0) > 0,
+                                       attempts, pause, sleep)
+                spy = _num(got[BENCHMARK]["price"]) if BENCHMARK in got else None
+                spy_failed = spy is None
+        perf = sync_performance(wb, md, spy, _as_of(today) if spy is not None else None)
+        perf["spy_failed"] = spy_failed
+        report["performance"] = perf
+
     if write and (report["market"]["cells_changed"] or report["earnings"]["updated"]
-                  or report["positions"]["updated"]):
+                  or report["positions"]["updated"] or report["performance"]["changed"]):
         wb.save(path)
         report["wrote"] = True
     return report

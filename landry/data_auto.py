@@ -779,23 +779,35 @@ def analyst_shift_flag(ticker: str, threshold: float = 0.15
     reviewer can tell "3 firms moved" from "1 firm moved out of 8" rather
     than the mechanism trying to adjudicate that itself.
 
-    Returns (None, None) on any lookup failure or insufficient history."""
+    Returns (None, None) on any lookup failure or insufficient history;
+    ``analyst_shift_detail`` says which of the two it was."""
+    flag, note, _why = analyst_shift_detail(ticker, threshold)
+    return flag, note
+
+
+def analyst_shift_detail(ticker: str, threshold: float = 0.15
+                          ) -> Tuple[Optional[str], Optional[str], str]:
+    """``analyst_shift_flag`` plus why a (None, None) happened: the third item is "ok" (the flag is a real "Y"/"N"),
+    "no_history" (yfinance answered but has no 0-month or no 3-month-ago breakdown for this ticker -- on 2026-10-05
+    it returned only 0m/-1m/-2m for VRTX, PLD, V, ANET, KLAC and TSM, though it had all four for ADBE: a gap in the
+    provider's data, not an error, and nothing to retry) or "error" (the call itself failed). The Monitor refresh
+    keeps the cell for the first and does not call a month "complete" over the second."""
     import yfinance as yf
     try:
         rec = yf.Ticker(ticker).recommendations
     except Exception:
-        return None, None
+        return None, None, "error"
     if rec is None or rec.empty:
-        return None, None
+        return None, None, "no_history"
     by_period = {row["period"]: row for _, row in rec.iterrows()}
     now, n_now = _composite_rating(by_period.get("0m", {}))
     then, _n_then = _composite_rating(by_period.get("-3m", {}))
     if now is None or then is None:
-        return None, None
+        return None, None, "no_history"
     delta = now - then
     if abs(delta) < threshold:
-        return "N", None
+        return "N", None, "ok"
     direction = "improved" if delta > 0 else "declined"
     note = (f"Consensus {direction} {abs(delta):.2f} (1-5 scale) over 3 months "
             f"({then:.2f} -> {now:.2f}, {n_now} analysts currently)")
-    return "Y", note
+    return "Y", note, "ok"

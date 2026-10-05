@@ -320,28 +320,41 @@ def read_performance_tracking(path: str,
                               sheet: str = "Performance Tracking") -> List[dict]:
     """A=Ticker,B=Company,C=EntryDate,D=EntryPrice,E=EntryScore,
     F=EntryConfidence,G=EntryBand,H=SPYatEntry,I=Status,J=ExitDate,
-    K=ExitPrice,L=ExitReason. M-Q (current/exit price, SPY, returns)
-    omitted -- computed at report time from current market data. Since
-    2026-10-05 the tab lists every current holding: the System's own
-    entries carry the full record, while legacy stocks, dry-powder ETFs and
-    cash funds carry only an average-cost Entry Price (Entry Date, Score,
-    Confidence, Band and SPY at Entry come back as None). No hardcoded row
-    bound (it was 33 until the table was extended to row 47 on 2026-10-05,
-    the same stale-bound failure as the other readers): the footnote text
-    right below the table is prose in column A and would be read as a bogus
-    data row, so a row counts only if column A looks like a ticker."""
-    wb, ws = _open(path, sheet)
-    out = []
-    for r in ws.iter_rows(min_row=3, values_only=True):
-        if not r or not isinstance(r[0], str) or not _TICKER_CELL.match(r[0].strip()):
-            continue
-        out.append(dict(
-            ticker=str(r[0]).strip(), entry_date=r[2], entry_price=r[3],
-            entry_score=r[4], entry_confidence=r[5], entry_band=r[6],
-            spy_at_entry=r[7], status=r[8], exit_date=r[9],
-            exit_price=r[10], exit_reason=r[11]))
-    wb.close()
-    return out
+    K=ExitPrice,L=ExitReason; R=Type,S=Basis,T=LotShares when the tab has
+    them. M-Q and U-AC (prices, SPY, returns, values) omitted -- computed
+    in the sheet or at report time from current market data. One row per
+    purchase lot, held or sold (since 2026-10-05, ``landry.perf_tab``): the
+    System's own lots carry the full Part 9 record, baseline lots (legacy
+    stocks, ETFs, cash funds, pre-System shares, the names sold 8/7/26) have
+    Score, Confidence and Band as None, so a ticker can appear more than once.
+    No hardcoded row bound (it was 33, then 47, then the tab grew a summary
+    block): the rows are the Table's own, and below it come the summary labels
+    -- "TOTAL" looks exactly like a ticker -- so a row counts only inside the
+    Table's ref and only if column A looks like a ticker. A sheet with no
+    Table (a synthetic one) is read to its last row."""
+    import openpyxl
+    from openpyxl.utils import range_boundaries
+    wb = openpyxl.load_workbook(path, data_only=True)
+    try:
+        ws = wb[sheet]
+        last = ws.max_row
+        for name in ws.tables.keys():
+            last = range_boundaries(ws.tables[name].ref)[3]
+            break
+        out = []
+        for r in ws.iter_rows(min_row=3, max_row=last, values_only=True):
+            if not r or not isinstance(r[0], str) or not _TICKER_CELL.match(r[0].strip()):
+                continue
+            extra = (list(r) + [None] * 20)
+            out.append(dict(
+                ticker=str(r[0]).strip(), entry_date=r[2], entry_price=r[3],
+                entry_score=r[4], entry_confidence=r[5], entry_band=r[6],
+                spy_at_entry=r[7], status=r[8], exit_date=r[9],
+                exit_price=r[10], exit_reason=r[11],
+                type=extra[17], basis=extra[18], lot_shares=extra[19]))
+        return out
+    finally:
+        wb.close()
 
 
 def read_holding_monitor(path: str, sheet: str = "Holding Monitor") -> List[dict]:
