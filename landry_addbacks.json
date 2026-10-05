@@ -1,0 +1,12 @@
+{
+ "VRTX": [
+  {
+   "date": "2024-05-20",
+   "usd": 4400000000,
+   "note": "Part 10 acquisition adjustment: Vertex's Alpine Immune Sciences acquisition (closed May 2024) was booked as acquired in-process R&D and paid through operating cash flow (FY2024 10-K: 'In 2024, AIPR&D included $4.4 billion resulting from our acquisition of Alpine'; operating cash flow -$493M and a net loss that year). Added back to the trailing 12-month window containing the date. Unadjusted, VRTX's FCF Yield & Trend and FCF Margin Trend would read 4 and 4 instead of 3 and 2.",
+   "approved_by": "Alan",
+   "approved_on": "2026-10-05",
+   "journal_rows": [92, 93]
+  }
+ ]
+}
