@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import openpyxl
 import pytest
-from test_landry_market import GOOD, add_market_tabs, digest, snap, table
+from test_landry_market import GOOD, add_market_tabs, add_positions_tab, digest, snap, table
 from test_landry_prices import NOW_AFTER_FRIDAY_10_2, build_workbook, fake_fetch
 
 from landry import cli, ledger, prices, weekly
@@ -24,6 +24,15 @@ def combined(tmp_path, name="w.xlsx"):
     path = build_workbook(tmp_path, name=name)
     wb = openpyxl.load_workbook(path)
     add_market_tabs(wb, tickers=TICKERS)
+    wb.save(path)
+    return path
+
+
+def combined_with_positions(tmp_path, name="wp.xlsx"):
+    path = build_workbook(tmp_path, name=name)
+    wb = openpyxl.load_workbook(path)
+    add_market_tabs(wb, tickers=TICKERS)
+    add_positions_tab(wb, tickers=TICKERS)
     wb.save(path)
     return path
 
@@ -281,3 +290,43 @@ def test_cli_parser_accepts_the_new_commands(monkeypatch):
     monkeypatch.setattr(cli, "_cmd_weekly", lambda a: (a.cmd, a.dry_run, getattr(a, "allow_big_moves", None)))
     assert cli.main(["weekly", "--dry-run", "--workbook", "x.xlsx"]) == ("weekly", True, False)
     assert cli.main(["market", "--no-recalc"]) == ("market", False, None)
+
+
+# ------------------------------------------------------------ fallback prices in the routine --
+
+def test_the_routine_updates_fallback_prices_and_reports_them_grouped_by_ticker(tmp_path):
+    path = combined_with_positions(tmp_path)
+    rep = run(path, do_prices=False)
+    pos = rep["market"]["positions"]
+    assert len(pos["updated"]) == 4 and rep["wrote"] and rep["problems"] == []
+    assert any("no Market Data price for NOPRC (row 8)" in w for w in rep["warnings"])
+    assert any("price formula in row 9 (ODD) is not in the expected shape" in w for w in rep["warnings"])
+    text = weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+    assert "Positions       fallback prices (Current Positions col F): 4 updated across 3 tickers, 0 already current" in text
+    assert "T01 90 -> 101.5 (2 rows)" in text and "T02 40 -> 51" in text
+
+
+def test_positions_only_skips_the_network_and_says_so(tmp_path):
+    path = combined_with_positions(tmp_path)
+
+    def boom(t):
+        raise AssertionError("positions-only must not fetch")
+    rep = run(path, do_prices=False, positions_only=True, snapshot=boom, earnings=boom)
+    assert rep["positions_only"] and rep["market"]["market"]["rows"] == 0 and len(rep["market"]["positions"]["updated"]) == 4
+    text = weekly.format_report(rep, when=dt.datetime(2026, 10, 3, 9, 0))
+    assert "Market Data     not refreshed (positions only" in text and "Earnings dates" not in text
+    assert "Positions       fallback prices" in text
+
+
+def test_cli_passes_the_positions_only_flag(monkeypatch, capsys):
+    monkeypatch.setattr(ledger, "_excel_has_open", lambda p: False)
+    seen = {}
+
+    def fake_run(wb, **kw):
+        seen.update(kw)
+        return {"problems": [], "warnings": [], "wrote": False, "prices": None, "market": None, "dry_run": False}
+    monkeypatch.setattr(weekly, "run", fake_run)
+    monkeypatch.setattr(weekly, "verify", lambda *a, **k: None)
+    assert cli._cmd_weekly(_args(cmd="market", positions_only=True)) == 0
+    assert seen["positions_only"] is True and seen["do_prices"] is False
+    assert cli._cmd_weekly(_args(cmd="weekly")) == 0 and seen["positions_only"] is False

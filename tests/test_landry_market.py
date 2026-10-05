@@ -53,6 +53,49 @@ def add_market_tabs(wb, tickers=("AAA", "BBB", "CCC")):
     return wb
 
 
+FALLBACK_TEMPLATE = ("=IF(IFERROR(INDEX('Monitor & Recheck Triggers'!$H$3:$H$51,MATCH($B{r},'Monitor & Recheck Triggers'!$A$3:$A$51,0)),\"\")"
+                     "=\"\",{fb},INDEX('Monitor & Recheck Triggers'!$H$3:$H$51,MATCH($B{r},'Monitor & Recheck Triggers'!$A$3:$A$51,0)))")
+
+
+def add_positions_tab(wb, tickers=("AAA", "BBB", "CCC")):
+    """Current Positions as the real tab has it (title row, header row 2, ticker B, quantity E, price F as the
+    STOCKHISTORY-or-fallback formula), plus the rows the sync must leave alone."""
+    cp = wb.create_sheet("Current Positions")
+    cp["A1"] = "Combined current"
+    for c, h in enumerate(["Account", "Ticker", "Description", "Asset Class", "Quantity", "Price ($)", "Market Value ($)"], 1):
+        cp.cell(row=2, column=c, value=h)
+    rows = [("Acct A", tickers[0], "Alpha", "Equity", 10, 90.0),
+            ("Acct A", tickers[1], "Beta fund", "Alternative Assets", 5, 40.0),
+            ("Acct A", "FZDXX", "Cash sweep", "Cash", 1000, None),               # a plain price of 1
+            ("Acct A", "SOLD", "Sold long ago", "Equity", 0, 12.0),             # zero shares: left alone
+            ("Acct B", tickers[2], "Gamma", "Equity", 3, 9.0),
+            ("Acct B", "NOPRC", "Not in Market Data", "Equity", 1, 7.0),
+            ("Acct B", "ODD", "Odd formula", "Equity", 1, "odd"),
+            ("Acct B", tickers[0], "Alpha", "Equity", 4, 90.0)]                 # the same ticker in a second account
+    for i, (acct, t, desc, cls, qty, fb) in enumerate(rows):
+        r = 3 + i
+        for c, v in enumerate((acct, t, desc, cls, qty), 1):
+            cp.cell(row=r, column=c, value=v)
+        cp.cell(row=r, column=6, value=1 if fb is None else (f"=E{r}*2" if fb == "odd" else FALLBACK_TEMPLATE.format(r=r, fb=fb)))
+        cp.cell(row=r, column=7, value=f"=E{r}*F{r}")
+    cp.cell(row=3 + len(rows), column=2, value=f"=SUBTOTAL(103,B3:B{2 + len(rows)})")       # a subtotal: not a ticker
+    return wb
+
+
+def build_with_positions(tmp_path, name="p.xlsx", **kw):
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    add_market_tabs(wb, **kw)
+    add_positions_tab(wb, **kw)
+    path = str(tmp_path / name)
+    wb.save(path)
+    return path
+
+
+def formula(path, row):
+    return openpyxl.load_workbook(path)["Current Positions"].cell(row=row, column=6).value
+
+
 def build(tmp_path, name="m.xlsx", **kw):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -331,3 +374,92 @@ def test_audit_finds_no_hardcoded_bound_left_in_read_market_data():
 
     from landry import xlsx_io
     assert not re.search(r"max_row\s*=\s*\d+", inspect.getsource(xlsx_io.read_market_data))
+
+
+# ----------------------------------------------- Current Positions: the fallback price --
+
+def test_fallback_prices_follow_market_data_and_only_the_number_changes(tmp_path):
+    path = build_with_positions(tmp_path)
+    rep = market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    pos = rep["positions"]
+    assert rep["wrote"]
+    assert [(t, r, old, new) for t, r, old, new in pos["updated"]] == [
+        ("AAA", 3, 90.0, 101.5), ("BBB", 4, 40.0, 51.0), ("CCC", 7, 9.0, 10.5), ("AAA", 10, 90.0, 101.5)]
+    assert pos["no_price"] == [(8, "NOPRC")] and pos["odd"] == [(9, "ODD")] and pos["unchanged"] == 0
+    for r, new in ((3, 101.5), (4, 51.0), (7, 10.5), (10, 101.5)):
+        assert formula(path, r) == FALLBACK_TEMPLATE.format(r=r, fb=new)             # the rest of the formula is untouched
+    assert formula(path, 5) == 1                                                       # the cash sweep's plain 1
+    assert formula(path, 6) == FALLBACK_TEMPLATE.format(r=6, fb=12.0)                  # zero shares: untouched
+    assert formula(path, 8) == FALLBACK_TEMPLATE.format(r=8, fb=7.0)                   # no Market Data price: untouched
+    assert formula(path, 9) == "=E9*2"                                                 # an unexpected shape: untouched
+    cp = openpyxl.load_workbook(path)["Current Positions"]
+    assert cp["G3"].value == "=E3*F3" and cp["B11"].value.startswith("=SUBTOTAL")
+
+
+def test_positions_only_reads_market_data_as_it_stands_and_never_touches_the_network(tmp_path):
+    path = build_with_positions(tmp_path)
+
+    def boom(t):
+        raise AssertionError("positions-only must not fetch")
+    rep = market.refresh(path, snapshot=boom, earnings=boom, today=TODAY, do_market=False, do_earnings=False)
+    assert [(t, new) for t, _r, _old, new in rep["positions"]["updated"]] == [("AAA", 100.0), ("BBB", 50.0), ("CCC", 10.0), ("AAA", 100.0)]
+    assert formula(path, 3) == FALLBACK_TEMPLATE.format(r=3, fb=100.0)
+    assert values(path, "Market Data", 3, [3]) == [100.0]                              # Market Data itself untouched
+
+
+def test_a_second_fallback_sync_leaves_the_file_alone(tmp_path):
+    path = build_with_positions(tmp_path)
+    market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    before = digest(path)
+    again = market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    assert not again["wrote"] and again["positions"]["updated"] == [] and again["positions"]["unchanged"] == 4
+    assert digest(path) == before
+
+
+def test_a_dry_run_reports_the_fallback_changes_and_writes_nothing(tmp_path):
+    path = build_with_positions(tmp_path)
+    before = digest(path)
+    rep = market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, write=False, sleep=lambda s: None)
+    assert digest(path) == before and not rep["wrote"] and len(rep["positions"]["updated"]) == 4
+
+
+def test_the_tickers_filter_limits_the_fallback_sync_too(tmp_path):
+    path = build_with_positions(tmp_path)
+    rep = market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, tickers=["bbb"], sleep=lambda s: None)
+    assert [t for t, *_ in rep["positions"]["updated"]] == ["BBB"]
+    assert formula(path, 3) == FALLBACK_TEMPLATE.format(r=3, fb=90.0)
+
+
+def test_a_moved_price_column_on_current_positions_is_refused_before_anything_is_written(tmp_path):
+    path = build_with_positions(tmp_path)
+    wb = openpyxl.load_workbook(path)
+    wb["Current Positions"]["F2"] = "Notes"
+    wb.save(path)
+    before = digest(path)
+    with pytest.raises(MarketError, match="column F"):
+        market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    assert digest(path) == before
+
+
+def test_a_workbook_without_a_current_positions_tab_is_fine(tmp_path):
+    path = build(tmp_path)
+    rep = market.refresh(path, snapshot=table(GOOD), earnings=lambda t: None, today=TODAY, sleep=lambda s: None)
+    assert rep["positions"]["rows"] == 0 and rep["wrote"]
+
+
+def test_live_workbook_price_formulas_have_the_shape_the_sync_expects():
+    """If a held row's price formula changes shape, the sync would skip it (and say so) -- better that this fails first."""
+    import os
+    from landry.xlsx_io import latest_workbook
+    wbp = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if not wbp:
+        pytest.skip("no workbook file")
+    ws = openpyxl.load_workbook(wbp)["Current Positions"]
+    seen = 0
+    for r in range(3, ws.max_row + 1):
+        t, qty, f = ws.cell(row=r, column=2).value, ws.cell(row=r, column=5).value, ws.cell(row=r, column=6).value
+        if isinstance(t, str) and market._TICKER.match(t) and isinstance(qty, (int, float)) and qty > 0 \
+                and isinstance(f, str) and f.startswith("="):
+            assert market._FALLBACK.match(f), f"row {r} ({t}): {f[:90]}"
+            seen += 1
+    assert seen >= 20

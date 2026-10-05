@@ -23,6 +23,7 @@
     python -m landry prices add VYM      # give a new holding a column (Returns + Correlation Matrix follow)
     python -m landry weekly              # Friday-close routine: prices append + Market Data/earnings refresh + one recalc + audit
     python -m landry market              # just Market Data + earnings dates, refreshed in place from yfinance
+    python -m landry market --positions-only   # no network: Current Positions' fallback prices := Market Data's
     python -m landry db status          # does the database agree with the generated tabs?
     python -m landry db pull|regenerate  # resolve disagreement: workbook wins | database wins
 
@@ -512,7 +513,8 @@ def _cmd_weekly(args) -> int:
               f"`python -m landry {args.cmd}` again (a weekly run catches up any missed Friday).", file=sys.stderr)
         return 1
     rep = weekly.run(wb, write=write, do_prices=args.cmd == "weekly",
-                     allow_big_moves=getattr(args, "allow_big_moves", False))
+                     allow_big_moves=getattr(args, "allow_big_moves", False),
+                     positions_only=getattr(args, "positions_only", False))
     weekly.verify(wb, rep, repo_dir=_REPO, recalc_now=not args.no_recalc)
     print(weekly.format_report(rep, workbook=os.path.basename(wb)))
     return 2 if rep["problems"] else 0
@@ -661,6 +663,8 @@ def main(argv=None) -> int:
     mk = sub.add_parser("market", help="refresh Market Data and the Monitor tab's earnings dates in place "
                         "(the weekly routine minus Price History)")
     _weekly_flags(mk)
+    mk.add_argument("--positions-only", action="store_true",
+                    help="no network: only set Current Positions' fallback prices to Market Data's as it stands")
 
     dbp = sub.add_parser("db", help="keep landry.db and the generated tabs in sync")
     dbsub = dbp.add_subparsers(dest="action", required=True)

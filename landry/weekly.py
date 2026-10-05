@@ -4,7 +4,8 @@
 
 1. Price History: append every completed Friday that is not in the tab yet (``prices.append_weeks``,
    which also extends Returns (Calc) one row ahead and moves the footer and the charts);
-2. Market Data and the Monitor tab's earnings dates: refresh in place (``market.refresh``);
+2. Market Data and the Monitor tab's earnings dates: refresh in place (``market.refresh``), then keep Current
+   Positions' fallback prices equal to Market Data's (``market.sync_fallbacks``);
 3. ONE LibreOffice recalc for both -- a workbook saved by openpyxl is not safe to commit without it;
 4. read Rule 38's status back from the Correlation Matrix and run ``landry audit``.
 
@@ -50,12 +51,14 @@ def _weekend_reference(path: str, now: Optional[dt.datetime]) -> Optional[Dict[s
 
 
 def run(path: str, *, write: bool = True, now: Optional[dt.datetime] = None, allow_big_moves: bool = False,
-        do_prices: bool = True, do_market: bool = True, fetch_weeks: Optional[Callable] = None,
-        snapshot: Optional[Callable] = None, earnings: Optional[Callable] = None,
-        sleep: Optional[Callable] = None) -> dict:
-    """Steps 1 and 2. Returns {'prices', 'market', 'problems', 'warnings', 'wrote', 'dry_run'}."""
+        do_prices: bool = True, do_market: bool = True, positions_only: bool = False,
+        fetch_weeks: Optional[Callable] = None, snapshot: Optional[Callable] = None,
+        earnings: Optional[Callable] = None, sleep: Optional[Callable] = None) -> dict:
+    """Steps 1 and 2. Returns {'prices', 'market', 'problems', 'warnings', 'wrote', 'dry_run'}.
+    ``positions_only`` skips the network: it only brings Current Positions' fallback prices into line with
+    the Market Data tab as it stands."""
     rep: dict = {"prices": None, "market": None, "problems": [], "warnings": [], "wrote": False,
-                 "dry_run": not write}
+                 "dry_run": not write, "positions_only": positions_only}
 
     if do_prices:
         extra = {"fetch": fetch_weeks} if fetch_weeks else {}
@@ -75,7 +78,8 @@ def run(path: str, *, write: bool = True, now: Optional[dt.datetime] = None, all
         extra = {"sleep": sleep} if sleep else {}
         try:
             m = market.refresh(path, snapshot=snapshot, earnings=earnings, write=write, reference=reference,
-                               today=now.date() if now else None, **extra)
+                               today=now.date() if now else None, do_market=not positions_only,
+                               do_earnings=not positions_only, **extra)
         except market.MarketError as e:
             rep["problems"].append(f"Market Data: {e}")
         else:
@@ -92,6 +96,11 @@ def run(path: str, *, write: bool = True, now: Optional[dt.datetime] = None, all
                 rep["warnings"].append(f"Market Data: no quote for {', '.join(failed)} -- their rows keep last "
                                        f"week's values")
             rep["warnings"] += [f"Market Data: {w}" for w in md["warnings"]]
+            pos = m["positions"]
+            rep["warnings"] += [f"Current Positions: no Market Data price for {t} (row {r}) -- its fallback price stays stale"
+                                for r, t in pos["no_price"]]
+            rep["warnings"] += [f"Current Positions: the price formula in row {r} ({t}) is not in the expected shape -- left alone"
+                                for r, t in pos["odd"]]
             rep["wrote"] = rep["wrote"] or m["wrote"]
     return rep
 
@@ -162,6 +171,21 @@ def _cap(lines: List[str], indent: str, limit: int = _MAX_LINES) -> List[str]:
     return out
 
 
+def _positions_lines(pos: dict, rep: dict) -> List[str]:
+    """The Current Positions fallback-price line, grouped by ticker (a ticker held in two accounts has two rows)."""
+    if not pos["rows"]:
+        return []
+    by_ticker: Dict[str, list] = {}
+    for t, _r, old, new in pos["updated"]:
+        by_ticker.setdefault(t, []).append((old, new))
+    verb = "would update" if rep.get("dry_run") else "updated"
+    out = [f"Positions       fallback prices (Current Positions col F): {len(pos['updated'])} {verb} "
+           f"across {len(by_ticker)} tickers, {pos['unchanged']} already current"]
+    out += _cap([f"{t} {olds[0][0]:g} -> {olds[0][1]:g}" + (f" ({len(olds)} rows)" if len(olds) > 1 else "")
+                 for t, olds in by_ticker.items()], "                ", 12)
+    return out
+
+
 def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] = None) -> str:
     when = when or dt.datetime.now().astimezone()
     head = f"Weekly routine -- {when:%A %Y-%m-%d %H:%M %Z}" + (f" ({workbook})" if workbook else "")
@@ -184,6 +208,9 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
     if m is None:
         lines.append("Market Data     not run" if not any(s.startswith("Market Data") for s in rep["problems"])
                      else "Market Data     FAILED (see below)")
+    elif rep.get("positions_only"):
+        lines.append("Market Data     not refreshed (positions only: prices are read from the tab as it stands)")
+        lines += _positions_lines(m["positions"], rep)
     else:
         md, em = m["market"], m["earnings"]
         verb = "would change" if rep.get("dry_run") else "changed"
@@ -207,6 +234,7 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
         if em["upcoming"]:
             lines.append(f"                held names reporting within {market.UPCOMING_DAYS} days: "
                          + ", ".join(f"{t} {d:%m/%d}" for t, d in em["upcoming"]))
+        lines += _positions_lines(m["positions"], rep)
 
     r = rep.get("recalc")
     if r is not None:

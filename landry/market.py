@@ -9,7 +9,8 @@ tab's 9/29 figures were five days stale on 10/4 for exactly that reason.
 list, and touches nothing else:
 
 * Market Data C:I -- price, volume, market cap ($M), P/E, 52-week low/high, dividend yield (%);
-* Monitor & Recheck Triggers col J -- Next/Last Earnings Date (Excel has no native field for it).
+* Monitor & Recheck Triggers col J -- Next/Last Earnings Date (Excel has no native field for it);
+* Current Positions col F's hardcoded FALLBACK price (see ``sync_fallbacks``).
 
 Rules it keeps, each because of something that has gone wrong in this workbook before:
 
@@ -52,6 +53,14 @@ MD_FIELDS = (
 MON_CATEGORY_COL = 2
 MON_EARNINGS_COL = 10
 MON_EARNINGS_HEADER = "earnings"
+
+CP_SHEET = "Current Positions"
+CP_COLS = ((2, "ticker"), (5, "quantity"), (6, "price"))        # column -> text its header must contain
+# Current Positions!F is  =IF(IFERROR(INDEX(Monitor!H, MATCH(ticker, Monitor!A, 0)), "") = "", <FALLBACK>, INDEX(...)):
+# the live STOCKHISTORY price when real Excel has resolved it, else the hardcoded number.
+_FALLBACK = re.compile(r"^(=IF\(IFERROR\(INDEX\('Monitor & Recheck Triggers'!\$H\$\d+:\$H\$\d+,"
+                       r"MATCH\(\$B\d+,'Monitor & Recheck Triggers'!\$A\$\d+:\$A\$\d+,0\)\),\"\"\)=\"\",)"
+                       r"(-?\d+(?:\.\d+)?)(,INDEX\(.*\)\))$")
 
 PRICE_MOVE_WARN = 0.30         # vs the cell's previous price: worth a look (a split, bad data), not a refusal
 REFERENCE_TOLERANCE = 0.03     # vs the newest Price History close (weekend runs only)
@@ -216,14 +225,76 @@ def _fetch_all(tickers: Sequence[str], fn: Callable, ok: Callable, attempts: int
     return results, failed
 
 
+# ---------------------------------------------------------- price fallbacks --
+
+def sync_fallbacks(wb, md, wanted: Optional[set] = None) -> dict:
+    """Set the hardcoded fallback in Current Positions!F's price formula to Market Data's price.
+
+    Why: STOCKHISTORY resolves only inside real Excel, so every tool write (openpyxl save + LibreOffice
+    recalc) leaves F showing its fallback -- a number typed in weeks ago -- and for the ten ETFs, which have
+    no Monitor row for STOCKHISTORY to live in, F showed the fallback even in Excel (on 10/5/26 DVY read
+    164.25 against 153.05, AVUV 126.93 against 120.03, MLPI 54.63 against 51.17), which put ~44% of the
+    portfolio at stale prices. Keeping the fallback equal to Market Data's price each run means F is at
+    worst as old as the last weekly refresh. Alan approved this on 2026-10-05.
+
+    Only the number inside the formula changes. A row is touched only if it holds shares (sold legacy rows
+    are left alone), its price cell is a formula of exactly the shape above (cash sweeps hold a plain 1 and
+    anything unexpected is reported, not rewritten) and Market Data has a price for its ticker.
+    ``wb`` is an open openpyxl workbook; the caller saves it."""
+    rep = {"rows": 0, "updated": [], "unchanged": 0, "no_price": [], "odd": []}
+    if CP_SHEET not in wb.sheetnames:
+        return rep
+    cp = wb[CP_SHEET]
+    for col, needle in CP_COLS:
+        _check_header(cp, col, needle)
+    prices = {}
+    for r, t in _rows(md):
+        p = _num(md.cell(row=r, column=3).value)
+        if p is not None and p > 0:
+            prices[t] = p
+    for r in range(FIRST_ROW, cp.max_row + 1):
+        raw = cp.cell(row=r, column=2).value
+        if not (isinstance(raw, str) and _TICKER.match(raw.strip())):
+            continue                                            # a subtotal formula, a note, a blank
+        t = raw.strip()
+        qty = _num(cp.cell(row=r, column=5).value)
+        if wanted is not None and t not in wanted:
+            continue
+        if not qty or qty <= 0:
+            continue                                            # sold legacy rows
+        cell = cp.cell(row=r, column=6)
+        f = cell.value
+        if not (isinstance(f, str) and f.startswith("=")):
+            continue                                            # a plain price (cash sweeps at 1)
+        rep["rows"] += 1
+        m = _FALLBACK.match(f)
+        if not m:
+            rep["odd"].append((r, t))
+            continue
+        price = prices.get(t)
+        if price is None:
+            rep["no_price"].append((r, t))
+            continue
+        new = round(price, 4)
+        old = float(m.group(2))
+        if abs(old - new) < 5e-5:
+            rep["unchanged"] += 1
+            continue
+        cell.value = m.group(1) + repr(new) + m.group(3)
+        rep["updated"].append((t, r, old, new))
+    return rep
+
+
 # ----------------------------------------------------------------- refresh --
 
 def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optional[Callable] = None,
             today: Optional[dt.date] = None, write: bool = True, tickers: Optional[Sequence[str]] = None,
-            do_market: bool = True, do_earnings: bool = True,
+            do_market: bool = True, do_earnings: bool = True, do_positions: bool = True,
             reference: Optional[Mapping[str, float]] = None,
             attempts: int = 2, pause: float = 1.5, sleep: Callable = time.sleep) -> dict:
-    """Refresh Market Data and the Monitor tab's earnings dates in ``path``.
+    """Refresh Market Data and the Monitor tab's earnings dates in ``path``, then bring Current Positions'
+    fallback prices into line with Market Data (``do_market=False, do_earnings=False`` makes that the only
+    step: the prices are read from the tab as it stands, no network).
 
     ``reference`` maps ticker -> the newest Price History close; a quote more than 3% away from it is
     reported (pass it only when the quote should equal that close -- the weekend after it).
@@ -245,11 +316,15 @@ def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optiona
     for _field, col, needle in MD_FIELDS:
         _check_header(md, col, needle)
     _check_header(mon, MON_EARNINGS_COL, MON_EARNINGS_HEADER)
+    if do_positions and CP_SHEET in wb.sheetnames:
+        for col, needle in CP_COLS:
+            _check_header(wb[CP_SHEET], col, needle)
 
     report = {
         "market": {"rows": 0, "refreshed": 0, "rows_changed": 0, "cells_changed": 0,
                    "failed": [], "kept": [], "cleared": [], "warnings": []},
         "earnings": {"rows": 0, "updated": [], "unchanged": 0, "kept": [], "no_date": [], "upcoming": []},
+        "positions": {"rows": 0, "updated": [], "unchanged": 0, "no_price": [], "odd": []},
         "wrote": False,
     }
 
@@ -327,7 +402,11 @@ def refresh(path: str, *, snapshot: Optional[Callable] = None, earnings: Optiona
                 rep["upcoming"].append((t, eff_d))
         rep["upcoming"].sort(key=lambda x: (x[1], x[0]))
 
-    if write and (report["market"]["cells_changed"] or report["earnings"]["updated"]):
+    if do_positions:                                        # after Market Data, so it sees this run's prices
+        report["positions"] = sync_fallbacks(wb, md, wanted)
+
+    if write and (report["market"]["cells_changed"] or report["earnings"]["updated"]
+                  or report["positions"]["updated"]):
         wb.save(path)
         report["wrote"] = True
     return report
