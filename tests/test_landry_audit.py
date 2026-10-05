@@ -12,6 +12,7 @@ from landry.audit import (
     check_scoring_verification,
     check_row_height_ceiling,
     check_cross_tab_references,
+    check_held_positions_tracked,
     check_price_history,
     check_page_setup_vs_last_commit,
     check_reader_bounds,
@@ -376,3 +377,111 @@ def test_price_history_check_flags_a_chart_plotting_the_wrong_ticker(tmp_path, m
     checks = check_price_history(_ph_workbook(tmp_path, ["AAA", "BBB"], chart=("AAA", 3)))
     bad = [c for c in checks if c.name == "price_history:chart"]
     assert len(bad) == 1 and not bad[0].ok and "'AAA'" in bad[0].detail and "BBB" in bad[0].detail
+
+
+# ---------------------------------------------------------------- held positions vs the Watch List Tracker --
+
+def _tracker_book(tmp_path, rows):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Watch List Tracker"
+    ws.append(["Tracks every holding in Probationary Hold or Exit Review"])           # row 1, like the real tab
+    ws.append(["Ticker", "Company", "Status"])                                        # header on row 2, data from row 3
+    for ticker, status in rows:
+        ws.append([ticker, ticker + " Inc", status])
+    p = tmp_path / "wl.xlsx"
+    wb.save(p)
+    return str(p)
+
+
+def _patch_held(monkeypatch, held, decisions):
+    class Pos:
+        def __init__(self, ticker, asset_class="Equity"):
+            self.ticker, self.quantity, self.asset_class = ticker, 10, asset_class
+
+    class Row:
+        def __init__(self, ticker, decision):
+            self.ticker, self.decision = ticker, decision
+    import landry.xlsx_io as xio
+    monkeypatch.setattr(xio, "read_positions",
+                        lambda p: [Pos(t, "ETF-as-equity" if t == "ETFX" else "Equity") for t in held] + [Pos("FZDXX", "Cash")])
+    monkeypatch.setattr(xio, "read_scoring_tab", lambda p: [Row(t, d) for t, d in decisions.items()])
+
+
+def test_held_positions_tracked_passes_when_every_flagged_holding_is_in_the_tracker(tmp_path, monkeypatch):
+    _patch_held(monkeypatch, ["AAA", "BBB", "CCC", "ETFX"],
+                {"AAA": "AVOID", "BBB": "WATCH LIST", "CCC": "BUY", "DDD": "AVOID"})   # DDD is not held: ignored
+    path = _tracker_book(tmp_path, [("AAA", "Exit Review"), ("BBB", "Probationary Hold")])
+    (check,) = check_held_positions_tracked(path)
+    assert check.ok and "2 of" in check.detail
+
+
+def test_held_positions_tracked_flags_a_rule_3_holding_nobody_put_in_the_tracker(tmp_path, monkeypatch):
+    """The 9/13 incident: AVGO, VRTX and CRWD tripped Rule 3 and nothing put two of them in the tracker."""
+    _patch_held(monkeypatch, ["AVGO", "VRTX", "CRWD"], {"AVGO": "AVOID", "VRTX": "AVOID", "CRWD": "AVOID"})
+    path = _tracker_book(tmp_path, [("CRWD", "Exit Review")])
+    (check,) = check_held_positions_tracked(path)
+    assert not check.ok
+    assert "AVGO is AVOID" in check.detail and "VRTX is AVOID" in check.detail and "CRWD" not in check.detail
+
+
+def test_held_positions_tracked_flags_the_wrong_status(tmp_path, monkeypatch):
+    _patch_held(monkeypatch, ["AAA"], {"AAA": "AVOID"})
+    path = _tracker_book(tmp_path, [("AAA", "Probationary Hold")])                  # Avoid needs Exit Review
+    (check,) = check_held_positions_tracked(path)
+    assert not check.ok and "found Probationary Hold" in check.detail
+
+
+def test_held_positions_tracked_needs_no_tracker_when_nothing_is_flagged(tmp_path, monkeypatch):
+    _patch_held(monkeypatch, ["AAA", "BBB"], {"AAA": "BUY", "BBB": "STRONG BUY"})
+    wb = openpyxl.Workbook()
+    p = tmp_path / "none.xlsx"
+    wb.save(p)
+    (check,) = check_held_positions_tracked(str(p))
+    assert check.ok
+
+
+# ------------------------------------------------ page setup: defaults an Excel save leaves out --
+
+def _git(repo, *args):
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=repo, check=True, capture_output=True)
+
+
+def _book(path, paper, grid, footer="page 1"):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "S"
+    ws["A1"] = 1
+    ws.page_setup.paperSize = paper
+    ws.sheet_view.showGridLines = grid
+    ws.oddFooter.center.text = footer
+    wb.save(path)
+
+
+def test_page_setup_treats_an_omitted_attribute_as_its_default(tmp_path):
+    """Excel leaves default-valued attributes out (paperSize 1 = Letter, gridlines on): an Excel save of an unchanged
+    sheet must not read as a lost page setup."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    wb = repo / "wb.xlsx"
+    _book(wb, paper=1, grid=True)
+    _git(repo, "add", "wb.xlsx")
+    _git(repo, "commit", "-qm", "base")
+    _book(wb, paper=None, grid=None)                                   # what Excel writes for the same sheet
+    (check,) = check_page_setup_vs_last_commit(str(wb), str(repo))
+    assert check.ok, check.detail
+
+
+def test_page_setup_still_flags_a_dropped_non_default_setup_or_footer(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    wb = repo / "wb.xlsx"
+    _book(wb, paper=9, grid=False)                                     # A4, gridlines off
+    _git(repo, "add", "wb.xlsx")
+    _git(repo, "commit", "-qm", "base")
+    _book(wb, paper=None, grid=None, footer="")                        # a sheet rebuild drops all of it
+    (check,) = check_page_setup_vs_last_commit(str(wb), str(repo))
+    assert not check.ok
+    assert "paperSize 9->None" in check.detail and "showGridLines False->None" in check.detail and "oddFooter.center" in check.detail

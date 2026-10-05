@@ -315,10 +315,19 @@ def check_page_setup_vs_last_commit(path: str, repo_dir: Optional[str] = None) -
                 continue
             prev_ws, cur_ws = prev_wb[sheet], cur_wb[sheet]
             mismatches = []
-            if prev_ws.page_setup.paperSize != cur_ws.page_setup.paperSize:
+            # An absent attribute means the file-format default (ECMA-376: paperSize 1 = Letter, gridlines
+            # shown), and Excel simply leaves default-valued attributes out when it saves -- so an Excel save
+            # of an unchanged sheet reads "paperSize 1->None; showGridLines True->None" (found 2026-10-05 when
+            # Alan's Excel-saved review copy became the live workbook: 6 false alarms). Compare the effective
+            # values; a rebuild that dropped a non-default setup (A4 -> unset) is still caught.
+            prev_paper = 1 if prev_ws.page_setup.paperSize is None else prev_ws.page_setup.paperSize
+            cur_paper = 1 if cur_ws.page_setup.paperSize is None else cur_ws.page_setup.paperSize
+            if prev_paper != cur_paper:
                 mismatches.append(f"paperSize {prev_ws.page_setup.paperSize!r}"
                                   f"->{cur_ws.page_setup.paperSize!r}")
-            if prev_ws.sheet_view.showGridLines != cur_ws.sheet_view.showGridLines:
+            prev_grid = True if prev_ws.sheet_view.showGridLines is None else prev_ws.sheet_view.showGridLines
+            cur_grid = True if cur_ws.sheet_view.showGridLines is None else cur_ws.sheet_view.showGridLines
+            if prev_grid != cur_grid:
                 mismatches.append(f"showGridLines {prev_ws.sheet_view.showGridLines}"
                                   f"->{cur_ws.sheet_view.showGridLines}")
             for part in ("left", "center", "right"):
@@ -584,7 +593,47 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_schema_reference(path),
         *check_scoring_verification(path, repo_dir),
         *check_price_history(path),
+        *check_held_positions_tracked(path),
     ]
+
+
+def check_held_positions_tracked(path: str) -> List[Check]:
+    """Part 6 / Rules 32-36: every held, scored position whose Decision is Watch List (composite 50-64) must sit
+    in the Watch List Tracker as Probationary Hold, and one whose Decision is Avoid or Pass as Exit Review. The
+    Decision column applies Rule 3's automatic Avoid (since 2026-10-04), so a holding that trips it shows up here too.
+    Found 2026-10-04: AVGO, VRTX and CRWD tripped Rule 3 on the 9/13 re-score, the Rule 3 column said AVOID, and
+    for three weeks nothing surfaced it -- the Decision column read Buy / Buy / Watch List and no tab or check
+    compared a holding's classification with the tracker. ETFs and other unscored holdings have no Decision and
+    are skipped."""
+    from landry import xlsx_io
+    name = "held_positions_tracked"
+    try:
+        held = {p.ticker for p in xlsx_io.read_positions(path) if p.asset_class == "Equity"}
+        decision = {r.ticker: (r.decision or "") for r in xlsx_io.read_scoring_tab(path)}
+    except Exception as e:
+        return [Check(name, False, f"could not read Current Positions / Scoring: {e}",
+                      fix="run `python -m landry audit` after fixing the workbook read error")]
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    tracked: Dict[str, str] = {}
+    if "Watch List Tracker" in wb.sheetnames:
+        for row in wb["Watch List Tracker"].iter_rows(min_row=3, values_only=True):
+            if row and isinstance(row[0], str) and row[0].strip():
+                tracked[row[0].strip()] = str(row[2] or "").strip() if len(row) > 2 else ""
+    wb.close()
+    expected = {"WATCH LIST": "Probationary Hold", "AVOID": "Exit Review", "PASS": "Exit Review"}
+    problems = []
+    for t in sorted(held):
+        want = expected.get(decision.get(t, ""))
+        if want and tracked.get(t) != want:
+            problems.append(f"{t} is {decision[t]} and needs a Watch List Tracker row as {want} "
+                            f"(found {tracked.get(t) or 'none'})")
+    if problems:
+        return [Check(name, False, "; ".join(problems),
+                      fix="add or correct the row in the Watch List Tracker (Rules 32-36): Probationary Hold for a "
+                          "Watch List composite, Exit Review for Avoid -- which includes any Rule 3 trip; see Journal row 89")]
+    n = sum(1 for t in held if expected.get(decision.get(t, "")))
+    return [Check(name, True, f"every held scored position classified Watch List / Avoid / Pass is in the Watch List "
+                              f"Tracker with the matching status ({n} of {len(held)} held equities)")]
 
 
 def report(checks: List[Check], workbook_name: str = "") -> str:

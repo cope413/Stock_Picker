@@ -188,6 +188,19 @@ def classify(score: float, flags: RuleFlags,
     return d
 
 
+def decision_formula(row: int) -> str:
+    """The Scoring tab's Decision cell (column AG) for ``row``: ``classify`` as an Excel formula -- Rule 3 (AJ)
+    first, then the composite band (AF) with Rule 1 (AH) capping Buy / Strong Buy at Watch List and Rule 4 (AK)
+    capping Strong Buy at Buy. Until 2026-10-04 the column was a plain composite-to-band lookup that ignored the
+    gates, so AVGO, VRTX and CRWD read Buy / Buy / Watch List beside a Rule 3 flag of AVOID; Alan chose to apply
+    Rule 3 as written (Journal row 89). tests/test_landry_scoring.py pins every Scoring row to this text and
+    evaluates it against ``classify``."""
+    r = row
+    return (f'=IF(AF{r}="","",IF(AJ{r}="AVOID","AVOID",IF(AF{r}>=80,IF(AH{r}="FAIL","WATCH LIST",'
+            f'IF(AK{r}="CAP AT BUY","BUY","STRONG BUY")),IF(AF{r}>=65,IF(AH{r}="FAIL","WATCH LIST","BUY"),'
+            f'IF(AF{r}>=50,"WATCH LIST",IF(AF{r}>=35,"AVOID","PASS"))))))')
+
+
 # --------------------------------------------------------------------------- #
 # Full scoring run (reproduces the workbook Scoring-tab flow)
 # --------------------------------------------------------------------------- #

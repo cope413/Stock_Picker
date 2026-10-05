@@ -22,8 +22,10 @@ from landry.scoring import (
     TIER2_TOTAL_WEIGHT,
     TIER3_TOTAL_WEIGHT,
     IndicatorScore,
+    RuleFlags,
     classify,
     composite_score,
+    decision_formula,
     rule_flags,
     score_stock,
 )
@@ -260,23 +262,6 @@ from landry.xlsx_io import latest_workbook  # noqa: E402
 
 _WB = latest_workbook(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Scoring!Decision (col AG) is a plain composite-to-band lookup. It does NOT apply the Tier 1 gate that the rulebook
-# (Part 3, Rule 3: "Two or more Tier 1 indicators scored at 2.0 or below shall automatically classify the stock as
-# Avoid") and landry.scoring.classify both apply: the engine stops at a failed gate (composite None, decision AVOID),
-# while the workbook goes on and prints a composite and a band. Three HELD positions sit in that gap -- FCF yield and
-# FCF margin both scored 2: AVGO (workbook says BUY), VRTX (BUY) and CRWD (WATCH LIST), each with its own Rule 3 column
-# reading AVOID. Whether to fix the formula or amend the rule for holdings is Alan's call (Open Items #29), so this test
-# names the gap instead of loosening itself around it: for these rows the numbers and flags must still agree, and the
-# SET of such rows must equal this one. A new name means the workbook is bypassing a Hard Rule gate for another stock; a
-# name that leaves means the gap was closed -- update this set (and webapp's dashboard test, which imports it).
-KNOWN_GATE_BYPASS = frozenset({"AVGO", "VRTX", "CRWD"})
-
-
-def gate_bypass(row, card) -> bool:
-    """The workbook computed a composite for a stock whose Tier 1 gate failed (the engine stops at the gate)."""
-    return row.composite is not None and not card.flags.tier1_passes
-
-
 @pytest.mark.skipif(not _WB, reason="no workbook file present")
 def test_roundtrip_against_workbook_file():
     openpyxl = pytest.importorskip("openpyxl")  # noqa: F841
@@ -285,7 +270,6 @@ def test_roundtrip_against_workbook_file():
     rows = read_scoring_tab(_WB)  # highest-numbered workbook (excludes TEMPLATE_FINAL etc.)
     assert len(rows) >= 16
     checked = 0
-    bypass = set()
     for row in rows:
         # A candidate with Tier 1 only part-scored (the Darryl-list screening leaves several like that) cannot be
         # evaluated by the engine at all; the workbook's own composite must be blank for it.
@@ -304,35 +288,96 @@ def test_roundtrip_against_workbook_file():
         if row.tier1_weighted_average is not None:
             assert card.tier1_weighted_average == pytest.approx(
                 row.tier1_weighted_average), row.ticker
-        if gate_bypass(row, card):
-            bypass.add(row.ticker)
-            # the same arithmetic, and a Decision that is nothing but the composite's band
-            assert composite_score(row.scores) == pytest.approx(row.composite), row.ticker
-            assert row.decision == classify(row.composite, rule_flags_ok()), (
-                f"{row.ticker}: the workbook's Decision now differs from the plain band of its composite -- it may "
-                f"have started applying the gate; if so, take it out of KNOWN_GATE_BYPASS")
-        elif row.composite is not None:
-            assert card.composite == pytest.approx(row.composite), row.ticker
+        if row.composite is not None:
+            # The engine stops at a failed Tier 1 gate (composite empty, decision AVOID) while the workbook still
+            # prints the composite -- AVGO, VRTX and CRWD: FCF yield and FCF margin both 2, Rule 3. So the
+            # arithmetic is checked against composite_score, and the DECISION must agree: since 2026-10-04 (Alan:
+            # apply Rule 3 as written) the Scoring tab's Decision column applies the gates too.
+            expected = card.composite if card.composite is not None else composite_score(row.scores)
+            assert expected == pytest.approx(row.composite), row.ticker
             assert card.decision == row.decision, row.ticker
         assert (card.flags.rule1, card.flags.rule2, card.flags.rule3,
                 card.flags.rule4) == row.rule_flags, row.ticker
         checked += 1
     assert checked >= 16
-    assert bypass == KNOWN_GATE_BYPASS, (
-        f"rows where the workbook computes a composite despite a failed Tier 1 gate are now {sorted(bypass)}, "
-        f"expected {sorted(KNOWN_GATE_BYPASS)} (Open Items #29): a new name means another stock is bypassing a Hard "
-        f"Rule gate; a name gone means the gap was closed -- update KNOWN_GATE_BYPASS")
+
+
+@pytest.mark.skipif(not _WB, reason="no workbook file present")
+def test_every_scoring_row_uses_the_engines_decision_formula():
+    """A pasted-over or copied-down formula from before 2026-10-04 (a bare composite band) would silently stop
+    applying the Hard Rule gates; every Decision cell must be exactly landry.scoring.decision_formula(row)."""
+    openpyxl = pytest.importorskip("openpyxl")
+    ws = openpyxl.load_workbook(_WB)["Scoring"]
+    formula_rows = [r for r in range(3, ws.max_row + 1)
+                    if isinstance(ws.cell(row=r, column=33).value, str) and ws.cell(row=r, column=33).value.startswith("=")]
+    assert len(formula_rows) >= 50
+    wrong = [r for r in formula_rows if ws.cell(row=r, column=33).value != decision_formula(r)]
+    assert wrong == [], f"Scoring!AG differs from decision_formula on rows {wrong}"
+
+
+def _split_args(s):
+    parts, depth, cur, in_str = [], 0, "", False
+    for ch in s:
+        if ch == '"':
+            in_str = not in_str
+        if not in_str:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            elif ch == "," and depth == 0:
+                parts.append(cur)
+                cur = ""
+                continue
+        cur += ch
+    parts.append(cur)
+    return parts
+
+
+def _eval_cell(expr, env):
+    """Just enough of Excel for decision_formula: nested IF(...), "text", and ref="text" / ref>=number tests."""
+    import re
+    expr = expr.strip()
+    if expr.startswith("IF(") and expr.endswith(")"):
+        cond, yes, no = _split_args(expr[3:-1])
+        return _eval_cell(yes if _eval_cond(cond.strip(), env) else no, env)
+    assert expr.startswith('"') and expr.endswith('"'), expr
+    return expr[1:-1]
+
+
+def _eval_cond(cond, env):
+    import re
+    m = re.fullmatch(r'([A-Z]+)\d+(=|>=)(.+)', cond)
+    assert m, cond
+    col, op, rhs = m.groups()
+    val = env[col]
+    if op == "=":
+        return (val if val is not None else "") == rhs.strip('"')
+    return val is not None and val != "" and val >= float(rhs)
+
+
+@pytest.mark.parametrize("score", [None, 20.0, 34.9, 35.0, 49.9, 50.0, 64.9, 65.0, 79.9, 80.0, 95.0])
+@pytest.mark.parametrize("rule1", ["OK", "FAIL"])
+@pytest.mark.parametrize("rule3", ["OK", "AVOID"])
+@pytest.mark.parametrize("rule4", ["OK", "CAP AT BUY"])
+def test_decision_formula_agrees_with_classify(score, rule1, rule3, rule4):
+    formula = decision_formula(7)
+    assert formula.count("(") == formula.count(")") and formula.startswith("=IF(AF7")
+    got = _eval_cell(formula[1:], {"AF": score, "AH": rule1, "AJ": rule3, "AK": rule4})
+    if score is None:
+        assert got == ""                                   # no composite yet: the cell stays blank
+    else:
+        assert got == classify(score, RuleFlags(rule1, "OK", rule3, rule4))
 
 
 def rule_flags_ok():
-    from landry.scoring import RuleFlags
     return RuleFlags("OK", "OK", "OK", "OK")
 
 
-def test_the_engine_stops_at_a_failed_tier1_gate_where_the_workbook_formula_would_not():
-    """The synthetic form of the gap above: FCF yield 2 + FCF margin 2 (two Tier 1 indicators <= 2) with every other
-    indicator strong. The Scoring tab's formula would still print a BUY-or-better band from the composite; the engine
-    -- like Part 3, Rule 3 -- classifies it AVOID outright and leaves the composite empty."""
+def test_a_failed_tier1_gate_is_avoid_whatever_the_composite_says():
+    """FCF yield 2 + FCF margin 2 (two Tier 1 indicators <= 2) with every other indicator strong: the composite alone
+    would read Buy or better, but Part 3's Rule 3 classifies the stock Avoid -- in the engine (decision AVOID, composite
+    left empty) and, since 2026-10-04, in the Scoring tab's Decision column."""
     scores = {k: S(5, "H") for k in _ORDER}
     scores["fcf_yield_trend"] = S(2, "M")
     scores["fcf_margin_trend"] = S(2, "M")
