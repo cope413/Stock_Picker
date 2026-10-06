@@ -60,6 +60,25 @@ def test_windows_are_exactly_a_year_apart_so_they_do_not_overlap():
                for a, b in zip(wins, wins[1:]))
 
 
+@pytest.mark.parametrize("quarter_first", [True, False])
+def test_a_quarter_listed_beside_the_year_to_date_never_anchors_the_windows(quarter_first):
+    """A 10-Q reports the quarter alone (Apr-Jun) next to the six months. Anchoring on the quarter computed FY + Q2 - prior
+    Q2 and silently dropped Q1's change (NFLX, 10/6/26: TTM operating cash flow $9.5B instead of $12.0B). The result
+    must not depend on which of the two rows the SEC listing puts last."""
+    facts = _company()
+    for node in facts["facts"]["us-gaap"].values():
+        rows = node["units"]["USD"]
+        quarters = [{"start": f"{y}-04-01", "end": f"{y}-06-30", "val": 7.0, "filed": "2026-08-01", "form": "10-Q"}
+                    for y in range(2020, 2027)]
+        node["units"]["USD"] = quarters + rows if quarter_first else rows + quarters
+    wins = sec_ttm.ttm_windows(facts, n_windows=5)
+    assert [w.end for w in wins] == [dt.date(y, 6, 30) for y in range(2022, 2027)]
+    for w in wins:
+        y = w.end.year
+        assert (w.cfo, w.capex, w.sbc, w.revenue) == tuple(_expected(i, y) for i in ("cfo", "capex", "sbc", "revenue"))
+    assert wins[-1].cfo == 1550
+
+
 def test_newest_filing_a_10k_gives_plain_fiscal_year_windows():
     wins = sec_ttm.ttm_windows(_company(last_year=2025), n_windows=4)
     assert [w.end for w in wins] == [dt.date(y, 12, 31) for y in range(2022, 2026)]
