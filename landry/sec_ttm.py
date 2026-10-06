@@ -197,7 +197,12 @@ def ttm_windows(facts: Mapping, n_windows: int = DEFAULT_WINDOWS,
     series = {k: period_values(facts, tags) for k, tags in TAGS.items()}
     cfo = series["cfo"]
     fiscal_ends = sorted({p[1] for p in cfo if _is_fiscal_year(p)})
-    ytds = sorted((p for p in cfo if _is_ytd(p)), key=lambda p: p[1])
+    # Newest end date last, and among periods that share it the LONGEST (earliest start) last: a 10-Q reports the
+    # quarter alone beside the fiscal year to date, and anchoring the windows on the quarter computes FY + one quarter
+    # - the prior-year quarter, silently dropping the earlier quarters' change. Found 10/6/26: NFLX's TTM operating
+    # cash flow read $9.5B against $12.0B from its filings, because the SEC listing put the Q2 row after the six-month
+    # row (the result depended on that order; every other holding happened to list the year to date last).
+    ytds = sorted((p for p in cfo if _is_ytd(p)), key=lambda p: (p[1], -p[0].toordinal()))
     if not ytds or (fiscal_ends and fiscal_ends[-1] >= ytds[-1][1]):
         anchors: List[Tuple[dt.date, Optional[dt.date]]] = [(e, None) for e in fiscal_ends[-n_windows:]]
     else:
