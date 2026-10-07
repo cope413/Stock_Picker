@@ -429,6 +429,30 @@ def test_a_purchase_recorded_only_on_current_positions_is_caught_until_it_is_add
     assert all(c.ok for c in check_performance_tracking_ties(path2))        # the baseline gave the 100 up
 
 
+def test_a_partial_sale_of_a_baseline_lot_splits_it_and_keeps_the_ties(tmp_path):
+    """The 10/6/26 SPMO sale: part of a held baseline lot goes to an Exited baseline lot with the same entry, the held lot keeps
+    the rest, and the sheet still adds up (shares tie, by-source split, Cumulative TOTAL)."""
+    wb = make_book()
+    ws = wb[pt.SHEET]
+    wb["Current Positions"]["E4"].value = 6                       # BBB: 4 of the 10 shares sold
+    wb["Current Positions"]["G4"].value = 6 * PRICES["BBB"]       # the fixture types its market values; the live sheet multiplies
+    sold_row, held_row = pt.split_baseline_sale(wb, "BBB", 4, D(2026, 10, 6), 57.0, 751.0, "test sale")
+    assert ws.cell(row=held_row, column=pt.LOT_SHARES).value == 6 and ws.cell(row=held_row, column=pt.STATUS).value == "Held"
+    r = sold_row
+    assert [ws.cell(row=r, column=c).value for c in (pt.TICKER, pt.TYPE, pt.BASIS, pt.STATUS, pt.LOT_SHARES, pt.ENTRY_PRICE, pt.EXIT_PRICE,
+                                                     pt.EXIT_REASON, pt.SPY_NOW, pt.YTD_PRICE)] == \
+        ["BBB", "ETF", "Baseline", "Exited", 4, 50.0, 57.0, "test sale", 751.0, 45.0]
+    assert ws.cell(row=r, column=pt.ENTRY_DATE).value.date() == pt.INCEPTION and ws.cell(row=r, column=pt.EXIT_DATE).value.date() == D(2026, 10, 6)
+    assert ws.cell(row=r, column=pt.SPY_ENTRY).value == f"={pt.NAMES['spy_0805']}"
+    with pytest.raises(pt.PerfTabError):
+        pt.split_baseline_sale(wb, "BBB", 6, D(2026, 10, 6), 57.0, 751.0, "all of it is a close_lot, not a split")
+    if soffice_path() is not None:
+        path = save(wb, tmp_path)
+        assert recalc(path)["total_errors"] == 0
+        bad = [c for c in check_performance_tracking_ties(path) if not c.ok]
+        assert not bad, [(c.name, c.detail) for c in bad]
+
+
 def test_rebase_baseline_resets_only_the_lots_whose_quantity_moved():
     wb = make_book()
     wb["Current Positions"]["E4"].value = 10.5                   # BBB: dividend reinvestment, half a share

@@ -702,6 +702,34 @@ def close_lot(ws, row: int, exit_date: dt.date, exit_price: float, reason: str, 
         ticker.font = Font(name=f.name, sz=f.sz, b=f.b, i=f.i, color="FF002060")
 
 
+def split_baseline_sale(wb, ticker: str, shares: float, exit_date: dt.date, exit_price: float, spy_exit: float,
+                        reason: str) -> Tuple[int, int]:
+    """Record a PARTIAL sale of a held baseline lot (the 10/6/26 SPMO sale: 30 of 176.94 shares, which ``close_lot`` cannot
+    do -- it closes a lot whole). The sold shares become an Exited baseline lot with the same entry (8/5 close, the 12/31/25
+    price, SPY at 8/5) and the sale's price, date and SPY; the held lot keeps the rest, its typed Lot Shares reduced by
+    what was sold so the audit's share tie still reads zero. Returns (the sold lot's row, the held lot's row).
+
+    The ticker must have exactly one held baseline lot (two accounts' shares share it: SPMO's 100 at Fidelity and 76.9 at
+    Chase are one lot of 176.94 on this tab)."""
+    ws = wb[SHEET]
+    held = [r for r in lot_rows(ws) if _ticker(ws.cell(row=r, column=TICKER).value) == ticker
+            and ws.cell(row=r, column=BASIS).value == "Baseline" and ws.cell(row=r, column=STATUS).value == "Held"]
+    if len(held) != 1:
+        raise PerfTabError(f"{ticker}: expected exactly one held baseline lot, found {len(held)}")
+    row = held[0]
+    old = ws.cell(row=row, column=LOT_SHARES).value
+    if not isinstance(old, (int, float)) or not 0 < shares < old - 1e-9:
+        raise PerfTabError(f"{ticker}: {shares} shares is not a part of the held lot's {old}")
+    entry = ws.cell(row=row, column=ENTRY_DATE).value
+    sold = Lot(ticker, ws.cell(row=row, column=COMPANY).value, ws.cell(row=row, column=TYPE).value, "Baseline", "Exited",
+               entry.date() if isinstance(entry, dt.datetime) else entry, ws.cell(row=row, column=ENTRY_PRICE).value,
+               lot_shares=shares, ytd_price=ws.cell(row=row, column=YTD_PRICE).value, exit_date=exit_date,
+               exit_price=exit_price, exit_reason=reason, spy_exit=spy_exit)
+    sold_row = add_lot(wb, sold)
+    ws.cell(row=row, column=LOT_SHARES).value = round(old - shares, 6)
+    return sold_row, row
+
+
 def rebase_baseline(wb) -> List[Tuple[str, float, float]]:
     """Set every held baseline stock / ETF lot's typed Lot Shares to what Current Positions implies now (its
     quantity less the ticker's held System lots) -- the step after a gap the audit flagged turns out to be dividend

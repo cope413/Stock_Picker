@@ -233,14 +233,16 @@ def test_live_performance_tracking_lists_every_holding_with_cash_equivalents_in_
     cash_like = {str(cp.cell(r, 2).value).strip() for r in rows}
     assert {"FZDXX", "VMFXX", "QACDS"} <= cash_like                       # the formula parsed to something sensible
 
-    tab = {str(pt.cell(r, 1).value).strip(): pt.cell(r, 1) for r in range(3, pt.max_row + 1)
-           if isinstance(pt.cell(r, 1).value, str) and re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", pt.cell(r, 1).value.strip())}
+    # one entry per LOT row: a ticker can have several (a held baseline lot and the exited lot of a partial sale, as SPMO does
+    # since 10/6/26), and only a lot that is still held keeps the green
+    rows = [(str(pt.cell(r, 1).value).strip(), pt.cell(r, 1), pt.cell(r, 9).value) for r in range(3, pt.max_row + 1)
+            if isinstance(pt.cell(r, 1).value, str) and re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", pt.cell(r, 1).value.strip())]
     held = {p.ticker for p in read_positions(_WB)}
-    assert held <= set(tab), sorted(held - set(tab))                     # every current holding has a row
-    for t, cell in tab.items():
+    assert held <= {t for t, _, _ in rows}, sorted(held - {t for t, _, _ in rows})        # every current holding has a row
+    for t, cell, status in rows:
         green = cell.fill.fill_type == "solid" and cell.fill.fgColor.rgb == "FFC6EFCE"
         dark = cell.font.color is not None and cell.font.color.rgb == "FF006100"
-        assert (green and dark) == (t in cash_like and t in held), t
+        assert (green and dark) == (status == "Held" and t in cash_like and t in held), (t, status)
 
 
 @needs_workbook
