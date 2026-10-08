@@ -527,6 +527,37 @@ def _cmd_rules_list(args) -> int:
     return 0
 
 
+def _cmd_stops(args) -> int:
+    """The stop-review ladder (Journal row 109): ``status`` prints where every held scored stock stands (exit 2 when one needs
+    attention) and ``record`` writes a re-underwrite into landry_stops.json after its Journal entry is written."""
+    import datetime as dt
+    from landry import stops
+    wb = args.workbook or _default_workbook()
+    if args.action == "record":
+        if not args.ticker or not args.conclusion:
+            print("! record needs a ticker and --conclusion reaffirmed|resized|referred", file=sys.stderr)
+            return 1
+        day = dt.date.fromisoformat(args.date) if args.date else dt.date.today()
+        nxt = dt.date.fromisoformat(args.next_check) if args.next_check else None
+        entry = stops.record_review(args.ticker, args.conclusion, on=day, adds_frozen=not args.adds_ok, deterioration=args.deterioration,
+                                    next_check=nxt, journal_row=args.journal_row, note=args.note)
+        print(f"recorded {args.ticker.upper()}: {entry}")
+        print("(the Journal entry is the record of the reasoning -- write it with `landry journal add` if it is not there yet)")
+        return 0
+    spy = prices = None
+    if args.live:
+        try:
+            from landry import xlsx_io
+            held = [h.ticker for h in stops.read_holdings(wb)]
+            spy, prices = stops.live_inputs(held)
+            print(f"live: SPY weekly closes and {len(prices)} latest closes from Yahoo")
+        except Exception as e:
+            print(f"! live data unavailable ({e}); using the workbook's weekly data", file=sys.stderr)
+    st = stops.ladder(wb, spy=spy, live_prices=prices)
+    print(stops.format_status(st))
+    return 2 if any(s.needs_attention for s in st) else 0
+
+
 def _cmd_monitor(args) -> int:
     """Keep the Monitor & Recheck Triggers tab current for held positions: ``status`` (read-only; exit 1 if anything is
     out of date), ``stamp`` (Last Score columns from the Scoring rows) and ``refresh`` (insider / analyst signals)."""
@@ -748,6 +779,20 @@ def main(argv=None) -> int:
                     help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
     mn.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
 
+    stp = sub.add_parser("stops", help="the stop-review ladder (Journal row 109): where every held scored stock stands "
+                         "against its cost basis and trend; `record` a re-underwrite")
+    stp.add_argument("action", nargs="?", default="status", choices=["status", "record"])
+    stp.add_argument("ticker", nargs="?", help="for record")
+    stp.add_argument("--workbook", default=None)
+    stp.add_argument("--live", action="store_true", help="fetch SPY and the latest closes from Yahoo (one request) instead of the workbook's weekly data")
+    stp.add_argument("--conclusion", choices=["reaffirmed", "resized", "referred"], help="record: the Rule 5 review's conclusion")
+    stp.add_argument("--date", default=None, help="record: date of the re-underwrite (default today)")
+    stp.add_argument("--next", dest="next_check", default=None, help="record: the next check (e.g. the next earnings date)")
+    stp.add_argument("--journal-row", type=int, default=None, help="record: the Journal row that holds the reasoning")
+    stp.add_argument("--adds-ok", action="store_true", help="record: additions are NOT frozen by this review")
+    stp.add_argument("--deterioration", action="store_true", help="record: the re-underwrite found deterioration (rung 2 then trims a third)")
+    stp.add_argument("--note", default="")
+
     def _weekly_flags(sp):
         sp.add_argument("--workbook", default=None)
         sp.add_argument("--dry-run", action="store_true",
@@ -790,6 +835,8 @@ def main(argv=None) -> int:
         return _cmd_prices(args)
     if args.cmd in ("weekly", "market"):
         return _cmd_weekly(args)
+    if args.cmd == "stops":
+        return _cmd_stops(args)
     if args.cmd == "monitor":
         return _cmd_monitor(args)
     if args.cmd == "rules-list":

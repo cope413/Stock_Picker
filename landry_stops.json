@@ -1,0 +1,19 @@
+{
+ "policy": {
+  "rung1": "20% below cost and (Relative Strength 1 or under the 200-day average): no additions, re-underwrite within 10 trading days, repeat every 90 days",
+  "rung2": "30% below cost and deterioration found: trim one third",
+  "rung3": "40% below cost, Relative Strength 1 and 8 weeks under the 200-day average: Exit Review",
+  "source": "Journal row 109 (Alan, 2026-10-08)"
+ },
+ "reviews": {
+  "ADBE": {
+   "adds_frozen": true,
+   "conclusion": "reaffirmed",
+   "date": "2026-10-08",
+   "deterioration": false,
+   "journal_row": 110,
+   "next_check": "2026-12-09",
+   "note": "Rule 5 review, rung 1: reaffirmed, additions frozen; tripwires for the 12/9 earnings are in Open Items #14"
+  }
+ }
+}

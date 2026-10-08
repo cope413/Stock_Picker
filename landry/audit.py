@@ -802,6 +802,68 @@ def check_monitor_signals(path: str, today: Optional[object] = None) -> List[Che
                                       "a few minutes), then recalc")]
 
 
+def check_scoring_row_order(path: str) -> List[Check]:
+    """Dashboard and Entry Checklist mirror the Scoring tab ROW FOR ROW by formula, and the Implied-Return Calculator keeps typed tickers
+    on the row after theirs (Scoring row + 1). Sorting Scoring in Excel moves every ticker to a new row but leaves those tabs' typed inputs
+    where they were: Alan's 10/8/26 review copy had Scoring sorted by Tier 1 average and 48 of 49 Entry Checklist rows then showed another
+    ticker beside the Rule 9-14 inputs typed for VEEV, SLB, GE and the rest, with nothing in Excel or LibreOffice complaining. The
+    typed Implied-Return tickers are the canary: each must still sit one row below its Scoring row. Never sort or re-order Scoring
+    (Scoring A1 says so); filter it instead."""
+    import re
+    name = "scoring_row_order"
+    wb = openpyxl.load_workbook(path, read_only=True)
+    if not {"Scoring", "Implied-Return Calculator"} <= set(wb.sheetnames):
+        wb.close()
+        return [Check(name, True, "Scoring / Implied-Return Calculator not both present, skipped")]
+    scoring = {}
+    for i, r in enumerate(wb["Scoring"].iter_rows(min_row=1, max_row=120, max_col=1, values_only=True), 1):
+        scoring[i] = r[0] if r else None
+    typed = {}
+    for i, r in enumerate(wb["Implied-Return Calculator"].iter_rows(min_row=1, max_row=121, max_col=1, values_only=True), 1):
+        v = r[0] if r else None
+        if i >= 4 and isinstance(v, str) and re.fullmatch(r"[A-Z][A-Z0-9.\-]{0,9}", v.strip()):
+            typed[i] = v.strip()
+    wb.close()
+    bad = [f"Implied-Return row {r} says {t} but Scoring row {r - 1} is {scoring.get(r - 1)!s}" for r, t in sorted(typed.items())
+           if str(scoring.get(r - 1) or "").strip() != t]
+    if bad:
+        return [Check(name, False, f"the Scoring tab's row order no longer matches the rows other tabs key to it: {'; '.join(bad[:5])}"
+                                   + (f" ... and {len(bad) - 5} more" if len(bad) > 5 else ""),
+                      fix="undo the sort (reopen the last good copy or `git checkout` the workbook) -- never sort Scoring: Dashboard, Entry Checklist "
+                          "and Implied-Return read it by row, so every typed input would sit beside the wrong ticker")]
+    return [Check(name, True, f"Scoring's row order still matches the Implied-Return Calculator's typed tickers ({len(typed)} anchors)")]
+
+
+def check_stop_ladder(path: str, today: Optional[object] = None) -> List[Check]:
+    """The stop-review ladder (Journal row 109): a held scored stock 20% or more below its cost basis with weak relative strength or
+    a price under its 200-day average needs a current re-underwrite on file (landry_stops.json) and no additions; 30% below cost with
+    deterioration found trims a third; 40% below with 8 weeks under the average is an Exit Review. Alan, 2026-10-08, after ADBE sat
+    21% below cost with Relative Strength 1 and nothing in the System said "look again". Runs from the workbook alone (weekly closes,
+    Market Data prices, the recorded Relative Strength score), so it is the same check every Saturday; ``python -m landry stops --live``
+    gives today's numbers. Fails whenever a holding on a rung has no current review, until `landry stops record` writes one."""
+    from landry import stops
+    name = "stop_review_ladder"
+    wb = openpyxl.load_workbook(path, read_only=True)
+    have = {"Current Positions", "Scoring", "Price History", "Market Data"} <= set(wb.sheetnames)
+    wb.close()
+    if not have:
+        return [Check(name, True, "Current Positions / Scoring / Price History / Market Data not all present, skipped")]
+    try:
+        st = stops.ladder(path, today=today)
+    except Exception as e:
+        return [Check(name, False, f"could not run the ladder: {e}", fix="run `python -m landry stops` to see the error")]
+    att = [s for s in st if s.needs_attention]
+    on = [s for s in st if s.rung >= 1]
+    if att:
+        shown = "; ".join(f"{s.ticker} rung {s.rung} ({-s.loss * 100:.1f}% below cost): {s.action}" for s in att)
+        return [Check(name, False, f"{len(att)} holding(s) need attention: {shown}",
+                      fix="write the re-underwrite (a Journal entry via `landry journal add`, the Rule 5 review concluded as reaffirmed / "
+                          "resized / referred), then `python -m landry stops record TICKER --conclusion ... --journal-row N --next DATE`")]
+    detail = (f"{len(on)} of {len(st)} held scored stocks on a rung, each with a current re-underwrite on file ("
+              + ", ".join(f"{s.ticker} rung {s.rung}" for s in on) + ")") if on else f"none of {len(st)} held scored stocks is on a rung"
+    return [Check(name, True, detail)]
+
+
 def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
     return [
         *check_table_refs(path),
@@ -818,6 +880,8 @@ def run_all(path: str, repo_dir: Optional[str] = None) -> List[Check]:
         *check_performance_tracking_ties(path),
         *check_monitor_last_score(path),
         *check_monitor_signals(path),
+        *check_scoring_row_order(path),
+        *check_stop_ladder(path),
     ]
 
 

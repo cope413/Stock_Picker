@@ -1,6 +1,6 @@
 # Landry System → Automated Stock Picker: Implementation Plan
 
-**Driving documents:** `LANDRY_SYSTEM_v1-04_FINAL.docx` (v1.04, 51 Hard Rules) and
+**Driving documents:** `LANDRY_SYSTEM_v1-05_FINAL.docx` (v1.05, 51 numbered Hard Rules plus the Part 6 Stop-Review Ladder) and
 `LANDRY_SYSTEM_WORKBOOK_25.xlsx` (live workbook: 40 scored names, ~$700k across
 JT ULTRA/Fidelity and Self-Directed/Chase).
 

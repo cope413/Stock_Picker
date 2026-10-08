@@ -130,6 +130,15 @@ def rule38_status(path: str) -> Optional[dict]:
         return None
 
 
+def ladder_status(path: str) -> Optional[dict]:
+    """The stop-review ladder (``landry stops``) as data for the report: who is on a rung, who is close, who needs attention."""
+    try:
+        from landry import stops
+        return stops.summary(path)
+    except Exception:
+        return None
+
+
 def database_status(path: str, db_path: Optional[str] = None) -> dict:
     """The Journal / Drawdown Log drift guard (``landry db status``) as data. ``ok`` is True (the tabs and the
     database agree), False (they differ, or the check could not run) or None (no database yet: a fresh checkout
@@ -175,6 +184,7 @@ def verify(path: str, rep: dict, *, recalc_fn: Optional[Callable] = None, audit_
         if res.get("clamped_rows"):
             rep["problems"].append(f"recalc capped {len(res['clamped_rows'])} row height(s) at Excel's 409.5pt maximum")
     rep["rule38"] = rule38_status(path)
+    rep["ladder"] = ladder_status(path)
     rep["db"] = (db_fn or database_status)(path, db_path)
     if rep["db"].get("ok") is False:
         detail = rep["db"].get("error") or ", ".join(f"{k}: {t['value_diffs']} cell(s) differ" for k, t in rep["db"]["tabs"].items() if t["value_diffs"])
@@ -300,6 +310,10 @@ def format_report(rep: dict, *, workbook: str = "", when: Optional[dt.datetime] 
     r38 = rep.get("rule38")
     if r38 is not None:
         lines.append(f"Rule 38         {r38['over_cap']} position(s) over the 0.70 cap -- {r38['status']}")
+    lad = rep.get("ladder")
+    if lad is not None:
+        from landry import stops
+        lines.append("Ladder          " + stops.one_line(lad).replace("stop-review ladder: ", ""))
     d = rep.get("db")
     if d is not None:
         if d.get("ok") is None:

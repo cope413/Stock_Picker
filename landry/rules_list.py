@@ -3,7 +3,7 @@
 ``python -m landry rules-list [--pdf]`` writes ``docs/Landry System Hard Rules List v<VERSION>.docx`` (and, with
 ``--pdf``, a PDF beside it): every numbered Hard Rule of the rulebook, grouped by Part, in condensed wording, plus
 a quick-reference page (decision bands, sizing, drawdown response, macro overlay, Hold Through, conflict order,
-what to avoid). Five Letter pages, Calibri.
+what to avoid, and since v1.05 the Stop-Review Ladder). Six Letter pages, Calibri.
 
 WHY THE WORDING LIVES HERE AND IS CHECKED: the rule numbers are one running sequence across the whole rulebook, so
 inserting a rule renumbers every later one (v1.04 inserted Rule 5 and shifted 5-50 to 6-51) -- the way every
@@ -51,13 +51,16 @@ def _need_docx() -> None:
 # --------------------------------------------------------------------------------------------------- the data --
 # Each rule is (number, label-or-None, text); every number in the wording is the rulebook's own.
 
-VERSION = "1.04"
-REVISED = "2026-10-01"
+VERSION = "1.05"
+REVISED = "2026-10-08"
 INTRO_NOTE = ("Condensed from the Master Rule Register of {file}; every threshold is the rulebook’s own. Rule numbers "
               "are one running sequence: inserting a rule renumbers every later one (v1.04 inserted Rule 5, so the "
-              "entry rules are now 6–14 and the sell triggers 22–35). If this list and the text inside a Part ever "
+              "entry rules are now 6–14 and the sell triggers 22–35). v1.05 renumbered nothing: it added the Part 6 "
+              "Stop-Review Ladder, an un-numbered Hard Rules block like Hold Through (see the quick reference), and put "
+              "Rule 16's sector cap at market value on direct holdings. If this list and the text inside a Part ever "
               "differ, the Part governs.")
-RENUMBERING_NOTE = "From v1.03: Rules 1–4 are unchanged; every v1.03 rule from 5 onward is one number higher."
+RENUMBERING_NOTE = ("From v1.04: no rule number changed. From v1.03: Rules 1–4 are unchanged; every v1.03 rule from 5 "
+                    "onward is one number higher.")
 
 PARTS = [
     {"title": "PART 3 — Composite Score & Confidence", "groups": [
@@ -99,7 +102,7 @@ PARTS = [
     {"title": "PART 5 — Position Sizing", "groups": [
         {"heading": None, "rules": [
             (15, "Position cap", "No single position above 8% of portfolio at cost."),
-            (16, "Sector cap", "No single sector above 25% of portfolio."),
+            (16, "Sector cap", "No single sector above 25% of portfolio, measured at market value on direct holdings (ETFs are not looked through)."),
             (17, "Position floor", "At least 12 qualifying positions in a fully invested portfolio (12 is a floor, not a guarantee)."),
             (18, "Cash band", "Cash always between 5% and 15%, for dry powder and risk management."),
             (19, "No threshold lowering", "If fewer than 12 candidates qualify (Composite Score 65 or higher), do not lower the "
@@ -263,12 +266,23 @@ MACRO = [             # condition, effect  (Part 7)
 MACRO_NOTE = "Macro overlays are temporary modifiers: when the condition resolves, revert to standard sizing."
 
 HOLD_THROUGH = [      # do NOT sell based on these alone  (Part 6)
-    "A short-term price decline of 20–30% with no change in Tier 1/2 fundamentals: this is noise.",
+    "A short-term price decline of 20–30% with no change in Tier 1/2 fundamentals: this is noise, unless a Stop-Review Ladder rung (below) has been reached.",
     "One quarter of earnings miss: evaluate the cause; sell only if it signals structural deterioration.",
     "Analyst downgrades: a lagging indicator; revisit Tier 1/2 signals instead.",
     "A market-wide selloff: if fundamentals are intact, often an opportunity to add, not sell.",
     "Narrative shift or negative press: evaluate facts, not sentiment.",
 ]
+
+STOP_REVIEW = [       # Part 6, added in v1.05 -- an un-numbered Hard Rules block, like Hold Through
+    "Rung 1: 20% or more below cost, with Relative Strength 1 or the price under its 200-day average: no additions (DCA included) "
+    "and a documented re-underwrite within 10 trading days -- a fresh Tier 1 reread, the leading indicators, and the Rule 5 review "
+    "concluded as reaffirmed, resized or referred; repeated every 90 days.",
+    "Rung 2: 30% or more below cost on the same confirmation, with deterioration found: trim one third; a second confirmation trims another third.",
+    "Rung 3: 40% or more below cost, Relative Strength 1 and 8 straight weeks under the 200-day average: Exit Review "
+    "(sell within 30 days unless a documented 90-day remediation plan is approved).",
+    "Never a price-only sale: a decline that reaches no rung, or a rung whose re-underwrite finds no deterioration, stays under Hold Through.",
+]
+STOP_REVIEW_NOTE = "Relative Strength 1 = behind SPY by more than 15% over six months; the 200-day average = the last 40 weekly closes."
 
 CONFLICT_ORDER = [    # Part 10: higher rank always wins
     "Mandatory fundamental sell triggers",
@@ -580,6 +594,10 @@ def _build(out, today):
     heading(doc, "Hold Through: do NOT sell based on these alone (Part 6)", size=11.5)
     bullets(doc, HOLD_THROUGH)
 
+    heading(doc, "Stop-Review Ladder: a falling price triggers a re-underwrite (Part 6, v1.05)", size=11.5)
+    bullets(doc, STOP_REVIEW)
+    note(doc, STOP_REVIEW_NOTE, size=9, space_after=2, space_before=2)
+
     heading(doc, "When rules conflict: higher rank wins (Part 10)", size=11.5)
     bullets(doc, CONFLICT_ORDER, numbered=True)
     note(doc, CONFLICT_NOTE, size=9, space_after=2, space_before=2)
@@ -689,7 +707,7 @@ def _quick_reference_lines() -> List[str]:
     out: List[str] = []
     for row in DECISION_BANDS + SIZING + DRAWDOWN + MACRO + AVOID:
         out.extend(row)
-    return out + SIZING_MODIFIERS + [DRAWDOWN_NOTE] + HOLD_THROUGH + CONFLICT_ORDER
+    return out + SIZING_MODIFIERS + [DRAWDOWN_NOTE] + HOLD_THROUGH + STOP_REVIEW + [STOP_REVIEW_NOTE] + CONFLICT_ORDER
 
 
 def check(path: Optional[str] = None) -> List[str]:
