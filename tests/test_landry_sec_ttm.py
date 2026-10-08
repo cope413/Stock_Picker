@@ -92,6 +92,17 @@ def test_missing_line_item_is_an_error_not_a_silent_zero():
         sec_ttm.ttm_windows(facts)
 
 
+def test_a_stale_fiscal_year_is_never_substituted_for_a_missing_one():
+    """RL, 10/8/26: the newest 10-K had no capex fact, and the trailing capex was built from the PREVIOUS fiscal year plus the
+    year-to-date change ($216M + $53M - $187M = $82M against about $296M). The newest year missing a line item must make
+    the newest window incomplete -- an error -- not borrow an older year."""
+    facts = _company()
+    rows = facts["facts"]["us-gaap"][sec_ttm.TAGS["capex"][0]]["units"]["USD"]
+    rows[:] = [r for r in rows if not (r["start"] == "2025-01-01" and r["end"] == "2025-12-31")]
+    with pytest.raises(ValueError, match="capex"):
+        sec_ttm.ttm_windows(facts, n_windows=5)
+
+
 def test_too_little_history_is_an_error():
     with pytest.raises(ValueError, match="at least 4"):
         sec_ttm.ttm_windows(_company(), n_windows=3)

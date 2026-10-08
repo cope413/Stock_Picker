@@ -175,7 +175,12 @@ class Window:
 
 
 def _fiscal_year_ending_before(values: Mapping[Period, float], day: dt.date, tol: int = 12) -> Optional[Tuple[dt.date, float]]:
-    ends = [(e, v) for (s, e), v in values.items() if _is_fiscal_year((s, e)) and e <= day + dt.timedelta(days=tol)]
+    """The fiscal year that ends the day before ``day`` (the start of the year to date), within ``tol`` days for 52/53-week
+    years. It must be THAT year: taking the latest year on file instead silently substituted an older one whenever the
+    newest 10-K lacked the line item (RL, 10/8/26: FY2026 capex absent from the SEC facts, so the trailing capex was FY2025's
+    $216M plus this year's $53M less last year's $187M = $82M, against about $296M, and FCF read $1.12B instead of about
+    $0.9B). A missing year must come back as missing so the caller refuses the window."""
+    ends = [(e, v) for (s, e), v in values.items() if _is_fiscal_year((s, e)) and abs((e - day).days) <= tol]
     return max(ends, default=None)
 
 
@@ -517,7 +522,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     add_back.update(_parse_add_back(args.add_back))
     from landry.fundamentals import YFinanceFundamentals
     market_cap = YFinanceFundamentals().get(ticker).market_cap
-    wins = ttm_windows(company_facts(ticker), args.windows, add_back)
+    try:
+        wins = ttm_windows(company_facts(ticker), args.windows, add_back)
+    except ValueError as e:
+        print(f"{ticker}: cannot build trailing-12-month windows -- {e}")
+        return 1
     res = tier1_drafts(ticker, wins, market_cap)
     print(f"{res.ticker}: market cap ${market_cap / 1e9:,.1f}B, FCF yield {res.yield_pct:.2f}%")
     print(f"{'window ends':12s} {'CFO':>9s} {'capex':>8s} {'SBC':>8s} {'add-back':>9s} {'FCF':>9s} {'revenue':>9s} {'margin':>7s}   ($M)")
