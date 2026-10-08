@@ -527,6 +527,27 @@ def _cmd_rules_list(args) -> int:
     return 0
 
 
+def _cmd_etf(args) -> int:
+    """The ETF sleeve report (``landry/etf_report.py``): prints it, or with --docx writes the printable version. Read-only."""
+    from landry import etf_report, rules_list
+    path = args.workbook or _default_workbook()
+    cands = [c.strip().upper() for c in args.candidates.split(",") if c.strip()] if args.candidates else None
+    try:
+        rep = etf_report.build_report(path, weeks=args.weeks, use_factors=not args.no_factors, candidates=cands,
+                                      progress=lambda m: print(f"  {m}", file=sys.stderr))
+    except Exception as e:                                   # a missing network or a changed provider should not look like a crash
+        print(f"! the ETF report could not be built: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    print(etf_report.to_text(rep))
+    if args.docx is not None or args.pdf:
+        out = etf_report.write_docx(rep, args.docx or None)
+        print(f"\nwrote {out}")
+        if args.pdf:
+            pdf = rules_list.to_pdf(out)
+            print(f"wrote {pdf}" if pdf else "! no PDF: LibreOffice (soffice) not found")
+    return 0
+
+
 def _cmd_stops(args) -> int:
     """The stop-review ladder (Journal row 109): ``status`` prints where every held scored stock stands (exit 2 when one needs
     attention) and ``record`` writes a re-underwrite into landry_stops.json after its Journal entry is written."""
@@ -779,6 +800,15 @@ def main(argv=None) -> int:
                     help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
     mn.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
 
+    et = sub.add_parser("etf", help="the ETF sleeve report: what the ETFs are, which are one bet, factor loadings, look-through, "
+                        "where the risk sits, what is missing (read-only; --docx writes docs/Landry ETF Report <date>.docx)")
+    et.add_argument("--workbook", default=None, help="the workbook to read (default: the newest in the repo root)")
+    et.add_argument("--weeks", type=int, default=156, help="weekly returns to use (default 156 = three years)")
+    et.add_argument("--no-factors", action="store_true", help="skip the Fama-French regressions (no network call for them)")
+    et.add_argument("--candidates", default=None, help="comma-separated tickers to test as additions (default: the built-in list)")
+    et.add_argument("--docx", nargs="?", const="", default=None, metavar="PATH", help="also write the printable docx (default path: docs/)")
+    et.add_argument("--pdf", action="store_true", help="also render a PDF beside the docx (needs LibreOffice; implies --docx)")
+
     stp = sub.add_parser("stops", help="the stop-review ladder (Journal row 109): where every held scored stock stands "
                          "against its cost basis and trend; `record` a re-underwrite")
     stp.add_argument("action", nargs="?", default="status", choices=["status", "record"])
@@ -835,6 +865,8 @@ def main(argv=None) -> int:
         return _cmd_prices(args)
     if args.cmd in ("weekly", "market"):
         return _cmd_weekly(args)
+    if args.cmd == "etf":
+        return _cmd_etf(args)
     if args.cmd == "stops":
         return _cmd_stops(args)
     if args.cmd == "monitor":
