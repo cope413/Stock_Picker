@@ -527,6 +527,25 @@ def _cmd_rules_list(args) -> int:
     return 0
 
 
+def _cmd_brief(args) -> int:
+    """A compact state digest for a fresh session (``landry/brief.py``). Read-only."""
+    from landry import brief
+    print(brief.build(args.workbook or _default_workbook(), journal_n=args.journal))
+    return 0
+
+
+def _cmd_usage(args) -> int:
+    """Where a Claude Code session's tokens went (``landry/usage.py``). Read-only."""
+    from landry import usage
+    path = args.session or usage.default_session()
+    if not path:
+        print("! no session transcript found", file=sys.stderr)
+        return 1
+    print(f"session {os.path.basename(path)}")
+    print(usage.report(usage.parse(path), last=args.last))
+    return 0
+
+
 def _cmd_etf(args) -> int:
     """The ETF sleeve report (``landry/etf_report.py``): prints it, or with --docx writes the printable version. Read-only."""
     from landry import etf_report, rules_list
@@ -800,6 +819,14 @@ def main(argv=None) -> int:
                     help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
     mn.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
 
+    br = sub.add_parser("brief", help="compact state digest for starting a fresh session: recent Journal, open items, steps due (read-only)")
+    br.add_argument("--workbook", default=None, help="the workbook to read (default: the newest in the repo root)")
+    br.add_argument("--journal", type=int, default=8, help="Journal entries to list (default 8)")
+
+    us = sub.add_parser("usage", help="where a Claude Code session's tokens went: context size, thinking share, what the re-reads hold (read-only)")
+    us.add_argument("--session", default=None, help="transcript .jsonl (default: this project's newest)")
+    us.add_argument("--last", type=int, default=0, help="only the last N API calls (to compare a recent stretch)")
+
     et = sub.add_parser("etf", help="the ETF sleeve report: what the ETFs are, which are one bet, factor loadings, look-through, "
                         "where the risk sits, what is missing (read-only; --docx writes docs/Landry ETF Report <date>.docx)")
     et.add_argument("--workbook", default=None, help="the workbook to read (default: the newest in the repo root)")
@@ -865,6 +892,10 @@ def main(argv=None) -> int:
         return _cmd_prices(args)
     if args.cmd in ("weekly", "market"):
         return _cmd_weekly(args)
+    if args.cmd == "brief":
+        return _cmd_brief(args)
+    if args.cmd == "usage":
+        return _cmd_usage(args)
     if args.cmd == "etf":
         return _cmd_etf(args)
     if args.cmd == "stops":
