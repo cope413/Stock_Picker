@@ -527,6 +527,27 @@ def _cmd_rules_list(args) -> int:
     return 0
 
 
+def _cmd_rule12(args) -> int:
+    """The Rule 12 pre-check (``landry/rule12.py``). Read-only, one yfinance request set per ticker."""
+    from landry import rule12
+    print(rule12.run(args.tickers))
+    return 0
+
+
+def _cmd_open_items(args) -> int:
+    """Append a note to, or close, an Open Items row (``landry/open_items.py``)."""
+    from landry import open_items
+    path = args.workbook or _default_workbook()
+    note = sys.stdin.read() if args.note == "-" else (args.note or "")
+    try:
+        print(open_items.update(path, args.n, note, close=args.close))
+    except open_items.OpenItemsError as e:
+        print(f"! {e}", file=sys.stderr)
+        return 1
+    print("run `python -m landry audit` before committing")
+    return 0
+
+
 def _cmd_brief(args) -> int:
     """A compact state digest for a fresh session (``landry/brief.py``). Read-only."""
     from landry import brief
@@ -819,6 +840,15 @@ def main(argv=None) -> int:
                     help="skip the LibreOffice recalc (the workbook is then NOT safe to commit)")
     mn.add_argument("--force", action="store_true", help="write even if Excel appears to have the workbook open")
 
+    r12 = sub.add_parser("rule12", help="Rule 12 pre-check: can the name reach a 10% Base at a flat multiple? (read-only)")
+    r12.add_argument("tickers", nargs="+")
+
+    oi = sub.add_parser("open-items", help="append a note to (and optionally close) an Open Items row; recalcs the workbook")
+    oi.add_argument("n", type=int, help="the item number (#)")
+    oi.add_argument("--note", default="", help="text to append to Notes; '-' reads stdin")
+    oi.add_argument("--close", action="store_true", help="also set Done = Y and today's date")
+    oi.add_argument("--workbook", default=None)
+
     br = sub.add_parser("brief", help="compact state digest for starting a fresh session: recent Journal, open items, steps due (read-only)")
     br.add_argument("--workbook", default=None, help="the workbook to read (default: the newest in the repo root)")
     br.add_argument("--journal", type=int, default=8, help="Journal entries to list (default 8)")
@@ -892,6 +922,10 @@ def main(argv=None) -> int:
         return _cmd_prices(args)
     if args.cmd in ("weekly", "market"):
         return _cmd_weekly(args)
+    if args.cmd == "rule12":
+        return _cmd_rule12(args)
+    if args.cmd == "open-items":
+        return _cmd_open_items(args)
     if args.cmd == "brief":
         return _cmd_brief(args)
     if args.cmd == "usage":

@@ -32,6 +32,7 @@ named file BEFORE touching its area.
 ## Standing tools
 
 - `python -m landry brief` (state digest) and `python -m landry usage [--last N]` (where a session's tokens went; compare before/after token-saving changes).
+- `python -m landry rule12 TICKER...` (Rule 12 pre-check, read-only: run it on every new candidate BEFORE any judgment work; PASS still needs per-share FCF confirmation) and `python -m landry open-items N --note TEXT [--close]` (append to / close an Open Items row, then recalc; never write one-off scripts for this).
 - `python -m landry audit` (structural drift), `db status`, `doctor`.
 - Process Checklist tab (steps per recurring Journal event, OVERDUE auto-flag; reseed it when the Journal calendar changes) and Open Items tab (numbered backlog; mark Done with a date and a Journal pointer, never delete).
 - `landry draft`, `landry_scores.json` / `ScoreStore`, `landry audit`'s `scoring_verification` check: `docs/ops/scoring-export-readers.md`.
