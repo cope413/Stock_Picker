@@ -70,3 +70,35 @@ def test_spacing_is_non_overlapping_and_report_prints():
     assert "next 26 weeks" in text and "next 52 weeks" in text and "limits:" in text
     with pytest.raises(ValueError):
         rs_test.panel(_closes().drop(columns=["SPY"]))
+
+
+def test_scoring_trend_matches_the_test_definition_and_drives_the_actions():
+    from landry import rs_trend
+    from landry.data_auto import draft_relative_strength, relative_strength
+    idx = pd.date_range("2020-01-03", periods=260, freq="W-FRI")
+    k = np.arange(260)
+    c = pd.DataFrame({
+        "SPY": 100.0 + 0 * k,
+        "ACC": 100 * np.exp(-0.00002 * k ** 2),          # falling faster and faster: down and widening
+        "LIN": 100 * 0.996 ** k,                         # steady decline: constant gap, not widening
+        "RISE": 100 * np.exp(0.00002 * k ** 2),          # rising faster and faster
+        "FLAT": 100.0 + 0 * k}, index=idx)
+    p = rs_test.panel(c)
+    last = p[p["date"] == idx[-1]].set_index("ticker")
+    for t in ("ACC", "LIN", "RISE", "FLAT"):
+        rs = relative_strength(c[t], c["SPY"])
+        assert rs.trend == last.loc[t, "state"] and rs.diff_blended == pytest.approx(last.loc[t, "rs"])
+        assert rs.streak == max(-8, min(8, int(last.loc[t, "streak"])))          # the scoring read keeps 8 readings
+    acc, lin, rise = (relative_strength(c[t], c["SPY"]) for t in ("ACC", "LIN", "RISE"))
+    assert acc.persistent_down and acc.score == 1 and acc.diff_3m < 0
+    assert lin.trend == "down, not persistent" and rise.persistent_up
+    assert "PERSISTENT DOWN (Rule 5 review)" in draft_relative_strength(acc).rationale
+    assert "persistent up" in draft_relative_strength(rise).rationale and "3mo" in draft_relative_strength(lin).rationale
+    assert rs_trend.action(acc, held=True).startswith("RULE 5 (persistent)")
+    assert rs_trend.action(acc, held=False).startswith("Rule 5 review")
+    assert rs_trend.action(rise, held=False).startswith("tie-breaker") and rs_trend.action(rise, held=True) == ""
+    assert rs_trend.action(lin, held=True) == ""
+    rws = rs_trend.rows(c, ["ACC", "LIN", "RISE", "NOPE"], held=["ACC", "LIN"])
+    assert rs_trend.persistent_down_held(rws) == ["ACC"]
+    text = rs_trend.format_report(rws)
+    assert "held and persistent down (Rule 5 review, no additions): ACC" in text and "no price history" in text

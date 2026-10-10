@@ -623,6 +623,19 @@ def _cmd_rs_test(args) -> int:
     return 0
 
 
+def _cmd_rs_trend(args) -> int:
+    """Relative Strength trend per stock: the persistent-down Rule 5 review and the tie-breaker (``landry/rs_trend.py``)."""
+    from landry import rs_trend
+    from landry.data_auto import fetch_daily, weekly_closes
+    path = args.workbook or _default_workbook()
+    held = rs_trend.held_scored(path)
+    extra = [t.upper() for t in args.tickers]
+    tickers = list(dict.fromkeys((extra if args.only else held + extra)))
+    closes = weekly_closes(fetch_daily(tickers + ["SPY"]))
+    print(rs_trend.format_report(rs_trend.rows(closes, tickers, held)))
+    return 0
+
+
 def _cmd_fidscan(args) -> int:
     """Fidelity scan store and the Fidelity-vs-Landry comparison (``landry/fidscan.py``)."""
     import datetime as _dt
@@ -960,6 +973,12 @@ def main(argv=None) -> int:
     rt.add_argument("--candidates", default="CANDIDATES LIST.xlsx")
     rt.add_argument("--workbook", default=None)
 
+    rtr = sub.add_parser("rs-trend", help="Relative Strength trend (3/6/12-month gaps, quarterly streak): held names on the "
+                                          "persistent-down Rule 5 review, candidates' tie-breaker")
+    rtr.add_argument("tickers", nargs="*", help="candidates to add to the held scored stocks")
+    rtr.add_argument("--only", action="store_true", help="just the tickers given, not the holdings")
+    rtr.add_argument("--workbook", default=None)
+
     fs = sub.add_parser("fidscan", help="store a Fidelity info-tab scan and compare Fidelity's Equity Summary Score with the "
                                         "Landry composite (landry_fidelity_scans.json); context only, never a score input")
     fss = fs.add_subparsers(dest="action", required=True)
@@ -1083,6 +1102,8 @@ def main(argv=None) -> int:
         return _cmd_accounts(args)
     if args.cmd == "fidscan":
         return _cmd_fidscan(args)
+    if args.cmd == "rs-trend":
+        return _cmd_rs_trend(args)
     if args.cmd == "rs-test":
         return _cmd_rs_test(args)
     if args.cmd == "monitor":

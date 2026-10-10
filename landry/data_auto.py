@@ -212,6 +212,19 @@ class RelativeStrength:
     diff_12m: Optional[float]
     diff_blended: Optional[float]        # mean of the available windows
     score: Optional[int]                 # Part 2 rubric draft
+    diff_3m: Optional[float] = None      # 13-week gap: context, not in the score
+    readings: Tuple[float, ...] = ()     # blended gap now, 13 weeks ago, 26 weeks ago ... (newest first)
+    streak: int = 0                      # signed count of same-sign quarterly readings in a row, ending now
+    moved: Optional[float] = None        # blended gap now minus the reading 13 weeks ago
+    trend: Optional[str] = None          # "down, persistent" | "down, not persistent" | "up, ..." | "flat"
+
+    @property
+    def persistent_down(self) -> bool:
+        return self.trend == "down, persistent"
+
+    @property
+    def persistent_up(self) -> bool:
+        return self.trend == "up, persistent"
 
 
 def _total_return(closes: pd.Series, weeks: int) -> Optional[float]:
@@ -246,10 +259,49 @@ def relative_strength(ticker_closes: pd.Series,
         diffs[label] = None if rt is None or rb is None else rt - rb
     avail = [d for d in diffs.values() if d is not None]
     blended = float(np.mean(avail)) if avail else None
+    r3, rb3 = _total_return(ticker_closes, 13), _total_return(spy_closes, 13)
+    readings, streak, moved, trend = rs_trend(ticker_closes, spy_closes)
     return RelativeStrength(
         diff_6m=diffs["6m"], diff_12m=diffs["12m"], diff_blended=blended,
         score=None if blended is None else rs_score(blended),
+        diff_3m=None if r3 is None or rb3 is None else r3 - rb3,
+        readings=readings, streak=streak, moved=moved, trend=trend,
     )
+
+
+RS_TREND_STEP = 13          # weeks between readings (quarterly)
+RS_PERSIST_READINGS = 3     # same sign this many readings in a row ...
+
+
+def rs_trend(ticker_closes: pd.Series, spy_closes: pd.Series, step: int = RS_TREND_STEP,
+             max_readings: int = 8) -> Tuple[Tuple[float, ...], int, Optional[float], Optional[str]]:
+    """The Relative Strength TREND (Alan, 2026-10-10, Open Items #47): the blended 26/52-week gap vs SPY read now and
+    every ``step`` weeks back. PERSISTENT = the same sign for RS_PERSIST_READINGS or more readings in a row AND further
+    that way than the previous reading (down and widening, or up and rising). Same definition as ``landry.rs_test``,
+    which is the evidence for it. Returns (readings newest first, signed streak, moved, state)."""
+    df = pd.concat([ticker_closes, spy_closes], axis=1, keys=["t", "s"]).dropna()
+    readings: List[float] = []
+    n = len(df)
+    for k in range(max_readings):
+        end = n - 1 - k * step
+        if end - 52 < 0:
+            break
+        g = [(df["t"].iat[end] / df["t"].iat[end - w] - 1) - (df["s"].iat[end] / df["s"].iat[end - w] - 1) for w in (26, 52)]
+        readings.append(float(np.mean(g)))
+    if not readings:
+        return (), 0, None, None
+    sign = 1 if readings[0] > 0 else -1 if readings[0] < 0 else 0
+    streak = 0
+    for v in readings:
+        if sign == 0 or v * sign <= 0:
+            break
+        streak += sign
+    moved = readings[0] - readings[1] if len(readings) > 1 else None
+    if sign == 0:
+        return tuple(readings), 0, moved, "flat"
+    persistent = abs(streak) >= RS_PERSIST_READINGS and moved is not None and moved * sign > 0
+    state = ("down" if sign < 0 else "up") + (", persistent" if persistent else ", not persistent")
+    return tuple(readings), streak, moved, state
 
 
 # --------------------------------------------------------------------------- #
@@ -457,8 +509,20 @@ def draft_relative_strength(rs: RelativeStrength) -> Optional["Draft"]:
     if rs.diff_12m is not None:
         parts.append(f"12mo {rs.diff_12m:+.1%}")
     detail = ", ".join(parts) if parts else "insufficient window detail"
+    trend = ""
+    if rs.trend:
+        bits = [] if rs.diff_3m is None else [f"3mo {rs.diff_3m:+.1%}"]
+        if rs.streak:
+            bits.append(f"{'down' if rs.streak < 0 else 'up'} {abs(rs.streak)} quarterly reading(s) in a row")
+        if rs.moved is not None:
+            bits.append(f"{rs.moved * 100:+.1f} pts vs last quarter")
+        trend = "; trend: " + ", ".join(bits)
+        if rs.persistent_down:
+            trend += " -- PERSISTENT DOWN (Rule 5 review)"
+        elif rs.persistent_up:
+            trend += " -- persistent up"
     return Draft("relative_strength", rs.score, "M",
-                f"blended vs SPY {rs.diff_blended:+.1%} ({detail})")
+                f"blended vs SPY {rs.diff_blended:+.1%} ({detail}){trend}")
 
 
 def draft_technical_trend(tech: TechnicalState) -> Optional["Draft"]:

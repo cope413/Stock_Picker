@@ -40,6 +40,7 @@ named file BEFORE touching its area.
 - `landry.sec_ttm` (trailing-12-month Tier 1 second opinion; policy: fiscal-year scores stay the record): `docs/ops/sec-ttm.md`.
 - `landry monitor`, `landry rules-list`, `landry stops`, `landry etf`: `docs/ops/monitor-rules-stops-etf.md`.
 - Performance Tracking is a lot ledger (`perf_tab.add_lot` / `close_lot`): `docs/ops/performance-tracking.md`.
+- `python -m landry rs-trend [TICKERS]` (Relative Strength trend: a held name persistently down is on the Rule 5 review with no additions; persistent up is the tranche tie-breaker; run it in tranche prep): `docs/ops/process-and-dca.md`.
 - `python -m landry rs-test` (read-only: did Relative Strength vs SPY and its persistence predict later returns; evidence for Open Items #47, not a rule).
 - `landry fidscan add|report` (store each Fidelity info-tab scan; Fidelity's Equity Summary Score vs the Landry composite, context only, never a score input): `docs/ops/process-and-dca.md`.
 - `landry accounts check|apply|pending|flows` (cash rows caught up to the Fidelity / Chase accounts, the external-flow ledger; "read the accts" = read both sites in Alan's Chrome, read-only, then run it; never hand-compute a cash row): `docs/ops/accounts.md`.
