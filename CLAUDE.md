@@ -40,6 +40,7 @@ named file BEFORE touching its area.
 - `landry.sec_ttm` (trailing-12-month Tier 1 second opinion; policy: fiscal-year scores stay the record): `docs/ops/sec-ttm.md`.
 - `landry monitor`, `landry rules-list`, `landry stops`, `landry etf`: `docs/ops/monitor-rules-stops-etf.md`.
 - Performance Tracking is a lot ledger (`perf_tab.add_lot` / `close_lot`): `docs/ops/performance-tracking.md`.
+- `landry accounts check|apply|pending|flows` (cash rows caught up to the Fidelity / Chase accounts, the external-flow ledger; "read the accts" = read both sites in Alan's Chrome, read-only, then run it; never hand-compute a cash row): `docs/ops/accounts.md`.
 
 ## Standing decisions in one line each (detail in the named file)
 
@@ -61,3 +62,4 @@ named file BEFORE touching its area.
 | rulebook-and-rules.md | rulebook edits, rule citations, Rules 3/5/34, ETF treatment |
 | performance-tracking.md | Performance Tracking tab |
 | process-and-dca.md | tranche prep, screening, Fidelity scan, Open Items/Process Checklist upkeep |
+| accounts.md | reading Chase / Fidelity, cash rows, pending transfers, external flows, the Drawdown add-back |

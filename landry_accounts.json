@@ -1,0 +1,94 @@
+{
+ "basis": "cumulative since the 9/4/26 Drawdown Log peak (Journal rows 81, 99, 101)",
+ "accounts": {
+  "fidelity": {
+   "booked_through": "2026-10-10",
+   "booked_keys": [
+    "2026-10-12|internal||0.00000|43.43|JOURNALED JNL VS A/C TYPES (Cash)",
+    "2026-10-12|internal||0.00000|-43.43|JOURNALED JNL VS A/C TYPES (Margin)"
+   ],
+   "booked_pending": 15000.0,
+   "last_read": {
+    "as_of": "2026-10-10",
+    "source": "site read + download",
+    "total": 400337.6,
+    "cash": {
+     "FZDXX": 669.69,
+     "FZFXX": 0.0
+    },
+    "unswept": 43.43,
+    "open_orders": [
+     "10/10 Sell 669.69 FZDXX at market (day order) -- when it fills the FZDXX row goes to zero and the cash moves to the core fund (FZFXX)",
+     "10/8 Sell 40 CRWD limit $285.60 (good 'til canceled) -- CRWD is in Exit Review, sale due by 11/3 (Open Items #30)"
+    ]
+   }
+  },
+  "chase": {
+   "booked_through": "2026-10-10",
+   "booked_keys": [],
+   "booked_pending": 0,
+   "last_read": {
+    "as_of": "2026-10-10",
+    "source": "site read + download",
+    "total": 298607.58,
+    "cash": {
+     "QACDS": 427.26,
+     "VMFXX": 27966.4
+    },
+    "unswept": 0.0,
+    "open_orders": null
+   }
+  }
+ },
+ "flows": [
+  {
+   "date": "2026-09-08",
+   "account": "chase",
+   "amount": 16500.0,
+   "status": "posted",
+   "note": "deposit into Chase (Journal row 79)"
+  },
+  {
+   "date": "2026-09-09",
+   "account": "fidelity",
+   "amount": -16500.0,
+   "status": "posted",
+   "note": "EFT out of 3711 (Journal row 99)"
+  },
+  {
+   "date": "2026-09-14",
+   "account": "fidelity",
+   "amount": -20000.0,
+   "status": "posted",
+   "note": "EFT out of 3711 (Journal row 99)"
+  },
+  {
+   "date": "2026-09-15",
+   "account": "fidelity",
+   "amount": -19.99,
+   "status": "posted",
+   "note": "PayPal debit (Journal row 99)"
+  },
+  {
+   "date": "2026-10-02",
+   "account": "fidelity",
+   "amount": -15000.0,
+   "status": "posted",
+   "note": "EFT out of 3711 (Journal row 99)"
+  },
+  {
+   "date": "2026-10-09",
+   "account": "fidelity",
+   "amount": 15000.0,
+   "status": "pending",
+   "note": "Transfer from personal into 3711 (Alan's 10/10 update sheet); Fidelity posts transfers 2-3 days late"
+  },
+  {
+   "date": "2026-10-09",
+   "account": "chase",
+   "amount": -20000.0,
+   "status": "posted",
+   "note": "BANKLINK ACH PUSH 82263702"
+  }
+ ]
+}

@@ -85,3 +85,9 @@ LANDRY_SYSTEM_WORKBOOK_*.xlsx.bak
 # household account's balance and activity, not just the System's JT ULTRA 3711 -- a local working file, never commit
 # (Alan, 2026-10-07).
 fidelity*_execution.pdf
+
+# Local working files, not tracked (Alan, 2026-10-10): the Codex copy of CLAUDE.md, Chase transaction exports for the
+# Self-Directed account (docs/), and Alan's dated update sheets (docs/).
+AGENTS.md
+docs/CHA*_transactions*.csv
+docs/LANDRY SYSTEM UPDATES*.pdf

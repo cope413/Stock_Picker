@@ -588,6 +588,52 @@ def _cmd_etf(args) -> int:
     return 0
 
 
+def _cmd_accounts(args) -> int:
+    """Brokerage cash catch-up and the external-flow ledger (``landry/accounts.py``)."""
+    import datetime as dt
+
+    from landry import accounts
+    from landry.xlsx_io import read_positions, total_portfolio_value
+    path = args.workbook or _default_workbook()
+    try:
+        state = accounts.load_state()
+        if args.action == "flows":
+            print(accounts.format_flows(state))
+            return 0
+        if args.action == "orders":
+            print(accounts.format_orders(state))
+            return 0
+        if args.action == "pending":
+            when = dt.date.fromisoformat(args.date) if args.date else dt.date.today()
+            if args.remove:
+                f = accounts.remove_pending(state, args.account, args.amount)
+                print(f"removed pending {f['amount']:,.2f} on {f['account']} ({f['date']})")
+            else:
+                f = accounts.add_pending(state, args.account, args.amount, when, args.note or "")
+                print(f"pending {f['amount']:,.2f} on {f['account']} ({f['date']}) recorded; `landry accounts apply` carries it "
+                      "in the cash row until it posts")
+            accounts.save_state(state)
+            return 0
+        snap, txns, covered = accounts.load_inputs(args.snapshot, args.chase_csv, args.fidelity_csv)
+        if args.action == "apply":
+            results, state = accounts.apply(path, snap, txns, covered=covered)
+            total = total_portfolio_value(read_positions(path))
+        else:
+            import openpyxl
+            wbv, wb = openpyxl.load_workbook(path, data_only=True), openpyxl.load_workbook(path)
+            try:
+                results = accounts.reconcile(wb[accounts.SHEET], wbv[accounts.SHEET], state, snap, txns, covered)
+            finally:
+                wb.close()
+                wbv.close()
+            total = None
+        print(accounts.format_report(results, state, snap, applied=args.action == "apply", portfolio_total=total))
+        return 2 if any(r.attention for r in results) else 0
+    except accounts.AccountsError as e:
+        print(f"accounts: {e}", file=sys.stderr)
+        return 1
+
+
 def _cmd_stops(args) -> int:
     """The stop-review ladder (Journal row 109): ``status`` prints where every held scored stock stands (exit 2 when one needs
     attention) and ``record`` writes a re-underwrite into landry_stops.json after its Journal entry is written."""
@@ -849,6 +895,28 @@ def main(argv=None) -> int:
     oi.add_argument("--close", action="store_true", help="also set Done = Y and today's date")
     oi.add_argument("--workbook", default=None)
 
+    ac = sub.add_parser("accounts", help="catch Current Positions' cash rows up to the Fidelity / Chase accounts from a snapshot "
+                                         "and their transactions; keeps the external-flow ledger (landry_accounts.json)")
+    acsub = ac.add_subparsers(dest="action", required=True)
+    for name, hlp in (("check", "reconcile and report; writes nothing"),
+                      ("apply", "book the cash rows whose cash walk closes, then recalc")):
+        a = acsub.add_parser(name, help=hlp)
+        a.add_argument("--snapshot", required=True, help="JSON: what each account shows now (see landry/accounts.py)")
+        a.add_argument("--chase-csv", default=None, help="Chase transactions export")
+        a.add_argument("--fidelity-csv", default=None, help="Fidelity Accounts History export")
+        a.add_argument("--workbook", default=None)
+    a = acsub.add_parser("pending", help="record (or --remove) a transfer Alan has announced that the broker does not show yet")
+    a.add_argument("--account", required=True, choices=("fidelity", "chase"))
+    a.add_argument("--amount", required=True, type=float, help="positive = into the account")
+    a.add_argument("--date", default=None, help="YYYY-MM-DD (default today)")
+    a.add_argument("--note", default="")
+    a.add_argument("--remove", action="store_true")
+    a.add_argument("--workbook", default=None)
+    a = acsub.add_parser("flows", help="print the external-flow ledger and the net withdrawals the Drawdown Log adds back")
+    a.add_argument("--workbook", default=None)
+    a = acsub.add_parser("orders", help="print the open / pending orders seen at each account's last read")
+    a.add_argument("--workbook", default=None)
+
     br = sub.add_parser("brief", help="compact state digest for starting a fresh session: recent Journal, open items, steps due (read-only)")
     br.add_argument("--workbook", default=None, help="the workbook to read (default: the newest in the repo root)")
     br.add_argument("--journal", type=int, default=8, help="Journal entries to list (default 8)")
@@ -934,6 +1002,8 @@ def main(argv=None) -> int:
         return _cmd_etf(args)
     if args.cmd == "stops":
         return _cmd_stops(args)
+    if args.cmd == "accounts":
+        return _cmd_accounts(args)
     if args.cmd == "monitor":
         return _cmd_monitor(args)
     if args.cmd == "rules-list":
