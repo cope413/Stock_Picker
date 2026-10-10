@@ -32,7 +32,7 @@ named file BEFORE touching its area.
 ## Standing tools
 
 - `python -m landry brief` (state digest) and `python -m landry usage [--last N]` (where a session's tokens went; compare before/after token-saving changes).
-- `python -m landry rule12 TICKER...` (Rule 12 pre-check, read-only: run it on every new candidate BEFORE any judgment work; PASS still needs per-share FCF confirmation) and `python -m landry open-items N --note TEXT [--close]` (append to / close an Open Items row, then recalc; never write one-off scripts for this).
+- `python -m landry rule12 TICKER...` (Rule 12 pre-check, read-only: run it on every new candidate BEFORE any judgment work; PASS still needs per-share FCF confirmation) and `python -m landry open-items N --note TEXT [--close]` / `open-items --add TEXT [--note TEXT]` (append to, close, or add an Open Items row, then recalc; never write one-off scripts for this).
 - `python -m landry audit` (structural drift), `db status`, `doctor`.
 - Process Checklist tab (steps per recurring Journal event, OVERDUE auto-flag; reseed it when the Journal calendar changes) and Open Items tab (numbered backlog; mark Done with a date and a Journal pointer, never delete).
 - `landry draft`, `landry_scores.json` / `ScoreStore`, `landry audit`'s `scoring_verification` check: `docs/ops/scoring-export-readers.md`.
@@ -40,6 +40,8 @@ named file BEFORE touching its area.
 - `landry.sec_ttm` (trailing-12-month Tier 1 second opinion; policy: fiscal-year scores stay the record): `docs/ops/sec-ttm.md`.
 - `landry monitor`, `landry rules-list`, `landry stops`, `landry etf`: `docs/ops/monitor-rules-stops-etf.md`.
 - Performance Tracking is a lot ledger (`perf_tab.add_lot` / `close_lot`): `docs/ops/performance-tracking.md`.
+- `python -m landry rs-test` (read-only: did Relative Strength vs SPY and its persistence predict later returns; evidence for Open Items #47, not a rule).
+- `landry fidscan add|report` (store each Fidelity info-tab scan; Fidelity's Equity Summary Score vs the Landry composite, context only, never a score input): `docs/ops/process-and-dca.md`.
 - `landry accounts check|apply|pending|flows` (cash rows caught up to the Fidelity / Chase accounts, the external-flow ledger; "read the accts" = read both sites in Alan's Chrome, read-only, then run it; never hand-compute a cash row): `docs/ops/accounts.md`.
 
 ## Standing decisions in one line each (detail in the named file)

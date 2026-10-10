@@ -540,7 +540,13 @@ def _cmd_open_items(args) -> int:
     path = args.workbook or _default_workbook()
     note = sys.stdin.read() if args.note == "-" else (args.note or "")
     try:
-        print(open_items.update(path, args.n, note, close=args.close))
+        if args.add:
+            print(open_items.add(path, args.add, note))
+        elif args.n is None:
+            print("! give an item number, or --add TEXT for a new item", file=sys.stderr)
+            return 1
+        else:
+            print(open_items.update(path, args.n, note, close=args.close))
     except open_items.OpenItemsError as e:
         print(f"! {e}", file=sys.stderr)
         return 1
@@ -585,6 +591,55 @@ def _cmd_etf(args) -> int:
         if args.pdf:
             pdf = rules_list.to_pdf(out)
             print(f"wrote {pdf}" if pdf else "! no PDF: LibreOffice (soffice) not found")
+    return 0
+
+
+def _cmd_rs_test(args) -> int:
+    """Did Relative Strength, and its persistence, predict later returns vs SPY? (``landry/rs_test.py``; read-only)."""
+    import openpyxl
+    from landry import rs_test, xlsx_io
+    from landry.data_auto import fetch_daily, weekly_closes
+    tickers = [t.upper() for t in (args.tickers or [])]
+    if not tickers:
+        tickers = [r.ticker for r in xlsx_io.read_scoring_tab(args.workbook or _default_workbook())]
+        try:
+            wb = openpyxl.load_workbook(args.candidates, read_only=True, data_only=True)
+            for ws in wb:
+                for r in ws.iter_rows(min_row=2, max_col=1, values_only=True):
+                    if isinstance(r[0], str) and xlsx_io._TICKER_CELL.match(r[0].strip()):
+                        tickers.append(r[0].strip())
+            wb.close()
+        except OSError as e:
+            print(f"note: candidate list not read ({e}); Scoring tab only")
+    tickers = list(dict.fromkeys(tickers))
+    daily = fetch_daily(tickers + ["SPY"], years=args.years, min_bars=300)
+    missing = [t for t in tickers if t not in daily]
+    if "SPY" not in daily:
+        print("rs-test: no SPY prices", file=sys.stderr)
+        return 1
+    print(f"universe: {len(tickers)} names asked, {len(tickers) - len(missing)} with prices"
+          + (f"; none for {', '.join(missing)}" if missing else ""))
+    print(rs_test.format_report(weekly_closes(daily), step=args.step))
+    return 0
+
+
+def _cmd_fidscan(args) -> int:
+    """Fidelity scan store and the Fidelity-vs-Landry comparison (``landry/fidscan.py``)."""
+    import datetime as _dt
+    from landry import fidscan, xlsx_io
+    path = args.workbook or _default_workbook()
+    try:
+        store = fidscan.load()
+        if args.action == "add":
+            text = sys.stdin.read() if args.file == "-" else open(args.file).read()
+            scan = fidscan.add(store, text, _dt.date.fromisoformat(args.as_of), fidscan.landry_side(path), args.source or "")
+            fidscan.save(store)
+            print(f"stored the {scan['as_of']} scan: {len(scan['rows'])} tickers ({fidscan.STORE})")
+        prices = {r["ticker"]: r["price"] for r in xlsx_io.read_market_data(path)}
+        print(fidscan.format_report(store, prices, None if args.action == "add" else args.as_of))
+    except (fidscan.FidScanError, OSError, ValueError) as e:
+        print(f"fidscan: {e}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -889,11 +944,33 @@ def main(argv=None) -> int:
     r12 = sub.add_parser("rule12", help="Rule 12 pre-check: can the name reach a 10% Base at a flat multiple? (read-only)")
     r12.add_argument("tickers", nargs="+")
 
-    oi = sub.add_parser("open-items", help="append a note to (and optionally close) an Open Items row; recalcs the workbook")
-    oi.add_argument("n", type=int, help="the item number (#)")
+    oi = sub.add_parser("open-items", help="append a note to (and optionally close) an Open Items row, or --add a new one; "
+                                           "recalcs the workbook")
+    oi.add_argument("n", type=int, nargs="?", help="the item number (#)")
+    oi.add_argument("--add", default=None, metavar="TEXT", help="add a NEW item with this text (--note becomes its Notes)")
     oi.add_argument("--note", default="", help="text to append to Notes; '-' reads stdin")
     oi.add_argument("--close", action="store_true", help="also set Done = Y and today's date")
     oi.add_argument("--workbook", default=None)
+
+    rt = sub.add_parser("rs-test", help="did Relative Strength vs SPY, and its persistence, predict later returns vs SPY? "
+                                        "(scored + candidate names; read-only)")
+    rt.add_argument("tickers", nargs="*", help="default: Scoring tab + CANDIDATES LIST.xlsx")
+    rt.add_argument("--years", type=int, default=12)
+    rt.add_argument("--step", type=int, default=13, help="weeks between readings (13 = quarterly)")
+    rt.add_argument("--candidates", default="CANDIDATES LIST.xlsx")
+    rt.add_argument("--workbook", default=None)
+
+    fs = sub.add_parser("fidscan", help="store a Fidelity info-tab scan and compare Fidelity's Equity Summary Score with the "
+                                        "Landry composite (landry_fidelity_scans.json); context only, never a score input")
+    fss = fs.add_subparsers(dest="action", required=True)
+    fa = fss.add_parser("add", help="parse the extractor's text (docs/ops/fidelity_scan.js) and store it")
+    fa.add_argument("--file", required=True, help="the scan text; '-' reads stdin")
+    fa.add_argument("--as-of", required=True, help="date the data is as of, YYYY-MM-DD")
+    fa.add_argument("--source", default="")
+    fa.add_argument("--workbook", default=None)
+    fr = fss.add_parser("report", help="latest scan (or --as-of) against the Landry scores, plus price change since each scan")
+    fr.add_argument("--as-of", default=None)
+    fr.add_argument("--workbook", default=None)
 
     ac = sub.add_parser("accounts", help="catch Current Positions' cash rows up to the Fidelity / Chase accounts from a snapshot "
                                          "and their transactions; keeps the external-flow ledger (landry_accounts.json)")
@@ -1004,6 +1081,10 @@ def main(argv=None) -> int:
         return _cmd_stops(args)
     if args.cmd == "accounts":
         return _cmd_accounts(args)
+    if args.cmd == "fidscan":
+        return _cmd_fidscan(args)
+    if args.cmd == "rs-test":
+        return _cmd_rs_test(args)
     if args.cmd == "monitor":
         return _cmd_monitor(args)
     if args.cmd == "rules-list":
